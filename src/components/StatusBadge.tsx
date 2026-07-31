@@ -26,10 +26,12 @@ const map: Record<string, 'gray' | 'green' | 'blue' | 'teal' | 'amber' | 'red' |
   High: 'amber',
   Medium: 'blue',
   Low: 'gray',
-  // job cards
+  // job cards / bookings
   'In Progress': 'blue',
   'Awaiting Parts': 'amber',
   Completed: 'green',
+  // bookings
+  Waiting: 'purple',
   // reminders
   Scheduled: 'blue',
   Sent: 'green',
@@ -42,7 +44,12 @@ const map: Record<string, 'gray' | 'green' | 'blue' | 'teal' | 'amber' | 'red' |
   Busy: 'amber',
   'On Break': 'blue',
   'Off Duty': 'gray',
-  Invited: 'amber'
+  Invited: 'amber',
+  // purchase orders / payroll runs
+  Ordered: 'blue',
+  Received: 'green',
+  Cancelled: 'red',
+  Finalized: 'blue'
 };
 
 export function StatusBadge({ status, dot = true }: {status: string;dot?: boolean;}) {

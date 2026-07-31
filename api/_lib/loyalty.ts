@@ -1,5 +1,5 @@
-import { Customer } from './models/Customer';
-import { LoyaltyTransaction } from './models/LoyaltyTransaction';
+import { Customer } from './models/Customer.js';
+import { LoyaltyTransaction } from './models/LoyaltyTransaction.js';
 
 // Matches Anura's own real (if hardcoded) conversion rate — 1 point per
 // currency unit spent per 1000. Not tenant-configurable in this phase, same

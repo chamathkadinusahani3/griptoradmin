@@ -15,5 +15,6 @@ export interface Customer {
   contactPerson?: string;
   creditLimit: number;
   discountPct: number;
+  creditPeriodDays: number;
   hasPortalAccount: boolean;
 }

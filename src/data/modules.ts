@@ -41,10 +41,12 @@ export const MODULES: ModuleDef[] = [
     heading: 'Garage Management',
     items: [
     { label: 'Job Cards', to: 'jobs', icon: 'ClipboardListIcon' },
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
     { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
     { label: 'Digital Inspections', to: 'inspections', icon: 'CameraIcon' },
     { label: 'Branches', to: 'branches', icon: 'MapPinIcon' },
     { label: 'Staff', to: 'staff', icon: 'UsersIcon' },
+    { label: 'Roles & Permissions', to: 'roles', icon: 'ShieldIcon' },
     { label: 'Corporate Accounts', to: 'corporate-accounts', icon: 'BuildingIcon' },
     { label: 'Settings', to: 'settings', icon: 'SettingsIcon' }]
 
@@ -162,6 +164,41 @@ export const MODULES: ModuleDef[] = [
   navGroup: {
     heading: 'Reports & Analytics',
     items: [{ label: 'Reports', to: 'reports', icon: 'BarChart3Icon' }]
+  }
+},
+{
+  id: 'erp',
+  name: 'ERP',
+  price: 69,
+  tagline: 'Purchase orders, expense tracking & payroll in one place',
+  core: ['Purchase Orders', 'Expense Tracking', 'Payroll'],
+  addOns: [],
+  navGroup: {
+    heading: 'ERP',
+    items: [
+    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
+    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' }]
+
+  }
+},
+{
+  id: 'hrm',
+  name: 'HRM',
+  price: 55,
+  tagline: 'Employee records, attendance, leave, recruitment & performance',
+  core: ['Employee Records', 'Attendance', 'Leave Requests', 'Recruitment', 'Performance Reviews'],
+  addOns: [],
+  navGroup: {
+    heading: 'HRM',
+    items: [
+    { label: 'Employees', to: 'employees', icon: 'UsersIcon' },
+    { label: 'Attendance', to: 'attendance', icon: 'ClockIcon' },
+    { label: 'Leave Requests', to: 'leave-requests', icon: 'CalendarClockIcon' },
+    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Recruitment', to: 'job-openings', icon: 'BriefcaseIcon' },
+    { label: 'Performance', to: 'performance-reviews', icon: 'TrendingUpIcon' }]
+
   }
 }];
 

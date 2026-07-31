@@ -1,4 +1,4 @@
-import { Client } from './models/Client';
+import { Client } from './models/Client.js';
 
 export function slugify(name: string): string {
   const base = name

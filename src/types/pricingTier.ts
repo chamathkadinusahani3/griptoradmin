@@ -6,6 +6,7 @@ export interface PricingTier {
   popular?: boolean;
   description: string;
   features: string[];
+  hidden?: boolean;
 }
 
 export interface BillingSummary {

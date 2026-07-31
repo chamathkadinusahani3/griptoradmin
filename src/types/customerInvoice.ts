@@ -2,7 +2,7 @@ import { LineItem } from './quotation';
 
 export type InvoiceStatus = 'Draft' | 'Issued' | 'Paid' | 'Void';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
-export type PaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Other';
+export type PaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Other' | 'PayHere';
 
 export interface PaymentRecord {
   amount: number;

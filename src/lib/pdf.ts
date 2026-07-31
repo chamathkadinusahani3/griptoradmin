@@ -68,3 +68,38 @@ export function downloadDocumentPdf(doc: PdfDocument) {
 
   pdf.save(`${doc.number}.pdf`);
 }
+
+export interface PayslipDocument {
+  garageName?: string;
+  technicianName: string;
+  periodStart: string;
+  periodEnd: string;
+  hourlyRate?: number;
+  hoursWorked: number;
+  grossPay: number;
+}
+
+/**
+ * A payslip has no vehicle/customer/line-items shape, unlike Quotations and
+ * Invoices — forcing it into PdfDocument above would be awkward, so this is
+ * a distinct small layout reusing the same jsPDF/autoTable imports.
+ */
+export function downloadPayslipPdf(doc: PayslipDocument) {
+  const pdf = new jsPDF();
+
+  pdf.setFontSize(18);
+  pdf.text(doc.garageName ?? 'Garage', 14, 18);
+  pdf.setFontSize(12);
+  pdf.text('Payslip', 14, 26);
+  pdf.setFontSize(10);
+  pdf.text(`Technician: ${doc.technicianName}`, 14, 36);
+  pdf.text(`Period: ${formatDate(doc.periodStart)} – ${formatDate(doc.periodEnd)}`, 14, 42);
+
+  autoTable(pdf, {
+    startY: 50,
+    head: [['Hourly Rate', 'Hours Worked', 'Gross Pay']],
+    body: [[doc.hourlyRate != null ? formatCurrency(doc.hourlyRate) : '—', String(doc.hoursWorked), formatCurrency(doc.grossPay)]],
+  });
+
+  pdf.save(`payslip-${doc.technicianName.replace(/\s+/g, '-').toLowerCase()}-${doc.periodStart}.pdf`);
+}

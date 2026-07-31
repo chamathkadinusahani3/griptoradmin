@@ -25,6 +25,7 @@ export function Inventory() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -53,12 +54,14 @@ export function Inventory() {
       const q = query.toLowerCase();
       const matchQ = p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q) || (p.barcode ?? '').includes(q);
       const matchC = category === 'All' || p.category === category;
-      return matchQ && matchC;
+      const matchLow = !lowStockOnly || p.stock <= p.reorderAt;
+      return matchQ && matchC && matchLow;
     }),
-    [parts, query, category]
+    [parts, query, category, lowStockOnly]
   );
 
-  const lowCount = parts.filter((p) => p.stock <= p.reorderAt).length;
+  const lowParts = parts.filter((p) => p.stock <= p.reorderAt);
+  const lowCount = lowParts.length;
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +104,27 @@ export function Inventory() {
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
         </div>
+      }
+
+      {lowCount > 0 &&
+      <Card className="mb-4 border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+              <AlertTriangleIcon className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>{lowCount}</strong> part{lowCount === 1 ? ' is' : 's are'} at or below its reorder point — {lowParts.slice(0, 3).map((p) => p.name).join(', ')}
+                {lowParts.length > 3 ? `, +${lowParts.length - 3} more` : ''}
+              </span>
+            </div>
+            <button
+            type="button"
+            onClick={() => setLowStockOnly((v) => !v)}
+            className="shrink-0 rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/20">
+
+              {lowStockOnly ? 'Show all parts' : 'Show only low stock'}
+            </button>
+          </div>
+        </Card>
       }
 
       <Card>

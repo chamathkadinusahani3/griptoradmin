@@ -17,9 +17,13 @@ const LineItemSchema = new Schema(
 const PaymentRecordSchema = new Schema(
   {
     amount: { type: Number, required: true },
-    method: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Other'], required: true },
+    method: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Other', 'PayHere'], required: true },
     date: { type: Date, required: true },
     notes: { type: String },
+    // Only set for method: 'PayHere' — the notify callback's idempotency
+    // key (PayHere's payment_id), so a redelivered notification can't
+    // double-record the same payment.
+    payherePaymentId: { type: String },
   },
   { _id: false }
 );
@@ -49,6 +53,13 @@ const CustomerInvoiceSchema = new Schema(
     balance: { type: Number, required: true },
     paymentStatus: { type: String, enum: ['Unpaid', 'Partial', 'Paid'], default: 'Unpaid' },
     paymentHistory: { type: [PaymentRecordSchema], default: [] },
+    // A real random opaque token (crypto.randomBytes — same convention as
+    // Inspection.approvalToken) for the staff-shared "payment link" — since
+    // PayHere's checkout is a form POST, not a single shareable URL the way
+    // Stripe's Checkout Session was, this is OUR OWN public page's token;
+    // that page looks the invoice up and auto-submits the real PayHere
+    // form. Generated once, reused on subsequent "get payment link" clicks.
+    payToken: { type: String },
     dueDate: { type: Date },
     notes: { type: String },
   },

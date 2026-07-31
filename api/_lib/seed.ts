@@ -8,9 +8,9 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 import bcrypt from 'bcryptjs';
-import { connectToDatabase } from './db';
-import { User } from './models/User';
-import { Client } from './models/Client';
+import { connectToDatabase } from './db.js';
+import { User } from './models/User.js';
+import { Client } from './models/Client.js';
 
 function parseArgs() {
   const args = process.argv.slice(2);

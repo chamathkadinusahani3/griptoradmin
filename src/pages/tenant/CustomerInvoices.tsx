@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon } from 'lucide-react';
+import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon, LinkIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -42,6 +42,7 @@ export function CustomerInvoices() {
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('Cash');
   const [paying, setPaying] = useState(false);
+  const [creatingLinkFor, setCreatingLinkFor] = useState<string | null>(null);
 
   const loadInvoices = () => {
     api
@@ -140,6 +141,19 @@ export function CustomerInvoices() {
     }
   };
 
+  const getPaymentLink = async (inv: CustomerInvoice) => {
+    setCreatingLinkFor(inv.id);
+    try {
+      const { url } = await api.post<{ url: string }>(`/customer-invoices/${inv.id}/checkout`);
+      await navigator.clipboard.writeText(url);
+      toast.success('Payment link copied', { description: 'Send it to the customer via WhatsApp, SMS, or however you usually reach them.' });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to create payment link');
+    } finally {
+      setCreatingLinkFor(null);
+    }
+  };
+
   const voidInvoice = async (inv: CustomerInvoice) => {
     const previous = invoices;
     setInvoices((prev) => prev.map((x) => (x.id === inv.id ? { ...x, status: 'Void' } : x)));
@@ -230,6 +244,11 @@ export function CustomerInvoices() {
                   <Button size="sm" variant="ghost" onClick={() => downloadPdf(inv)}><DownloadIcon className="h-3.5 w-3.5" /> PDF</Button>
                   {inv.status !== 'Void' && inv.balance > 0 &&
               <Button size="sm" variant="secondary" onClick={() => openPay(inv)}>Record payment</Button>
+              }
+                  {inv.status !== 'Void' && inv.balance > 0 &&
+              <Button size="sm" variant="ghost" onClick={() => getPaymentLink(inv)} loading={creatingLinkFor === inv.id}>
+                      <LinkIcon className="h-3.5 w-3.5" /> Payment link
+                    </Button>
               }
                   {inv.status !== 'Void' && inv.status !== 'Paid' &&
               <Button size="sm" variant="ghost" onClick={() => voidInvoice(inv)}>Void</Button>

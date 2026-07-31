@@ -1,29 +1,40 @@
-import { UserDoc } from './models/User';
-import { ClientDoc } from './models/Client';
-import { LeadDoc } from './models/Lead';
-import { InvoiceDoc } from './models/Invoice';
-import { TicketDoc } from './models/Ticket';
-import { CustomerDoc } from './models/Customer';
-import { TechnicianDoc } from './models/Technician';
-import { JobCardDoc } from './models/JobCard';
-import { SupplierDoc } from './models/Supplier';
-import { PartDoc } from './models/Part';
-import { InspectionDoc } from './models/Inspection';
-import { SaleDoc } from './models/Sale';
-import { ReminderDoc } from './models/Reminder';
-import { FeedbackDoc } from './models/Feedback';
-import { ServiceDoc } from './models/Service';
-import { BookingDoc } from './models/Booking';
-import { BayDoc } from './models/Bay';
-import { QuotationDoc } from './models/Quotation';
-import { CustomerInvoiceDoc } from './models/CustomerInvoice';
-import { VehicleDoc } from './models/Vehicle';
-import { LoyaltyRewardDoc } from './models/LoyaltyReward';
-import { CallLogDoc } from './models/CallLog';
-import { ApprovalDoc } from './models/Approval';
-import { BranchDoc } from './models/Branch';
-import { MessageTemplateDoc } from './models/MessageTemplate';
-import { SmsLogDoc } from './models/SmsLog';
+import { UserDoc } from './models/User.js';
+import { ClientDoc } from './models/Client.js';
+import { LeadDoc } from './models/Lead.js';
+import { InvoiceDoc } from './models/Invoice.js';
+import { TicketDoc } from './models/Ticket.js';
+import { CustomerDoc } from './models/Customer.js';
+import { TechnicianDoc } from './models/Technician.js';
+import { JobCardDoc } from './models/JobCard.js';
+import { SupplierDoc } from './models/Supplier.js';
+import { PartDoc } from './models/Part.js';
+import { InspectionDoc } from './models/Inspection.js';
+import { SaleDoc } from './models/Sale.js';
+import { ReminderDoc } from './models/Reminder.js';
+import { FeedbackDoc } from './models/Feedback.js';
+import { ServiceDoc } from './models/Service.js';
+import { BookingDoc } from './models/Booking.js';
+import { BayDoc } from './models/Bay.js';
+import { QuotationDoc } from './models/Quotation.js';
+import { CustomerInvoiceDoc } from './models/CustomerInvoice.js';
+import { VehicleDoc } from './models/Vehicle.js';
+import { LoyaltyRewardDoc } from './models/LoyaltyReward.js';
+import { CallLogDoc } from './models/CallLog.js';
+import { ApprovalDoc } from './models/Approval.js';
+import { BranchDoc } from './models/Branch.js';
+import { MessageTemplateDoc } from './models/MessageTemplate.js';
+import { SmsLogDoc } from './models/SmsLog.js';
+import { PurchaseOrderDoc } from './models/PurchaseOrder.js';
+import { ExpenseDoc } from './models/Expense.js';
+import { PayrollRunDoc } from './models/PayrollRun.js';
+import { PricingTierDoc } from './models/PricingTier.js';
+import { EmployeeDoc } from './models/Employee.js';
+import { LeaveRequestDoc } from './models/LeaveRequest.js';
+import { JobOpeningDoc } from './models/JobOpening.js';
+import { CandidateDoc } from './models/Candidate.js';
+import { PerformanceReviewDoc } from './models/PerformanceReview.js';
+import { RoleDoc } from './models/Role.js';
+import { DEPARTMENT_BY_ROLE_NAME } from './roleSeed.js';
 
 const DEFAULT_NOTIFICATION_PREFS = {
   newLeads: true,
@@ -41,9 +52,12 @@ const DEFAULT_BRANDING = {
   paletteId: 'blue',
   logoDataUrl: undefined as string | undefined,
   defaultMode: 'light' as 'light' | 'dark',
+  accentColor: undefined as string | undefined,
+  sidebarStyle: 'expanded' as 'expanded' | 'compact',
+  fontFamily: 'Inter',
 };
 
-export function serializeUser(user: UserDoc, client?: ClientDoc | null) {
+export function serializeUser(user: UserDoc, client?: ClientDoc | null, role?: { id: string; name: string; permissions: string[]; isOwner: boolean } | null) {
   return {
     id: user._id.toString(),
     name: user.name,
@@ -58,10 +72,22 @@ export function serializeUser(user: UserDoc, client?: ClientDoc | null) {
     branding: { ...DEFAULT_BRANDING, ...client?.branding },
     status: user.status,
     teamRole: user.teamRole,
-    // Same backfill-at-read discipline as teamRole/notificationPrefs — every
-    // tenant User created before this field existed defaults to Owner.
+    // DEPRECATED (see api/_lib/models/Role.ts) — kept only so any
+    // not-yet-migrated frontend read still sees a sane value during the
+    // phased rollout. Same backfill-at-read discipline as before.
     tenantRole: user.role === 'tenant' ? user.tenantRole ?? 'Owner' : undefined,
+    roleId: role?.id ?? user.roleId?.toString(),
+    roleName: role?.name,
+    // A per-user override (User.permissionOverrides) fully replaces the
+    // role's list — never consulted for the Owner, who is unconditional.
+    permissions: role?.isOwner ? role.permissions : user.permissionOverrides ?? role?.permissions,
+    hasCustomPermissions: role?.isOwner ? false : !!user.permissionOverrides,
+    isOwner: role?.isOwner ?? false,
+    creditLimit: user.creditLimit ?? 0,
     branchId: user.branchId?.toString(),
+    phone: user.phone,
+    createdAt: (user as unknown as { createdAt?: Date }).createdAt,
+    lastLoginAt: user.lastLoginAt,
     // Documents created before notificationPrefs existed (or updated via
     // dot-notation $set on individual keys) may be missing some/all of
     // these sub-fields in Mongo — merge over defaults so the response is
@@ -125,6 +151,7 @@ export function serializeCustomer(customer: CustomerDoc) {
     contactPerson: customer.contactPerson,
     creditLimit: customer.creditLimit ?? 0,
     discountPct: customer.discountPct ?? 0,
+    creditPeriodDays: customer.creditPeriodDays ?? 30,
     hasPortalAccount: !!customer.passwordHash,
   };
 }
@@ -171,6 +198,18 @@ export function serializeApproval(approval: ApprovalDoc, requestedByName?: strin
   };
 }
 
+export function serializeRole(role: RoleDoc) {
+  return {
+    id: role._id.toString(),
+    name: role.name,
+    department: role.department ?? DEPARTMENT_BY_ROLE_NAME[role.name],
+    isProtectedOwner: role.isProtectedOwner,
+    permissions: role.permissions,
+    branchPinned: role.branchPinned,
+    requiresCreditLimit: role.requiresCreditLimit,
+  };
+}
+
 export function serializeMessageTemplate(template: MessageTemplateDoc) {
   return {
     id: template._id.toString(),
@@ -188,6 +227,8 @@ export function serializeSmsLog(log: SmsLogDoc, customerName?: string) {
     message: log.message,
     sent: log.sent,
     error: log.error,
+    source: log.source ?? 'manual',
+    partId: log.partId?.toString(),
     createdAt: (log as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -199,6 +240,8 @@ export function serializeBranch(branch: BranchDoc) {
     address: branch.address,
     phone: branch.phone,
     isDefault: branch.isDefault,
+    capacityPerSlot: branch.capacityPerSlot,
+    serviceCategories: branch.serviceCategories,
   };
 }
 
@@ -280,15 +323,91 @@ export function serializeBay(
   };
 }
 
-export function serializeSupplier(supplier: SupplierDoc) {
+// `stats` are derived live from real PurchaseOrder documents by the caller
+// (api/suppliers/index.ts) — the direct fix for openOrders/lastOrder/onTime
+// having been dead decorative Supplier fields since the original migration
+// (never written by any endpoint). Falls back to the stored (always-zero)
+// column only when the caller doesn't pass stats, so this stays a safe
+// drop-in for any other future caller of serializeSupplier.
+export function serializeSupplier(
+  supplier: SupplierDoc,
+  stats?: { openOrders: number; lastOrder: Date | null; onTime: number | null }
+) {
   return {
     id: supplier._id.toString(),
     name: supplier.name,
     contact: supplier.contact,
     email: supplier.email,
-    openOrders: supplier.openOrders,
-    lastOrder: supplier.lastOrder,
-    onTime: supplier.onTime,
+    openOrders: stats ? stats.openOrders : supplier.openOrders,
+    lastOrder: stats ? stats.lastOrder ?? undefined : supplier.lastOrder,
+    onTime: stats ? stats.onTime ?? undefined : supplier.onTime,
+  };
+}
+
+export function serializeExpense(expense: ExpenseDoc) {
+  return {
+    id: expense._id.toString(),
+    expenseNumber: expense.expenseNumber,
+    branchId: expense.branchId?.toString(),
+    category: expense.category,
+    description: expense.description,
+    amount: expense.amount,
+    date: expense.date,
+    vendorName: expense.vendorName,
+    notes: expense.notes,
+    createdAt: (expense as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePayrollRun(run: PayrollRunDoc) {
+  return {
+    id: run._id.toString(),
+    periodStart: run.periodStart,
+    periodEnd: run.periodEnd,
+    status: run.status,
+    lines: run.lines.map((l) => ({
+      technicianId: l.technicianId.toString(),
+      technicianName: l.technicianName,
+      hourlyRate: l.hourlyRate,
+      hoursWorked: l.hoursWorked,
+      grossPay: l.grossPay,
+      missingRate: l.missingRate,
+    })),
+    totalAmount: run.totalAmount,
+    finalizedAt: run.finalizedAt,
+    paidAt: run.paidAt,
+    createdAt: (run as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePricingTier(tier: PricingTierDoc) {
+  return {
+    id: tier.tierId,
+    name: tier.name,
+    price: tier.price ?? null,
+    cadence: tier.cadence,
+    popular: tier.popular,
+    description: tier.description,
+    features: tier.features,
+    hidden: !!tier.hidden,
+  };
+}
+
+export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: string) {
+  return {
+    id: order._id.toString(),
+    poNumber: order.poNumber,
+    supplierId: order.supplierId.toString(),
+    supplier: supplierName,
+    branchId: order.branchId?.toString(),
+    items: order.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitCost: i.unitCost })),
+    subtotal: order.subtotal,
+    total: order.total,
+    status: order.status,
+    expectedDate: order.expectedDate,
+    receivedAt: order.receivedAt,
+    notes: order.notes,
+    createdAt: (order as unknown as { createdAt: Date }).createdAt,
   };
 }
 
@@ -320,7 +439,6 @@ export function serializeInspection(insp: InspectionDoc, customerName?: string, 
     plate: insp.plate,
     result: insp.result,
     media: insp.media ?? [],
-    items: insp.items,
     notes: insp.notes,
     additionalCost: insp.additionalCost,
     approvalStatus: insp.approvalStatus,
@@ -410,6 +528,9 @@ export function serializeClient(client: ClientDoc) {
     capacityPerSlot: client.capacityPerSlot,
     hasSmsConfig: !!(client.smsConfig?.userId && client.smsConfig?.apiKey),
     smsSenderId: client.smsConfig?.senderId,
+    alertsPhone: client.alertsPhone,
+    trialEndsAt: client.trialEndsAt,
+    payhereSubscriptionId: client.payhereSubscriptionId,
   };
 }
 
@@ -426,7 +547,8 @@ export function serializeService(service: ServiceDoc) {
 export function serializeBooking(
   booking: BookingDoc,
   customerName?: string,
-  serviceNames?: string[]
+  serviceNames?: string[],
+  bayName?: string
 ) {
   return {
     id: booking._id.toString(),
@@ -443,6 +565,8 @@ export function serializeBooking(
     source: booking.source,
     jobCardId: booking.jobCardId?.toString(),
     branchId: booking.branchId?.toString(),
+    bayId: booking.bayId?.toString(),
+    bay: bayName,
     createdAt: (booking as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -505,5 +629,79 @@ export function serializeCustomerInvoice(inv: CustomerInvoiceDoc, customerName?:
     dueDate: inv.dueDate,
     notes: inv.notes,
     createdAt: (inv as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeEmployee(userId: string, name: string, email: string, tenantRole: string | null | undefined, employee: EmployeeDoc | null) {
+  return {
+    userId,
+    name,
+    email,
+    tenantRole: tenantRole ?? 'Owner',
+    hasProfile: !!employee,
+    dateOfBirth: employee?.dateOfBirth,
+    address: employee?.address,
+    nationalId: employee?.nationalId,
+    emergencyContactName: employee?.emergencyContactName,
+    emergencyContactPhone: employee?.emergencyContactPhone,
+    hireDate: employee?.hireDate,
+    employmentType: employee?.employmentType ?? 'Full-time',
+    notes: employee?.notes,
+  };
+}
+
+export function serializeLeaveRequest(leave: LeaveRequestDoc, requestedByName?: string, respondedByName?: string) {
+  return {
+    id: leave._id.toString(),
+    requestedBy: leave.requestedBy.toString(),
+    requestedByName,
+    type: leave.type,
+    startDate: leave.startDate,
+    endDate: leave.endDate,
+    reason: leave.reason,
+    status: leave.status,
+    respondedBy: leave.respondedBy?.toString(),
+    respondedByName,
+    respondedAt: leave.respondedAt,
+    responseNote: leave.responseNote,
+    createdAt: (leave as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeJobOpening(opening: JobOpeningDoc, candidateCount = 0) {
+  return {
+    id: opening._id.toString(),
+    title: opening.title,
+    description: opening.description,
+    status: opening.status,
+    candidateCount,
+    createdAt: (opening as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeCandidate(candidate: CandidateDoc) {
+  return {
+    id: candidate._id.toString(),
+    openingId: candidate.openingId.toString(),
+    name: candidate.name,
+    email: candidate.email,
+    phone: candidate.phone,
+    status: candidate.status,
+    notes: candidate.notes,
+    createdAt: (candidate as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePerformanceReview(review: PerformanceReviewDoc, employeeName?: string, reviewedByName?: string) {
+  return {
+    id: review._id.toString(),
+    employeeUserId: review.employeeUserId.toString(),
+    employeeName,
+    reviewedBy: review.reviewedBy.toString(),
+    reviewedByName,
+    reviewDate: review.reviewDate,
+    rating: review.rating,
+    feedback: review.feedback,
+    createdAt: (review as unknown as { createdAt: Date }).createdAt,
   };
 }

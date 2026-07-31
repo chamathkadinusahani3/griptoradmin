@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CarIcon, ClipboardListIcon, CalendarIcon, ReceiptIcon, LogOutIcon, PlusIcon, DownloadIcon } from 'lucide-react';
+import { CarIcon, ClipboardListIcon, CalendarIcon, ReceiptIcon, LogOutIcon, PlusIcon, DownloadIcon, CreditCardIcon } from 'lucide-react';
 import { Logo } from '../../components/layout/Logo';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +16,7 @@ import { CustomerInvoice } from '../../types/customerInvoice';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { downloadDocumentPdf } from '../../lib/pdf';
+import { submitPayHereCheckout } from '../../lib/payhereCheckout';
 
 type Tab = 'vehicles' | 'jobs' | 'bookings' | 'invoices';
 const TABS: { key: Tab; label: string; icon: typeof CarIcon }[] = [
@@ -36,6 +37,7 @@ export function PortalDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bootstrapping && !customer && slug) {
@@ -55,6 +57,19 @@ export function PortalDashboard() {
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load your data'))
       .finally(() => setLoading(false));
   }, [customer]);
+
+  const payNow = async (inv: CustomerInvoice) => {
+    setPayingId(inv.id);
+    try {
+      const { actionUrl, fields } = await api.post<{ actionUrl: string; fields: Record<string, string> }>(
+        `/customer-portal/invoices/${inv.id}/checkout`
+      );
+      submitPayHereCheckout(actionUrl, fields);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to start payment');
+      setPayingId(null);
+    }
+  };
 
   const handleLogout = async () => {
     if (!slug) return;
@@ -184,9 +199,16 @@ export function PortalDashboard() {
                       <p className="font-bold text-navy dark:text-slate-100">{inv.invoiceNumber}</p>
                       <p className="text-xs text-text-gray dark:text-slate-400">{formatDate(inv.createdAt)} · {formatCurrency(inv.total)} · {inv.paymentStatus}</p>
                     </div>
-                    <button onClick={() => downloadInvoice(inv)} className="flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
-                      <DownloadIcon className="h-3.5 w-3.5" /> PDF
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {inv.paymentStatus !== 'Paid' && (
+                        <Button size="sm" onClick={() => payNow(inv)} loading={payingId === inv.id}>
+                          <CreditCardIcon className="h-3.5 w-3.5" /> Pay now
+                        </Button>
+                      )}
+                      <button onClick={() => downloadInvoice(inv)} className="flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+                        <DownloadIcon className="h-3.5 w-3.5" /> PDF
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

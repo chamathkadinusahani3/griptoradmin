@@ -1,6 +1,7 @@
 import { CustomerInvoice } from './customerInvoice';
+import { DealerMetrics } from './dealerMetrics';
 
-export interface CustomerStatement {
+export interface CustomerStatement extends Partial<DealerMetrics> {
   creditLimit: number;
   creditAvailable: number | null;
   totalInvoiced: number;

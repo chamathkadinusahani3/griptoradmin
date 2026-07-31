@@ -1,4 +1,4 @@
-import { ClientDoc } from './models/Client';
+import { ClientDoc } from './models/Client.js';
 
 export interface SendResult {
   sent: boolean;

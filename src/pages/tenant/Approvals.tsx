@@ -12,17 +12,16 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Approval, ApprovalType, ApprovalStatus } from '../../types/approval';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
+import { useHasPermission } from '../../context/AuthContext';
 
 const TYPES: ApprovalType[] = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Warranty Claim', 'Other'];
 const STATUS_TONE: Record<ApprovalStatus, 'amber' | 'green' | 'red'> = { Pending: 'amber', Approved: 'green', Rejected: 'red' };
 const emptyForm = { type: 'Discount Authorization' as ApprovalType, subject: '', amount: '' };
 
 export function Approvals() {
-  const { user } = useAuth();
-  // Server-enforced (requireTenantManager) — this is UX only, so a
+  // Server-enforced (requireTenantPermission) — this is UX only, so a
   // Technician/Cashier isn't shown a control they'd just get a 403 from.
-  const canRespond = user?.tenantRole === 'Owner' || user?.tenantRole === 'Manager';
+  const canRespond = useHasPermission('approvals:respond');
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);

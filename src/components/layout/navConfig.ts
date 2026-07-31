@@ -31,6 +31,14 @@ import {
   ClipboardCheckIcon,
   MessageSquareIcon,
   MapPinIcon,
+  ShoppingCartIcon,
+  WalletIcon,
+  BanknoteIcon,
+  CalendarClockIcon,
+  ClockIcon,
+  BriefcaseIcon,
+  TrendingUpIcon,
+  ShieldIcon,
   LucideIcon } from
 'lucide-react';
 import { ModuleDef } from '../../data/modules';
@@ -69,7 +77,15 @@ const ICONS: Record<string, LucideIcon> = {
   MessageSquareIcon,
   MapPinIcon,
   BuildingIcon,
-  SettingsIcon
+  SettingsIcon,
+  ShoppingCartIcon,
+  WalletIcon,
+  BanknoteIcon,
+  CalendarClockIcon,
+  ClockIcon,
+  BriefcaseIcon,
+  TrendingUpIcon,
+  ShieldIcon
 };
 
 export const SUPER_NAV: NavGroup[] = [
@@ -82,6 +98,7 @@ export const SUPER_NAV: NavGroup[] = [
   { label: 'Leads', to: '/admin/leads', icon: InboxIcon },
   { label: 'Billing', to: '/admin/billing', icon: ReceiptIcon },
   { label: 'Support Tickets', to: '/admin/tickets', icon: LifeBuoyIcon },
+  { label: 'Users', to: '/admin/users', icon: UsersIcon },
   { label: 'Settings', to: '/admin/settings', icon: SettingsIcon }]
 
 }];

@@ -17,6 +17,12 @@ const PartSchema = new Schema(
     // documents, each with its own real `stock` — genuine per-branch
     // inventory, not a display label.
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch' },
+    // Edge-triggered de-dup for the daily low-stock SMS scan
+    // (api/_lib/routes/cron/daily.ts) — true from the moment stock first
+    // drops to/below reorderAt until it's restocked back above it, so the
+    // same low-stock episode never re-alerts every single day.
+    lowStockAlertActive: { type: Boolean, default: false },
+    lastAlertedAt: { type: Date },
   },
   { timestamps: true }
 );

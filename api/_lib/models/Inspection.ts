@@ -19,7 +19,6 @@ const InspectionSchema = new Schema(
     plate: { type: String },
     result: { type: String, enum: ['Pass', 'Advisory', 'Fail'], required: true },
     media: { type: [MediaSchema], default: [] },
-    items: { type: Number, default: 0 },
     notes: { type: String },
     // Extra work found during inspection that needs the customer to sign off
     // before proceeding — most inspections (especially Pass results) won't

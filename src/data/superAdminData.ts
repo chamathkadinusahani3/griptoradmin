@@ -1,2 +1,4 @@
 export type ClientStatus = 'Active' | 'Trial' | 'Suspended';
-export type PlanName = 'Starter' | 'Professional' | 'Enterprise';
+// Widened from a fixed 3-name union — super admins can create new named
+// plans from the Subscriptions page (api/_lib/models/PricingTier.ts).
+export type PlanName = string;

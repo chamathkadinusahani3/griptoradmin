@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CheckIcon, PlusIcon, XIcon, PencilIcon, StarIcon, UsersIcon } from 'lucide-react';
+import { CheckIcon, PlusIcon, XIcon, PencilIcon, StarIcon, UsersIcon, SparklesIcon, TrashIcon, EyeOffIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Input, Select, Label } from '../../components/ui/Input';
+import { Input, Select, Label, Textarea } from '../../components/ui/Input';
+import { Toggle } from '../../components/ui/Toggle';
 import { CardSkeleton } from '../../components/ui/Skeleton';
 import { formatCurrency, cn } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
@@ -17,15 +18,28 @@ export function Subscriptions() {
   const [tiers, setTiers] = useState<PricingTier[]>([]);
   const [loadingTiers, setLoadingTiers] = useState(true);
   const [editing, setEditing] = useState<PricingTier | null>(null);
-  const [draftFeatures, setDraftFeatures] = useState<string[]>([]);
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editFeatures, setEditFeatures] = useState<string[]>([]);
   const [newFeature, setNewFeature] = useState('');
-  const [savingFeatures, setSavingFeatures] = useState(false);
+  const [editHidden, setEditHidden] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingTierId, setDeletingTierId] = useState<string | null>(null);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignClient, setAssignClient] = useState('');
   const [assignPlan, setAssignPlan] = useState('Professional');
   const [assigning, setAssigning] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPrice, setCreatePrice] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createFeatures, setCreateFeatures] = useState<string[]>([]);
+  const [newCreateFeature, setNewCreateFeature] = useState('');
+  const [creatingTier, setCreatingTier] = useState(false);
 
   const loadTiers = () => {
     setLoadingTiers(true);
@@ -50,22 +64,81 @@ export function Subscriptions() {
 
   const openEdit = (tier: PricingTier) => {
     setEditing(tier);
-    setDraftFeatures([...tier.features]);
+    setEditName(tier.name);
+    setEditPrice(tier.price != null ? String(tier.price) : '');
+    setEditDescription(tier.description);
+    setEditFeatures([...tier.features]);
     setNewFeature('');
+    setEditHidden(!!tier.hidden);
   };
 
-  const saveFeatures = async () => {
+  const saveEdit = async () => {
     if (!editing) return;
-    setSavingFeatures(true);
+    if (!editName.trim()) {
+      toast.error('A plan name is required');
+      return;
+    }
+    setSavingEdit(true);
     try {
-      await api.patch(`/pricing-tiers/${editing.id}`, { features: draftFeatures });
-      setTiers((prev) => prev.map((t) => t.id === editing.id ? { ...t, features: draftFeatures } : t));
-      toast.success(`${editing.name} plan features updated`);
+      const { tier } = await api.patch<{ tier: PricingTier }>(`/pricing-tiers/${editing.id}`, {
+        name: editName.trim(),
+        price: editPrice.trim() ? Number(editPrice) : null,
+        description: editDescription,
+        features: editFeatures,
+        hidden: editHidden,
+      });
+      setTiers((prev) => prev.map((t) => (t.id === editing.id ? tier : t)));
+      toast.success(`${tier.name} plan updated`);
       setEditing(null);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to save features');
+      toast.error(err instanceof ApiError ? err.message : 'Failed to save plan');
     } finally {
-      setSavingFeatures(false);
+      setSavingEdit(false);
+    }
+  };
+
+  const deleteTier = async (tier: PricingTier) => {
+    setDeletingTierId(tier.id);
+    try {
+      await api.delete(`/pricing-tiers/${tier.id}`);
+      setTiers((prev) => prev.filter((t) => t.id !== tier.id));
+      toast.success(`${tier.name} plan deleted`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to delete plan');
+    } finally {
+      setDeletingTierId(null);
+    }
+  };
+
+  const openCreate = () => {
+    setCreateName('');
+    setCreatePrice('');
+    setCreateDescription('');
+    setCreateFeatures([]);
+    setNewCreateFeature('');
+    setCreateOpen(true);
+  };
+
+  const createTier = async () => {
+    if (!createName.trim()) {
+      toast.error('A plan name is required');
+      return;
+    }
+    setCreatingTier(true);
+    try {
+      const { tier } = await api.post<{ tier: PricingTier }>('/pricing-tiers', {
+        name: createName.trim(),
+        price: createPrice.trim() ? Number(createPrice) : null,
+        description: createDescription,
+        features: createFeatures,
+      });
+      setTiers((prev) => [...prev, tier]);
+      toast.success(`${tier.name} plan created`);
+      setCreateOpen(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to create plan');
+    } finally {
+      setCreatingTier(false);
     }
   };
 
@@ -90,9 +163,14 @@ export function Subscriptions() {
         title="Subscriptions"
         description="Manage GRIPTOR's pricing tiers and assign plans to clients."
         action={
-        <Button onClick={() => setAssignOpen(true)} disabled={clients.length === 0}>
-            <UsersIcon className="h-4 w-4" /> Assign plan
-          </Button>
+        <div className="flex items-center gap-3">
+            <Button variant="secondary" onClick={openCreate}>
+              <SparklesIcon className="h-4 w-4" /> Create plan
+            </Button>
+            <Button onClick={() => setAssignOpen(true)} disabled={clients.length === 0}>
+              <UsersIcon className="h-4 w-4" /> Assign plan
+            </Button>
+          </div>
         } />
 
 
@@ -110,11 +188,18 @@ export function Subscriptions() {
             tier.popular && 'ring-2 ring-bright-blue'
           )}>
 
-            {tier.popular &&
-          <div className="absolute right-4 top-4">
-                <Badge tone="teal">
-                  <StarIcon className="h-3 w-3" /> Most Popular
-                </Badge>
+            {(tier.popular || tier.hidden) &&
+          <div className="absolute right-4 top-4 flex flex-col items-end gap-1.5">
+                {tier.popular &&
+            <Badge tone="teal">
+                    <StarIcon className="h-3 w-3" /> Most Popular
+                  </Badge>
+            }
+                {tier.hidden &&
+            <Badge tone="gray">
+                    <EyeOffIcon className="h-3 w-3" /> Hidden from website
+                  </Badge>
+            }
               </div>
           }
             <div className="p-6">
@@ -143,9 +228,17 @@ export function Subscriptions() {
               )}
               </ul>
             </div>
-            <div className="p-6 pt-0">
-              <Button variant="secondary" className="w-full" onClick={() => openEdit(tier)}>
-                <PencilIcon className="h-4 w-4" /> Edit features
+            <div className="flex gap-2 p-6 pt-0">
+              <Button variant="secondary" className="flex-1" onClick={() => openEdit(tier)}>
+                <PencilIcon className="h-4 w-4" /> Edit plan
+              </Button>
+              <Button
+              variant="ghost"
+              loading={deletingTierId === tier.id}
+              onClick={() => deleteTier(tier)}
+              aria-label={`Delete ${tier.name}`}>
+
+                <TrashIcon className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           </Card>
@@ -153,56 +246,167 @@ export function Subscriptions() {
       </div>
       }
 
-      {/* Edit features modal */}
+      {/* Edit plan modal */}
       <Modal
         open={!!editing}
         onClose={() => setEditing(null)}
-        title={editing ? `Edit ${editing.name} features` : ''}
+        title={editing ? `Edit ${editing.name}` : ''}
+        size="xl"
         footer={
         <>
             <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button loading={savingFeatures} onClick={saveFeatures}>Save features</Button>
+            <Button loading={savingEdit} onClick={saveEdit}>Save changes</Button>
           </>
         }>
 
-        <div className="space-y-2">
-          {draftFeatures.map((f, i) =>
-          <div key={i} className="flex items-center gap-2 rounded-xl border border-border-soft px-3 py-2 dark:border-slate-800">
-              <CheckIcon className="h-4 w-4 shrink-0 text-teal" />
-              <span className="flex-1 text-sm text-navy dark:text-slate-200">{f}</span>
-              <button
-              onClick={() => setDraftFeatures((prev) => prev.filter((_, idx) => idx !== i))}
-              aria-label={`Remove ${f}`}
-              className="rounded-lg p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="edit-plan-name">Plan name</Label>
+            <Input id="edit-plan-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="edit-plan-price">Monthly price (leave blank for Custom pricing)</Label>
+            <Input
+              id="edit-plan-price"
+              type="number"
+              min={0}
+              placeholder="e.g. 349"
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)} />
 
-                <XIcon className="h-4 w-4" />
-              </button>
+          </div>
+          <div>
+            <Label htmlFor="edit-plan-description">Description</Label>
+            <Textarea id="edit-plan-description" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-border-soft p-3 dark:border-slate-800">
+            <div>
+              <p className="text-sm font-semibold text-navy dark:text-slate-100">Hidden from website</p>
+              <p className="text-xs text-text-gray dark:text-slate-400">
+                Marks this plan as hidden — doesn't yet affect griptorweb's public Pricing page, which has its own separate plan list.
+              </p>
             </div>
-          )}
+            <Toggle checked={editHidden} onChange={setEditHidden} />
+          </div>
+          <div>
+            <Label>Features</Label>
+            <div className="space-y-2">
+              {editFeatures.map((f, i) =>
+              <div key={i} className="flex items-center gap-2 rounded-xl border border-border-soft px-3 py-2 dark:border-slate-800">
+                  <CheckIcon className="h-4 w-4 shrink-0 text-teal" />
+                  <span className="flex-1 text-sm text-navy dark:text-slate-200">{f}</span>
+                  <button
+                  onClick={() => setEditFeatures((prev) => prev.filter((_, idx) => idx !== i))}
+                  aria-label={`Remove ${f}`}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <Input
+                placeholder="Add a feature…"
+                value={newFeature}
+                onChange={(e) => setNewFeature(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newFeature.trim()) {
+                    setEditFeatures((prev) => [...prev, newFeature.trim()]);
+                    setNewFeature('');
+                  }
+                }} />
+
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (newFeature.trim()) {
+                    setEditFeatures((prev) => [...prev, newFeature.trim()]);
+                    setNewFeature('');
+                  }
+                }}>
+
+                <PlusIcon className="h-4 w-4" /> Add
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="mt-4 flex gap-2">
-          <Input
-            placeholder="Add a feature…"
-            value={newFeature}
-            onChange={(e) => setNewFeature(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newFeature.trim()) {
-                setDraftFeatures((prev) => [...prev, newFeature.trim()]);
-                setNewFeature('');
-              }
-            }} />
+      </Modal>
 
-          <Button
-            variant="secondary"
-            onClick={() => {
-              if (newFeature.trim()) {
-                setDraftFeatures((prev) => [...prev, newFeature.trim()]);
-                setNewFeature('');
-              }
-            }}>
+      {/* Create plan modal */}
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create a new plan"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button loading={creatingTier} onClick={createTier}>Create plan</Button>
+          </>
+        }>
 
-            <PlusIcon className="h-4 w-4" /> Add
-          </Button>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="new-plan-name">Plan name</Label>
+            <Input id="new-plan-name" placeholder="e.g. Ultra" value={createName} onChange={(e) => setCreateName(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="new-plan-price">Monthly price (leave blank for Custom pricing)</Label>
+            <Input
+              id="new-plan-price"
+              type="number"
+              min={0}
+              placeholder="e.g. 349"
+              value={createPrice}
+              onChange={(e) => setCreatePrice(e.target.value)} />
+
+          </div>
+          <div>
+            <Label htmlFor="new-plan-description">Description</Label>
+            <Textarea id="new-plan-description" value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} />
+          </div>
+          <div>
+            <Label>Features</Label>
+            <div className="space-y-2">
+              {createFeatures.map((f, i) =>
+              <div key={i} className="flex items-center gap-2 rounded-xl border border-border-soft px-3 py-2 dark:border-slate-800">
+                  <CheckIcon className="h-4 w-4 shrink-0 text-teal" />
+                  <span className="flex-1 text-sm text-navy dark:text-slate-200">{f}</span>
+                  <button
+                  onClick={() => setCreateFeatures((prev) => prev.filter((_, idx) => idx !== i))}
+                  aria-label={`Remove ${f}`}
+                  className="rounded-lg p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2">
+              <Input
+                placeholder="Add a feature…"
+                value={newCreateFeature}
+                onChange={(e) => setNewCreateFeature(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newCreateFeature.trim()) {
+                    setCreateFeatures((prev) => [...prev, newCreateFeature.trim()]);
+                    setNewCreateFeature('');
+                  }
+                }} />
+
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (newCreateFeature.trim()) {
+                    setCreateFeatures((prev) => [...prev, newCreateFeature.trim()]);
+                    setNewCreateFeature('');
+                  }
+                }}>
+
+                <PlusIcon className="h-4 w-4" /> Add
+              </Button>
+            </div>
+          </div>
         </div>
       </Modal>
 

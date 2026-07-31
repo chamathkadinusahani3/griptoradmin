@@ -13,6 +13,10 @@ export const BRAND_PALETTE_IDS = [
   'black',
   'brown',
   'grey',
+  // Sentinel, not a preset — 'custom' means the tenant picked their own
+  // accentColor, which the frontend derives a full palette from at render
+  // time (src/data/brandPalettes.ts's paletteFromAccent/resolveBrandPalette).
+  'custom',
 ] as const;
 
 const BrandingSchema = new Schema(
@@ -20,6 +24,14 @@ const BrandingSchema = new Schema(
     paletteId: { type: String, enum: BRAND_PALETTE_IDS, default: 'blue' },
     logoDataUrl: { type: String },
     defaultMode: { type: String, enum: ['light', 'dark'], default: 'light' },
+    // Only meaningful when paletteId === 'custom' — a hex color the
+    // frontend derives a full 5-shade palette from.
+    accentColor: { type: String },
+    sidebarStyle: { type: String, enum: ['expanded', 'compact'], default: 'expanded' },
+    // No enum — the frontend only ever offers a curated list via its own
+    // UI (src/data/brandPalettes.ts's FONT_OPTIONS), same reasoning as
+    // logoDataUrl/contact not being enum-constrained here.
+    fontFamily: { type: String, default: 'Inter' },
   },
   { _id: false }
 );
@@ -42,7 +54,11 @@ const ClientSchema = new Schema(
     name: { type: String, required: true },
     contact: { type: String, required: true },
     email: { type: String, required: true, lowercase: true, trim: true },
-    plan: { type: String, enum: ['Starter', 'Professional', 'Enterprise'], required: true },
+    // No longer a fixed enum — super admins can create new named plans from
+    // the Subscriptions page (api/_lib/models/PricingTier.ts). Validity is
+    // checked at the write boundary instead (api/clients/[id].ts,
+    // api/clients/index.ts), against the live PricingTier collection.
+    plan: { type: String, required: true },
     status: { type: String, enum: ['Active', 'Trial', 'Suspended'], required: true },
     modules: { type: [String], default: [] },
     addOns: { type: [String], default: [] },
@@ -65,6 +81,28 @@ const ClientSchema = new Schema(
     // there's no multi-branch/location model yet (see Booking System roadmap).
     capacityPerSlot: { type: Number, default: 2 },
     smsConfig: { type: SmsConfigSchema },
+    // Owner/Manager's own phone for automated internal alerts (low stock,
+    // dealer-outstanding SMS batch summary) — separate from smsConfig (the
+    // notify.lk gateway credentials themselves) and from any Customer's own
+    // phone. `contact` above is a contact-PERSON name, not a phone number.
+    // Optional; the cron simply skips + logs when unset.
+    alertsPhone: { type: String },
+    // stripeCustomerId/stripeSubscriptionId are leftover from the removed
+    // Stripe-based tenant subscription billing (Stripe doesn't support Sri
+    // Lankan merchants — replaced by PayHere). Unused/unset by anything.
+    stripeCustomerId: { type: String },
+    stripeSubscriptionId: { type: String },
+    // trialEndsAt: real, actively used — the 14-day trial is fully
+    // app-managed (api/tenants/register.ts sets it at signup, no gateway
+    // involved at all until a real charge is actually needed).
+    trialEndsAt: { type: Date },
+    // Set once the tenant completes real PayHere recurring-payment
+    // authorization for their plan (api/tenant/setup-payment.ts +
+    // api/public/payhere-notify.ts's AUTHORIZATION_SUCCESS handling).
+    // Switching plans (no OAuth cancel API yet — deferred) starts a NEW
+    // subscription and overwrites this; the old one keeps charging until
+    // manually cancelled in PayHere's dashboard, clearly warned in the UI.
+    payhereSubscriptionId: { type: String },
   },
   { timestamps: true }
 );

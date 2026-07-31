@@ -19,4 +19,7 @@ export interface Client {
   slug?: string;
   hasSmsConfig: boolean;
   smsSenderId?: string;
+  alertsPhone?: string;
+  trialEndsAt?: string;
+  payhereSubscriptionId?: string;
 }

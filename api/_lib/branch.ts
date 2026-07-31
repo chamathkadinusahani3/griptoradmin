@@ -1,5 +1,4 @@
-import { Branch } from './models/Branch';
-import { TenantRole } from './auth';
+import { Branch } from './models/Branch.js';
 
 /** True if branchId belongs to this tenant — same ownership check pattern reused across every branch-scoped create endpoint. */
 export async function isValidBranch(clientId: string, branchId: string): Promise<boolean> {
@@ -25,10 +24,9 @@ export async function isValidBranch(clientId: string, branchId: string): Promise
  * this feature existed.
  */
 export function resolveBranchFilter(
-  session: { tenantRole: TenantRole; branchId?: string },
+  session: { branchPinned: boolean; branchId?: string },
   requestedBranchId: string | undefined
 ): string | undefined {
-  const isPinnable = session.tenantRole === 'Technician' || session.tenantRole === 'Cashier';
-  if (isPinnable && session.branchId) return session.branchId;
+  if (session.branchPinned && session.branchId) return session.branchId;
   return requestedBranchId;
 }

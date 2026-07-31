@@ -1,4 +1,4 @@
-import { Client } from './models/Client';
+import { Client } from './models/Client.js';
 
 /**
  * First real server-side add-on enforcement in the app — every other add-on

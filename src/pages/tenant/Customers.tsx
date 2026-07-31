@@ -31,7 +31,7 @@ const TAG_TONE: Record<string, 'purple' | 'teal' | 'blue' | 'amber' | 'gray' | '
 const emptyForm = {
   name: '', email: '', phone: '', vehicle: '',
   type: 'individual' as 'individual' | 'corporate',
-  contactPerson: '', creditLimit: '', discountPct: ''
+  contactPerson: '', creditLimit: '', discountPct: '', creditPeriodDays: ''
 };
 
 function exportStatementCsv(customer: Customer, statement: CustomerStatement) {
@@ -133,6 +133,7 @@ export function Customers() {
         contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
         creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
         discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
+        creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
       });
       // First vehicle (if given) becomes a real Vehicle document instead of
       // the legacy free-text `vehicles` array — same field, real storage.
@@ -372,9 +373,16 @@ export function Customers() {
                     <DownloadIcon className="h-3.5 w-3.5" /> Export statement
                   </button>
                 </div>
+                {statement.isInViolation &&
+            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                    This account has exceeded its {selected.creditPeriodDays}-day credit period — discount is currently suspended until settled.
+                  </div>
+            }
                 <div className="grid grid-cols-2 gap-3">
                   <StatCard label="Outstanding" value={formatCurrency(statement.totalOutstanding)} icon={WalletIcon} />
                   <StatCard label="Overdue" value={formatCurrency(statement.overdueAmount)} icon={AlertTriangleIcon} />
+                  <StatCard label="On-time rate" value={statement.onTimePaymentRatePct === null || statement.onTimePaymentRatePct === undefined ? '—' : `${statement.onTimePaymentRatePct}%`} icon={WalletIcon} />
+                  <StatCard label="Last purchase" value={statement.lastPurchaseDate ? formatDate(statement.lastPurchaseDate) : '—'} icon={WalletIcon} />
                 </div>
                 {statement.creditLimit > 0 &&
             <div className="mt-3">
@@ -471,6 +479,10 @@ export function Customers() {
                       <Label htmlFor="cust-discount">Discount %</Label>
                       <Input id="cust-discount" type="number" min={0} max={100} value={form.discountPct} onChange={(e) => setForm((f) => ({ ...f, discountPct: e.target.value }))} />
                     </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="cust-credit-period">Credit period (days)</Label>
+                    <Input id="cust-credit-period" type="number" min={1} placeholder="30" value={form.creditPeriodDays} onChange={(e) => setForm((f) => ({ ...f, creditPeriodDays: e.target.value }))} />
                   </div>
                 </>
             }

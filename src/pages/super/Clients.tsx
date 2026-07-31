@@ -15,6 +15,7 @@ import { MODULE_BY_ID } from '../../data/modules';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { Client } from '../../types/client';
+import { PricingTier } from '../../types/pricingTier';
 import { toast } from 'sonner';
 
 const emptyForm = {
@@ -22,7 +23,7 @@ const emptyForm = {
   contact: '',
   email: '',
   password: '',
-  plan: 'Starter' as const,
+  plan: 'Starter',
   status: 'Trial' as const,
   locations: 1,
   staff: 1,
@@ -32,6 +33,7 @@ export function Clients() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tiers, setTiers] = useState<PricingTier[]>([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ClientStatus | 'All'>('All');
   const [plan, setPlan] = useState('All');
@@ -49,6 +51,10 @@ export function Clients() {
   };
 
   useEffect(loadClients, []);
+
+  useEffect(() => {
+    api.get<{ tiers: PricingTier[] }>('/pricing-tiers').then(({ tiers }) => setTiers(tiers)).catch(() => setTiers([]));
+  }, []);
 
   const filtered = useMemo(() => {
     return clients.filter((c) => {
@@ -114,9 +120,7 @@ export function Clients() {
             </Select>
             <Select value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Filter by plan" className="w-40">
               <option value="All">All plans</option>
-              <option value="Starter">Starter</option>
-              <option value="Professional">Professional</option>
-              <option value="Enterprise">Enterprise</option>
+              {tiers.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
             </Select>
           </div>
         </div>
@@ -218,10 +222,8 @@ export function Clients() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="c-plan">Plan</Label>
-              <Select id="c-plan" value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value as any }))}>
-                <option value="Starter">Starter</option>
-                <option value="Professional">Professional</option>
-                <option value="Enterprise">Enterprise</option>
+              <Select id="c-plan" value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))}>
+                {tiers.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
               </Select>
             </div>
             <div>

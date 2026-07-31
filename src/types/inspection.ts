@@ -18,7 +18,6 @@ export interface Inspection {
   plate?: string;
   result: InspectionResult;
   media: InspectionMedia[];
-  items: number;
   notes?: string;
   additionalCost?: number;
   approvalStatus: ApprovalStatus;

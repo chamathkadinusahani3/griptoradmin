@@ -8,11 +8,13 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { UpgradeCard } from './components/layout/Sidebar';
 import { SUPER_NAV, HUB_NAV, buildModuleNav } from './components/layout/navConfig';
 import { MODULE_BY_ID } from './data/modules';
-import { getBrandPalette, paletteCssVars } from './data/brandPalettes';
+import { resolveBrandPalette, paletteCssVars } from './data/brandPalettes';
 
 import { Login } from './pages/Login';
 import { PublicInspectionApproval } from './pages/PublicInspectionApproval';
 import { PublicBooking } from './pages/PublicBooking';
+import { PublicPaymentThankYou } from './pages/PublicPaymentThankYou';
+import { PublicPayStart } from './pages/PublicPayStart';
 import { CustomerPortalProvider } from './context/CustomerPortalContext';
 import { PortalLogin } from './pages/portal/PortalLogin';
 import { PortalRegister } from './pages/portal/PortalRegister';
@@ -27,6 +29,7 @@ import { ModulesPricing } from './pages/super/ModulesPricing';
 import { Leads } from './pages/super/Leads';
 import { Billing } from './pages/super/Billing';
 import { SupportTickets } from './pages/super/SupportTickets';
+import { Users } from './pages/super/Users';
 import { SuperSettings } from './pages/super/SuperSettings';
 
 // Tenant pages
@@ -52,8 +55,17 @@ import { Approvals } from './pages/tenant/Approvals';
 import { Messaging } from './pages/tenant/Messaging';
 import { Branches } from './pages/tenant/Branches';
 import { Staff } from './pages/tenant/Staff';
+import { RolesPermissions } from './pages/tenant/RolesPermissions';
 import { Settings } from './pages/tenant/Settings';
 import { CorporateAccounts } from './pages/tenant/CorporateAccounts';
+import { PurchaseOrders } from './pages/tenant/PurchaseOrders';
+import { Expenses } from './pages/tenant/Expenses';
+import { Payroll } from './pages/tenant/Payroll';
+import { Employees } from './pages/tenant/Employees';
+import { LeaveRequests } from './pages/tenant/LeaveRequests';
+import { Attendance } from './pages/tenant/Attendance';
+import { Recruitment } from './pages/tenant/Recruitment';
+import { PerformanceReviews } from './pages/tenant/PerformanceReviews';
 
 function RequireRole({ role }: {role: Role;}) {
   const { user, bootstrapping } = useAuth();
@@ -91,7 +103,7 @@ function SuperLayout() {
 function TenantThemeScope({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { setTheme } = useTheme();
-  const palette = getBrandPalette(user?.branding?.paletteId);
+  const palette = resolveBrandPalette(user?.branding);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -109,6 +121,16 @@ function TenantThemeScope({ children }: { children: React.ReactNode }) {
     setTheme(user.branding.defaultMode);
     localStorage.setItem(seededKey, user.id);
   }, [user?.id, user?.branding?.defaultMode, setTheme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const font = user?.branding?.fontFamily;
+    if (!font) return;
+    root.style.setProperty('--brand-font', `'${font}', ui-sans-serif, system-ui, sans-serif`);
+    return () => {
+      root.style.removeProperty('--brand-font');
+    };
+  }, [user?.branding?.fontFamily]);
 
   return <>{children}</>;
 }
@@ -158,6 +180,8 @@ export function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/approve/:token" element={<PublicInspectionApproval />} />
             <Route path="/book/:slug" element={<PublicBooking />} />
+            <Route path="/pay/thank-you" element={<PublicPaymentThankYou />} />
+            <Route path="/pay/checkout/:token" element={<PublicPayStart />} />
 
             <Route element={<CustomerPortalProvider><Outlet /></CustomerPortalProvider>}>
               <Route path="/portal/:slug/login" element={<PortalLogin />} />
@@ -175,6 +199,7 @@ export function App() {
                 <Route path="leads" element={<Leads />} />
                 <Route path="billing" element={<Billing />} />
                 <Route path="tickets" element={<SupportTickets />} />
+                <Route path="users" element={<Users />} />
                 <Route path="settings" element={<SuperSettings />} />
               </Route>
             </Route>
@@ -208,7 +233,16 @@ export function App() {
                 <Route path="messaging" element={<Messaging />} />
                 <Route path="branches" element={<Branches />} />
                 <Route path="staff" element={<Staff />} />
+                <Route path="roles" element={<RolesPermissions />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="purchase-orders" element={<PurchaseOrders />} />
+                <Route path="expenses" element={<Expenses />} />
+                <Route path="payroll" element={<Payroll />} />
+                <Route path="employees" element={<Employees />} />
+                <Route path="leave-requests" element={<LeaveRequests />} />
+                <Route path="attendance" element={<Attendance />} />
+                <Route path="job-openings" element={<Recruitment />} />
+                <Route path="performance-reviews" element={<PerformanceReviews />} />
               </Route>
             </Route>
 

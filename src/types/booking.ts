@@ -1,4 +1,4 @@
-export type BookingStatus = 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+export type BookingStatus = 'Pending' | 'Waiting' | 'In Progress' | 'Completed' | 'Cancelled';
 
 export interface Booking {
   id: string;
@@ -15,6 +15,8 @@ export interface Booking {
   source: 'public' | 'staff';
   jobCardId?: string;
   branchId?: string;
+  bayId?: string;
+  bay?: string;
   createdAt: string;
 }
 
@@ -26,5 +28,7 @@ export interface PublicBookingInfo {
 
 export interface AvailabilitySlot {
   time: string;
+  booked: number;
+  capacity: number;
   available: boolean;
 }

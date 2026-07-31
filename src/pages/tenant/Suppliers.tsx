@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MailIcon, TruckIcon, PlusIcon, PackageCheckIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -16,6 +17,7 @@ import { api, ApiError } from '../../lib/api';
 const emptyForm = { name: '', contact: '', email: '' };
 
 export function Suppliers() {
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -102,8 +104,8 @@ export function Suppliers() {
             </div>
 
             <div className="mt-4 flex gap-2">
-              <Button variant="secondary" size="sm" className="flex-1" onClick={() => toast.success(`Order placed with ${s.name}`)}>Reorder</Button>
-              <Button variant="ghost" size="sm" className="flex-1" onClick={() => toast(`Viewing orders for ${s.name}`)}>View orders</Button>
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/app/erp/purchase-orders?supplierId=${s.id}&create=1`)}>Reorder</Button>
+              <Button variant="ghost" size="sm" className="flex-1" onClick={() => navigate(`/app/erp/purchase-orders?supplierId=${s.id}`)}>View orders</Button>
             </div>
           </Card>
         )}

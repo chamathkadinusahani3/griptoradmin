@@ -22,6 +22,10 @@ const CustomerSchema = new Schema(
     contactPerson: { type: String },
     creditLimit: { type: Number, default: 0 },
     discountPct: { type: Number, default: 0 },
+    // Days after an invoice's issue date (createdAt) this dealer has to
+    // settle it before being "in violation" (api/_lib/creditDiscipline.ts) —
+    // same gms-fleet gating as creditLimit/discountPct above.
+    creditPeriodDays: { type: Number, default: 30 },
     // Presence means this customer has self-service portal access — set
     // either by self-registration (api/public/portal/[slug]/register.ts) or
     // staff-issued activation (api/customers/[id]/portal-password.ts).

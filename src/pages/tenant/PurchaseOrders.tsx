@@ -1,0 +1,292 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ShoppingCartIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon } from 'lucide-react';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { StatusBadge } from '../../components/StatusBadge';
+import { Modal } from '../../components/ui/Modal';
+import { Input, Select, Textarea, Label } from '../../components/ui/Input';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { PurchaseOrder, PurchaseOrderStatus } from '../../types/purchaseOrder';
+import { Supplier } from '../../types/supplier';
+import { Part } from '../../types/part';
+import { formatCurrency, formatDate } from '../../lib/utils';
+import { api, ApiError } from '../../lib/api';
+
+const STATUS_FILTERS: ('All' | PurchaseOrderStatus)[] = ['All', 'Draft', 'Ordered', 'Received', 'Cancelled'];
+
+interface DraftLine {
+  partId: string;
+  quantity: number;
+  unitCost: number;
+}
+
+export function PurchaseOrders() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [parts, setParts] = useState<Part[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'All' | PurchaseOrderStatus>('All');
+  const supplierFilter = searchParams.get('supplierId') ?? '';
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [supplierId, setSupplierId] = useState('');
+  const [expectedDate, setExpectedDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [lines, setLines] = useState<DraftLine[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const loadOrders = () => {
+    api
+      .get<{ purchaseOrders: PurchaseOrder[] }>('/purchase-orders')
+      .then(({ purchaseOrders }) => setOrders(purchaseOrders))
+      .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load purchase orders'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadOrders, []);
+
+  useEffect(() => {
+    api.get<{ suppliers: Supplier[] }>('/suppliers').then(({ suppliers }) => setSuppliers(suppliers)).catch(() => setSuppliers([]));
+    api.get<{ parts: Part[] }>('/parts').then(({ parts }) => setParts(parts)).catch(() => setParts([]));
+  }, []);
+
+  // Arriving from Suppliers.tsx's "Reorder"/"View orders" buttons — filters
+  // by supplier, and "Reorder" additionally opens the create modal preset
+  // to that supplier.
+  useEffect(() => {
+    if (searchParams.get('create') === '1' && suppliers.length > 0) {
+      openCreate(searchParams.get('supplierId') ?? '');
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers]);
+
+  const partsBySupplier = useMemo(
+    () => (supplierId ? parts.filter((p) => p.supplierId === supplierId) : parts),
+    [parts, supplierId]
+  );
+
+  const openCreate = (presetSupplierId = '') => {
+    setSupplierId(presetSupplierId || suppliers[0]?.id || '');
+    setExpectedDate('');
+    setNotes('');
+    setLines([]);
+    setModalOpen(true);
+  };
+
+  const addLine = () => {
+    const firstAvailable = partsBySupplier[0];
+    if (!firstAvailable) return;
+    setLines((prev) => [...prev, { partId: firstAvailable.id, quantity: 1, unitCost: firstAvailable.price }]);
+  };
+  const updateLine = (i: number, patch: Partial<DraftLine>) => {
+    setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  };
+  const removeLine = (i: number) => setLines((prev) => prev.filter((_, idx) => idx !== i));
+
+  const previewSubtotal = lines.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unitCost) || 0), 0);
+
+  const save = async () => {
+    if (!supplierId || lines.length === 0) {
+      toast.error('A supplier and at least one line item are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>('/purchase-orders', {
+        supplierId,
+        items: lines,
+        expectedDate: expectedDate || undefined,
+        notes: notes || undefined,
+      });
+      setOrders((prev) => [purchaseOrder, ...prev]);
+      toast.success(`${purchaseOrder.poNumber} created`);
+      setModalOpen(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to create purchase order');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runAction = async (order: PurchaseOrder, action: 'order' | 'receive' | 'cancel', successMsg: string) => {
+    setActingId(order.id);
+    try {
+      const { purchaseOrder } = await api.patch<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${order.id}`, { action });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? purchaseOrder : o)));
+      toast.success(successMsg);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update purchase order');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const filtered = orders
+    .filter((o) => statusFilter === 'All' || o.status === statusFilter)
+    .filter((o) => !supplierFilter || o.supplierId === supplierFilter);
+  const filteredSupplierName = supplierFilter ? suppliers.find((s) => s.id === supplierFilter)?.name : undefined;
+  const noPrereqs = suppliers.length === 0 || parts.length === 0;
+
+  return (
+    <div>
+      <PageHeader
+        title="Purchase Orders"
+        description="Order parts from suppliers and receive real stock."
+        action={
+        <Button onClick={() => openCreate()} disabled={noPrereqs} title={noPrereqs ? 'Add a supplier and at least one part first' : undefined}>
+            <PlusIcon className="h-4 w-4" /> New purchase order
+          </Button>
+        } />
+
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {STATUS_FILTERS.map((s) =>
+        <button
+          key={s}
+          onClick={() => setStatusFilter(s)}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${statusFilter === s ? 'bg-griptor-gradient text-white' : 'bg-soft-gray text-text-gray hover:bg-light-blue dark:bg-slate-800 dark:text-slate-300'}`}>
+
+            {s}
+          </button>
+        )}
+        {filteredSupplierName &&
+        <Badge tone="blue">
+            Supplier: {filteredSupplierName}
+            <button type="button" className="ml-1.5 align-middle" onClick={() => setSearchParams({})}>
+              <XIcon className="inline h-3 w-3" />
+            </button>
+          </Badge>
+        }
+      </div>
+
+      {loading ?
+      <Card><div className="space-y-3 p-5">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div></Card> :
+      filtered.length === 0 ?
+      <Card><EmptyState icon={ShoppingCartIcon} title="No purchase orders" description="Create a purchase order to restock parts from a supplier." /></Card> :
+
+      <Card>
+          <ul className="divide-y divide-border-soft dark:divide-slate-800">
+            {filtered.map((o) =>
+          <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-navy dark:text-slate-100">{o.poNumber}</p>
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-text-gray dark:text-slate-400">{o.supplier} · {o.items.length} item{o.items.length === 1 ? '' : 's'}</p>
+                  <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                    {formatDate(o.createdAt)}
+                    {o.expectedDate && ` · Expected ${formatDate(o.expectedDate)}`}
+                    {o.receivedAt && ` · Received ${formatDate(o.receivedAt)}`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="teal">{formatCurrency(o.total)}</Badge>
+                  {o.status === 'Draft' &&
+              <>
+                      <Button size="sm" variant="secondary" loading={actingId === o.id} onClick={() => runAction(o, 'order', `${o.poNumber} marked as ordered`)}>Mark as ordered</Button>
+                      <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
+                    </>
+              }
+                  {o.status === 'Ordered' &&
+              <>
+                      <Button size="sm" loading={actingId === o.id} onClick={() => runAction(o, 'receive', `${o.poNumber} received — stock updated`)}>
+                        <PackageCheckIcon className="h-3.5 w-3.5" /> Receive
+                      </Button>
+                      <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
+                    </>
+              }
+                </div>
+              </li>
+          )}
+          </ul>
+        </Card>
+      }
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="New purchase order"
+        size="xl"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button onClick={save} loading={saving}>Create purchase order</Button>
+          </>
+        }>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="po-supplier">Supplier</Label>
+            <Select
+              id="po-supplier"
+              value={supplierId}
+              onChange={(e) => {
+                setSupplierId(e.target.value);
+                setLines([]);
+              }}>
+
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="po-expected">Expected date (optional)</Label>
+            <Input id="po-expected" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <Label>Line items</Label>
+          {partsBySupplier.length === 0 ?
+          <p className="text-xs text-text-gray dark:text-slate-400">This supplier has no parts linked to it yet — add parts under Inventory first.</p> :
+
+          <>
+              <div className="space-y-2">
+                {lines.map((l, i) =>
+              <div key={i} className="grid grid-cols-12 gap-2">
+                    <Select
+                  className="col-span-6"
+                  value={l.partId}
+                  onChange={(e) => {
+                    const part = partsBySupplier.find((p) => p.id === e.target.value);
+                    updateLine(i, { partId: e.target.value, unitCost: part?.price ?? l.unitCost });
+                  }}>
+
+                      {partsBySupplier.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>)}
+                    </Select>
+                    <Input className="col-span-2" type="number" min={1} placeholder="Qty" value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} />
+                    <Input className="col-span-3" type="number" min={0} placeholder="Unit cost" value={l.unitCost} onChange={(e) => updateLine(i, { unitCost: Number(e.target.value) })} />
+                    <button type="button" onClick={() => removeLine(i)} className="col-span-1 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40">
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+              )}
+              </div>
+              <button type="button" onClick={addLine} className="mt-2 flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+                <PlusIcon className="h-3.5 w-3.5" /> Add line
+              </button>
+              <p className="mt-2 text-right text-sm text-text-gray dark:text-slate-400">Total: {formatCurrency(previewSubtotal)}</p>
+            </>
+          }
+        </div>
+
+        <div className="mt-4">
+          <Label htmlFor="po-notes">Notes</Label>
+          <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+      </Modal>
+    </div>);
+
+}

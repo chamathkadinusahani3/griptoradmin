@@ -12,5 +12,6 @@ export interface SmsLog {
   message: string;
   sent: boolean;
   error?: string;
+  source: 'manual' | 'low-stock-alert' | 'dealer-outstanding-report';
   createdAt: string;
 }

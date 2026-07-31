@@ -12,7 +12,7 @@ import { MessageTemplate, SmsLog } from '../../types/messageTemplate';
 import { formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
-const emptySmsForm = { userId: '', apiKey: '', senderId: '' };
+const emptySmsForm = { userId: '', apiKey: '', senderId: '', alertsPhone: '' };
 const emptyTemplateForm = { name: '', body: '' };
 
 export function Messaging() {
@@ -26,7 +26,13 @@ export function Messaging() {
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   const loadGarage = () => {
-    api.get<{ client: Client }>('/tenant/me').then(({ client }) => setGarage(client)).catch(() => setGarage(null));
+    api
+      .get<{ client: Client }>('/tenant/me')
+      .then(({ client }) => {
+        setGarage(client);
+        setSmsForm((f) => ({ ...f, alertsPhone: client.alertsPhone ?? '' }));
+      })
+      .catch(() => setGarage(null));
   };
   const loadTemplates = () => {
     api.get<{ templates: MessageTemplate[] }>('/message-templates').then(({ templates }) => setTemplates(templates)).catch(() => setTemplates([]));
@@ -45,7 +51,7 @@ export function Messaging() {
     try {
       const { client } = await api.post<{ client: Client }>('/tenant/sms-config', smsForm);
       setGarage(client);
-      setSmsForm(emptySmsForm);
+      setSmsForm({ ...emptySmsForm, alertsPhone: client.alertsPhone ?? '' });
       toast.success('SMS settings saved');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to save SMS settings');
@@ -99,6 +105,11 @@ export function Messaging() {
           <div>
             <Label htmlFor="sms-sender">Sender ID (optional)</Label>
             <Input id="sms-sender" value={smsForm.senderId} onChange={(e) => setSmsForm((f) => ({ ...f, senderId: e.target.value }))} placeholder="e.g. your garage name" />
+          </div>
+          <div className="sm:col-span-3">
+            <Label htmlFor="sms-alerts-phone">Alerts phone number (optional)</Label>
+            <Input id="sms-alerts-phone" value={smsForm.alertsPhone} onChange={(e) => setSmsForm((f) => ({ ...f, alertsPhone: e.target.value }))} placeholder="e.g. 0771234567" />
+            <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Where low-stock and weekly dealer-outstanding alerts are sent</p>
           </div>
           <div className="sm:col-span-3">
             <Button type="submit" loading={savingSms}>{garage?.hasSmsConfig ? 'Update credentials' : 'Connect notify.lk'}</Button>

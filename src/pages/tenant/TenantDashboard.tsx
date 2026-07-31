@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ClipboardListIcon,
@@ -18,16 +18,19 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { CardSkeleton } from '../../components/ui/Skeleton';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, useHasPermission } from '../../context/AuthContext';
 import { MODULES } from '../../data/modules';
 import { TenantDashboardSummary } from '../../types/tenantDashboard';
 import { formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
 export function TenantDashboard() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [summary, setSummary] = useState<TenantDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [purchasingKey, setPurchasingKey] = useState<string | null>(null);
+  const canPurchase = useHasPermission('billing:manage');
 
   useEffect(() => {
     api
@@ -36,6 +39,33 @@ export function TenantDashboard() {
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load dashboard'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Landed back here after a module/add-on purchase checkout
+  // (api/tenant/purchase.ts — temporarily disabled while payment providers
+  // are being switched, see that file) — refresh the cached user so a
+  // newly-unlocked item shows up without a fresh login, same pattern
+  // Customers.tsx already uses for its own ?customer= deep link.
+  useEffect(() => {
+    if (!searchParams.has('purchased')) return;
+    refreshUser();
+    toast.success('Purchase complete — welcome to your new module!');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('purchased');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams, refreshUser]);
+
+  const purchase = async (kind: 'module' | 'addon', key: string) => {
+    setPurchasingKey(key);
+    try {
+      const { url } = await api.post<{ url: string }>('/tenant/purchase', { kind, key });
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to start checkout');
+      setPurchasingKey(null);
+    }
+  };
 
   const activeModules = user?.modules ?? [];
   const activeAddOns = user?.addOns ?? [];
@@ -139,7 +169,10 @@ export function TenantDashboard() {
             subtitle={m.tagline}
             price={`${formatCurrency(m.price)}/mo`}
             tag="Full module"
-            tone="module" />
+            tone="module"
+            canPurchase={canPurchase}
+            purchasing={purchasingKey === m.id}
+            onUpgrade={() => purchase('module', m.id)} />
 
           )}
           {lockedAddOns.map((a) =>
@@ -149,7 +182,10 @@ export function TenantDashboard() {
             subtitle={a.moduleName}
             price={`+${formatCurrency(a.price)}/mo`}
             tag="Add-on"
-            tone="addon" />
+            tone="addon"
+            canPurchase={canPurchase}
+            purchasing={purchasingKey === a.id}
+            onUpgrade={() => purchase('addon', a.id)} />
 
           )}
         </div>
@@ -164,12 +200,15 @@ function LockedCard({
   subtitle,
   price,
   tag,
-  tone
+  tone,
+  canPurchase,
+  purchasing,
+  onUpgrade
 
 
 
 
-}: {title: string;subtitle: string;price: string;tag: string;tone: 'module' | 'addon';}) {
+}: {title: string;subtitle: string;price: string;tag: string;tone: 'module' | 'addon';canPurchase: boolean;purchasing: boolean;onUpgrade: () => void;}) {
   return (
     <div className="group relative overflow-hidden rounded-xl border border-dashed border-border-soft bg-soft-gray/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
       <div className="flex items-start justify-between">
@@ -182,9 +221,13 @@ function LockedCard({
       <p className="line-clamp-1 text-xs text-text-gray dark:text-slate-400">{subtitle}</p>
       <div className="mt-3 flex items-center justify-between">
         <span className="text-sm font-extrabold text-navy dark:text-slate-100">{price}</span>
-        <Button size="sm" onClick={() => toast.success(`Upgrade request sent for ${title} — our team will reach out.`)}>
-          Upgrade
-        </Button>
+        {canPurchase ? (
+          <Button size="sm" loading={purchasing} onClick={onUpgrade}>
+            Upgrade
+          </Button>
+        ) : (
+          <span className="text-xs text-text-gray dark:text-slate-500">Owner/Manager only</span>
+        )}
       </div>
     </div>);
 

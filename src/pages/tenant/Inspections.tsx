@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { CameraIcon, CalendarIcon, UserIcon, PlayIcon, ClipboardCheckIcon, PlusIcon, UploadIcon, XIcon, CopyIcon, Loader2Icon } from 'lucide-react';
+import { CameraIcon, CalendarIcon, UserIcon, PlayIcon, ClipboardCheckIcon, PlusIcon, UploadIcon, XIcon, CopyIcon, Loader2Icon, PencilIcon, ThumbsUpIcon, ThumbsDownIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -49,6 +49,11 @@ export function Inspections() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [approvalLink, setApprovalLink] = useState<string | null>(null);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ vehicle: '', plate: '', result: 'Pass' as InspectionResult, notes: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [respondingTo, setRespondingTo] = useState<'approved' | 'rejected' | null>(null);
 
   const loadInspections = () => {
     api
@@ -129,6 +134,54 @@ export function Inspections() {
     toast.success('Link copied');
   };
 
+  const openEdit = () => {
+    if (!selected) return;
+    setEditForm({ vehicle: selected.vehicle, plate: selected.plate ?? '', result: selected.result, notes: selected.notes ?? '' });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!selected || !editForm.vehicle.trim()) {
+      toast.error('Vehicle is required');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const { inspection } = await api.patch<{ inspection: Inspection }>(`/inspections/${selected.id}`, {
+        vehicle: editForm.vehicle,
+        plate: editForm.plate || undefined,
+        result: editForm.result,
+        notes: editForm.notes || undefined,
+      });
+      setInspections((prev) => prev.map((i) => (i.id === inspection.id ? inspection : i)));
+      setSelected(inspection);
+      setEditOpen(false);
+      toast.success('Inspection updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update inspection');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Manual override for the endpoint's own documented use case: staff
+  // records that a customer approved/rejected over the phone or in person,
+  // without the customer needing to click the public approval link.
+  const respondToApproval = async (decision: 'approved' | 'rejected') => {
+    if (!selected) return;
+    setRespondingTo(decision);
+    try {
+      const { inspection } = await api.patch<{ inspection: Inspection }>(`/inspections/${selected.id}`, { approvalStatus: decision });
+      setInspections((prev) => prev.map((i) => (i.id === inspection.id ? inspection : i)));
+      setSelected(inspection);
+      toast.success(`Recorded as ${decision}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to record response');
+    } finally {
+      setRespondingTo(null);
+    }
+  };
+
   const shareOnWhatsApp = () => {
     if (!approvalLink) return;
     const msg = encodeURIComponent(`Hi, additional work was found during your vehicle inspection. Please review and approve: ${approvalLink}`);
@@ -143,11 +196,17 @@ export function Inspections() {
         title="Digital Inspections"
         description="Photo & video inspection reports per vehicle."
         action={
-        <Button onClick={openCreate} disabled={noPrereqs} title={noPrereqs ? 'Add a customer and technician first' : undefined}>
+        <Button onClick={openCreate} disabled={noPrereqs}>
             <PlusIcon className="h-4 w-4" /> New inspection
           </Button>
         } />
 
+
+      {noPrereqs &&
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          You need at least one {customers.length === 0 && technicians.length === 0 ? 'customer and one technician' : customers.length === 0 ? 'customer' : 'technician'} before you can create an inspection.
+        </div>
+      }
 
       {loading ?
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,7 +279,17 @@ export function Inspections() {
       }
 
       {/* Detail modal */}
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.id} — ${selected.vehicle}` : ''} size="lg">
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? `${selected.id} — ${selected.vehicle}` : ''}
+        size="lg"
+        footer={
+        <Button variant="secondary" onClick={openEdit}>
+            <PencilIcon className="h-4 w-4" /> Edit
+          </Button>
+        }>
+
         {selected &&
         <div>
             {selected.media.length > 0 ?
@@ -264,24 +333,71 @@ export function Inspections() {
               </div>
           }
             {selected.approvalToken && selected.approvalStatus === 'pending' &&
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/40">
-                <p className="flex-1 truncate text-xs text-amber-800 dark:text-amber-300">
-                  {`${window.location.origin}/approve/${selected.approvalToken}`}
-                </p>
-                <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/approve/${selected.approvalToken}`);
-                toast.success('Link copied');
-              }}
-              className="shrink-0 rounded-lg p-1.5 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900">
+          <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/40">
+                  <p className="flex-1 truncate text-xs text-amber-800 dark:text-amber-300">
+                    {`${window.location.origin}/approve/${selected.approvalToken}`}
+                  </p>
+                  <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/approve/${selected.approvalToken}`);
+                  toast.success('Link copied');
+                }}
+                className="shrink-0 rounded-lg p-1.5 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900">
 
-                  <CopyIcon className="h-4 w-4" />
-                </button>
+                    <CopyIcon className="h-4 w-4" />
+                  </button>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-text-gray dark:text-slate-400">Or record their response yourself (e.g. approved by phone):</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => respondToApproval('rejected')} loading={respondingTo === 'rejected'} disabled={respondingTo !== null}>
+                      <ThumbsDownIcon className="h-4 w-4" /> Mark rejected
+                    </Button>
+                    <Button onClick={() => respondToApproval('approved')} loading={respondingTo === 'approved'} disabled={respondingTo !== null}>
+                      <ThumbsUpIcon className="h-4 w-4" /> Mark approved
+                    </Button>
+                  </div>
+                </div>
               </div>
           }
           </div>
         }
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit inspection"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveEdit} loading={savingEdit}>Save changes</Button>
+          </>
+        }>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="edit-vehicle">Vehicle</Label>
+            <Input id="edit-vehicle" value={editForm.vehicle} onChange={(e) => setEditForm({ ...editForm, vehicle: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="edit-plate">License plate</Label>
+            <Input id="edit-plate" value={editForm.plate} onChange={(e) => setEditForm({ ...editForm, plate: e.target.value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="edit-result">Result</Label>
+            <Select id="edit-result" value={editForm.result} onChange={(e) => setEditForm({ ...editForm, result: e.target.value as InspectionResult })}>
+              {RESULTS.map((r) => <option key={r}>{r}</option>)}
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="edit-notes">Technician notes</Label>
+            <Textarea id="edit-notes" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+          </div>
+        </div>
       </Modal>
 
       {/* Create modal */}

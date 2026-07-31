@@ -68,6 +68,98 @@ export function getBrandPalette(paletteId: string | undefined): BrandPalette {
   return BRAND_PALETTES.find((p) => p.id === paletteId) ?? DEFAULT_BRAND_PALETTE;
 }
 
+function hexToHsl(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  switch (max) {
+    case r:
+      h = (g - b) / d + (g < b ? 6 : 0);
+      break;
+    case g:
+      h = (b - r) / d + 2;
+      break;
+    default:
+      h = (r - g) / d + 4;
+  }
+  return [h * 60, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** Shifts a hex color's HSL lightness by a delta (positive = lighter, negative = darker), clamped to [0,1]. */
+function shiftLightness(hex: string, delta: number): string {
+  const [h, s, l] = hexToHsl(hex);
+  return hslToHex(h, s, Math.min(1, Math.max(0, l + delta)));
+}
+
+/**
+ * Derives a full 5-shade BrandPalette from one user-picked accent color via
+ * pure lightness shifts (no hue/saturation manipulation) — treats the input
+ * as the "royal" role (the most prominent existing preset color), darker
+ * shifts toward navy, lighter shifts toward cyan. Not as hand-tuned as the 9
+ * curated presets, but a reasonable, always-legible default derived from
+ * any input.
+ */
+export function paletteFromAccent(hex: string): BrandPalette {
+  return {
+    id: 'custom',
+    label: 'Custom',
+    colors: {
+      navy: shiftLightness(hex, -0.22),
+      royal: hex,
+      brightBlue: shiftLightness(hex, 0.08),
+      teal: shiftLightness(hex, 0.16),
+      cyan: shiftLightness(hex, 0.28),
+    },
+  };
+}
+
+/** Single resolution point for "what palette should currently render" — use this instead of getBrandPalette directly wherever a tenant's branding is being rendered, so a paletteId of 'custom' resolves to their derived accent palette instead of silently falling back to the default blue preset. */
+export function resolveBrandPalette(branding: { paletteId?: string; accentColor?: string } | undefined): BrandPalette {
+  if (branding?.paletteId === 'custom' && branding.accentColor) {
+    return paletteFromAccent(branding.accentColor);
+  }
+  return getBrandPalette(branding?.paletteId);
+}
+
+export interface FontOption {
+  id: string;
+  label: string;
+}
+
+// Curated, not arbitrary — same reasoning as the 9 curated palettes: avoids
+// illegible/broken font choices and keeps every tenant's dashboard looking
+// professional. Each must have a matching @import in src/index.css.
+export const FONT_OPTIONS: FontOption[] = [
+  { id: 'Inter', label: 'Inter (default)' },
+  { id: 'Roboto', label: 'Roboto' },
+  { id: 'Poppins', label: 'Poppins' },
+  { id: 'Nunito', label: 'Nunito' },
+  { id: 'Manrope', label: 'Manrope' },
+];
+
 /** Resolves a palette into the inline CSS custom properties TenantThemeScope applies. */
 export function paletteCssVars(palette: BrandPalette): CSSProperties {
   return {
