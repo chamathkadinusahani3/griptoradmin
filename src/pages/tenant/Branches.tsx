@@ -10,16 +10,16 @@ import { Input, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Branch } from '../../types/branch';
-import { Client } from '../../types/client';
 import { Service } from '../../types/service';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 const emptyForm = { name: '', address: '', phone: '' };
 const emptyEditForm = { capacityPerSlot: '', serviceCategories: [] as string[] };
 
 export function Branches() {
+  const { user } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [garage, setGarage] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -30,7 +30,7 @@ export function Branches() {
   const [savingEdit, setSavingEdit] = useState(false);
   const autoCreated = useRef(false);
 
-  const multiEnabled = garage?.addOns.includes('gms-multi') ?? false;
+  const multiEnabled = user?.addOns?.includes('gms-multi') ?? false;
   const serviceCategoryOptions = [...new Set(services.map((s) => s.category).filter((c): c is string => !!c))].sort((a, b) =>
     a.localeCompare(b)
   );
@@ -46,9 +46,6 @@ export function Branches() {
 
   useEffect(loadBranches, []);
   useEffect(() => {
-    api.get<{ client: Client }>('/tenant/me').then(({ client }) => setGarage(client)).catch(() => setGarage(null));
-  }, []);
-  useEffect(() => {
     api.get<{ services: Service[] }>('/services').then(({ services }) => setServices(services)).catch(() => setServices([]));
   }, []);
 
@@ -56,13 +53,13 @@ export function Branches() {
   // default one named after the garage, so multi-location isn't a blank
   // page the tenant has to figure out how to bootstrap.
   useEffect(() => {
-    if (!multiEnabled || loading || branches.length > 0 || autoCreated.current || !garage) return;
+    if (!multiEnabled || loading || branches.length > 0 || autoCreated.current || !user?.garageName) return;
     autoCreated.current = true;
     api
-      .post<{ branch: Branch }>('/branches', { name: garage.name })
+      .post<{ branch: Branch }>('/branches', { name: user.garageName })
       .then(({ branch }) => setBranches([branch]))
-      .catch(() => {});
-  }, [multiEnabled, loading, branches.length, garage]);
+      .catch(() => undefined);
+  }, [multiEnabled, loading, branches.length, user]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

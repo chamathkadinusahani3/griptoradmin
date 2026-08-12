@@ -31,14 +31,14 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'branches:manage');
   if (!session) return;
 
-  if (!(await hasAddOn(session.clientId, 'gms-multi'))) {
-    return res.status(400).json({ error: 'Multi-location Support is not enabled for this account' });
-  }
-
   const { name, address, phone } = (req.body ?? {}) as CreateBranchBody;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   await connectToDatabase();
+
+  if (!(await hasAddOn(session.clientId, 'gms-multi'))) {
+    return res.status(400).json({ error: 'Multi-location Support is not enabled for this account' });
+  }
 
   const existingCount = await Branch.countDocuments({ clientId: session.clientId });
   const branch = await Branch.create({

@@ -11,7 +11,7 @@ import { Input, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { CardSkeleton } from '../../components/ui/Skeleton';
 import { Supplier } from '../../types/supplier';
-import { formatDate } from '../../lib/utils';
+import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
 const emptyForm = { name: '', contact: '', email: '' };
@@ -88,7 +88,7 @@ export function Suppliers() {
             }
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div className="mt-4 grid grid-cols-2 gap-3 text-center">
               <div className="rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
                 <p className="text-xs font-semibold text-text-gray dark:text-slate-400">Contact</p>
                 <p className="mt-0.5 truncate text-sm font-bold text-navy dark:text-slate-100">{s.contact || '—'}</p>
@@ -100,6 +100,10 @@ export function Suppliers() {
               <div className="rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
                 <p className="flex items-center justify-center gap-1 text-xs font-semibold text-text-gray dark:text-slate-400"><PackageCheckIcon className="h-3 w-3" /> On-time</p>
                 <p className="mt-0.5 text-sm font-bold text-navy dark:text-slate-100">{s.onTime != null ? `${s.onTime}%` : '—'}</p>
+              </div>
+              <div className="rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
+                <p className="text-xs font-semibold text-text-gray dark:text-slate-400">Owed</p>
+                <p className={`mt-0.5 text-sm font-bold ${s.totalOutstanding > 0 ? 'text-amber-500' : 'text-navy dark:text-slate-100'}`}>{formatCurrency(s.totalOutstanding)}</p>
               </div>
             </div>
 

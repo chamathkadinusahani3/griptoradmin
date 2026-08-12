@@ -42,6 +42,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (existing.status === 'Completed') {
     return res.status(400).json({ error: 'This job is completed — its parts list is locked' });
   }
+  if (existing.status === 'Cancelled') {
+    return res.status(400).json({ error: 'This job is cancelled — its parts list is locked' });
+  }
 
   const dbSession = await mongoose.startSession();
   try {
@@ -63,15 +66,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await Part.updateOne({ _id: part._id }, { $inc: { stock: -qty } }, { session: dbSession });
 
       const job = await JobCard.findOneAndUpdate(
-        { _id: id, clientId: session.clientId, status: { $ne: 'Completed' } },
+        { _id: id, clientId: session.clientId, status: { $nin: ['Completed', 'Cancelled'] } },
         { $push: { partsUsed: { partId: part._id, name: part.name, price: part.price, qty } } },
         { session: dbSession, returnDocument: 'after' }
       );
       if (!job) {
-        // The job was completed by a concurrent request between our read
-        // above and this write — abort the whole transaction, including
-        // the stock decrement just made.
-        throw Object.assign(new Error('This job is completed — its parts list is locked'), { statusCode: 400 });
+        // The job was completed or cancelled by a concurrent request between
+        // our read above and this write — abort the whole transaction,
+        // including the stock decrement just made.
+        throw Object.assign(new Error('This job is completed or cancelled — its parts list is locked'), { statusCode: 400 });
       }
       updated = job.toObject() as JobCardDoc;
     });

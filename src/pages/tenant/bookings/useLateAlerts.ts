@@ -57,7 +57,7 @@ export function useLateAlerts(bookings: Booking[], onBookingUpdated: (booking: B
           api
             .post<{ booking: Booking }>(`/bookings/${b.id}/late-alert`, { minutesLate })
             .then(({ booking }) => onBookingUpdated(booking))
-            .catch(() => {});
+            .catch(() => undefined);
         }
 
         if (!dismissedRef.current[tier].has(b.id)) {

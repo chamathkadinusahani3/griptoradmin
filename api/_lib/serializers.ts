@@ -8,6 +8,8 @@ import { TechnicianDoc } from './models/Technician.js';
 import { JobCardDoc } from './models/JobCard.js';
 import { SupplierDoc } from './models/Supplier.js';
 import { PartDoc } from './models/Part.js';
+import { BankAccountDoc } from './models/BankAccount.js';
+import { ReturnDoc } from './models/Return.js';
 import { InspectionDoc } from './models/Inspection.js';
 import { SaleDoc } from './models/Sale.js';
 import { ReminderDoc } from './models/Reminder.js';
@@ -153,6 +155,7 @@ export function serializeCustomer(customer: CustomerDoc) {
     discountPct: customer.discountPct ?? 0,
     creditPeriodDays: customer.creditPeriodDays ?? 30,
     hasPortalAccount: !!customer.passwordHash,
+    sourceModule: customer.sourceModule,
   };
 }
 
@@ -331,7 +334,13 @@ export function serializeBay(
 // drop-in for any other future caller of serializeSupplier.
 export function serializeSupplier(
   supplier: SupplierDoc,
-  stats?: { openOrders: number; lastOrder: Date | null; onTime: number | null }
+  stats?: {
+    openOrders: number;
+    lastOrder: Date | null;
+    onTime: number | null;
+    totalOutstanding?: number;
+    totalPaid?: number;
+  }
 ) {
   return {
     id: supplier._id.toString(),
@@ -341,6 +350,44 @@ export function serializeSupplier(
     openOrders: stats ? stats.openOrders : supplier.openOrders,
     lastOrder: stats ? stats.lastOrder ?? undefined : supplier.lastOrder,
     onTime: stats ? stats.onTime ?? undefined : supplier.onTime,
+    totalOutstanding: stats?.totalOutstanding ?? 0,
+    totalPaid: stats?.totalPaid ?? 0,
+  };
+}
+
+export function serializeReturn(ret: ReturnDoc, party?: string, reference?: string) {
+  return {
+    id: ret._id.toString(),
+    direction: ret.direction,
+    sourceType: ret.sourceType,
+    sourceId: ret.sourceId.toString(),
+    returnNumber: ret.returnNumber,
+    items: ret.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+    totalAmount: ret.totalAmount,
+    reason: ret.reason,
+    notes: ret.notes,
+    refundAmount: ret.refundAmount,
+    refundMethod: ret.refundMethod,
+    chequeNumber: ret.chequeNumber,
+    bankAccountId: ret.bankAccountId?.toString(),
+    refundDate: ret.refundDate,
+    reconciled: !!ret.reconciled,
+    reconciledAt: ret.reconciledAt,
+    party,
+    reference,
+    createdAt: (ret as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeBankAccount(account: BankAccountDoc) {
+  return {
+    id: account._id.toString(),
+    bankName: account.bankName,
+    accountNumber: account.accountNumber,
+    accountHolderName: account.accountHolderName,
+    branch: account.branch,
+    notes: account.notes,
+    createdAt: (account as unknown as { createdAt: Date }).createdAt,
   };
 }
 
@@ -407,6 +454,20 @@ export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: s
     expectedDate: order.expectedDate,
     receivedAt: order.receivedAt,
     notes: order.notes,
+    paidAmount: order.paidAmount ?? 0,
+    balance: order.balance ?? order.total,
+    paymentStatus: order.paymentStatus ?? 'Unpaid',
+    paymentHistory: (order.paymentHistory ?? []).map((p) => ({
+      id: p._id?.toString(),
+      amount: p.amount,
+      method: p.method,
+      date: p.date,
+      notes: p.notes,
+      chequeNumber: p.chequeNumber,
+      bankAccountId: p.bankAccountId?.toString(),
+      reconciled: !!p.reconciled,
+      reconciledAt: p.reconciledAt,
+    })),
     createdAt: (order as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -625,7 +686,18 @@ export function serializeCustomerInvoice(inv: CustomerInvoiceDoc, customerName?:
     paidAmount: inv.paidAmount,
     balance: inv.balance,
     paymentStatus: inv.paymentStatus,
-    paymentHistory: inv.paymentHistory,
+    paymentHistory: inv.paymentHistory.map((p) => ({
+      id: p._id?.toString(),
+      amount: p.amount,
+      method: p.method,
+      date: p.date,
+      notes: p.notes,
+      payherePaymentId: p.payherePaymentId,
+      chequeNumber: p.chequeNumber,
+      bankAccountId: p.bankAccountId?.toString(),
+      reconciled: !!p.reconciled,
+      reconciledAt: p.reconciledAt,
+    })),
     dueDate: inv.dueDate,
     notes: inv.notes,
     createdAt: (inv as unknown as { createdAt: Date }).createdAt,

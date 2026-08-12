@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ShoppingCartIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon } from 'lucide-react';
+import { ShoppingCartIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, PencilIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -11,9 +11,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { PurchaseOrder, PurchaseOrderStatus } from '../../types/purchaseOrder';
+import { PurchaseOrder, PurchaseOrderStatus, SupplierPaymentMethod } from '../../types/purchaseOrder';
 import { Supplier } from '../../types/supplier';
 import { Part } from '../../types/part';
+import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
@@ -41,6 +42,14 @@ export function PurchaseOrders() {
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<PurchaseOrder | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<SupplierPaymentMethod>('Cash');
+  const [payChequeNumber, setPayChequeNumber] = useState('');
+  const [payBankAccountId, setPayBankAccountId] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   const loadOrders = () => {
     api
@@ -53,8 +62,21 @@ export function PurchaseOrders() {
   useEffect(loadOrders, []);
 
   useEffect(() => {
-    api.get<{ suppliers: Supplier[] }>('/suppliers').then(({ suppliers }) => setSuppliers(suppliers)).catch(() => setSuppliers([]));
-    api.get<{ parts: Part[] }>('/parts').then(({ parts }) => setParts(parts)).catch(() => setParts([]));
+    api
+      .get<{ suppliers: Supplier[] }>('/suppliers')
+      .then(({ suppliers }) => setSuppliers(suppliers))
+      .catch((err) => {
+        setSuppliers([]);
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load suppliers');
+      });
+    api
+      .get<{ parts: Part[] }>('/parts')
+      .then(({ parts }) => setParts(parts))
+      .catch((err) => {
+        setParts([]);
+        toast.error(err instanceof ApiError ? err.message : 'Failed to load parts');
+      });
+    api.get<{ bankAccounts: BankAccount[] }>('/bank-accounts').then(({ bankAccounts }) => setBankAccounts(bankAccounts)).catch(() => setBankAccounts([]));
   }, []);
 
   // Arriving from Suppliers.tsx's "Reorder"/"View orders" buttons — filters
@@ -78,10 +100,20 @@ export function PurchaseOrders() {
   );
 
   const openCreate = (presetSupplierId = '') => {
+    setEditingOrderId(null);
     setSupplierId(presetSupplierId || suppliers[0]?.id || '');
     setExpectedDate('');
     setNotes('');
     setLines([]);
+    setModalOpen(true);
+  };
+
+  const openEdit = (order: PurchaseOrder) => {
+    setEditingOrderId(order.id);
+    setSupplierId(order.supplierId);
+    setExpectedDate(order.expectedDate ? order.expectedDate.slice(0, 10) : '');
+    setNotes(order.notes ?? '');
+    setLines(order.items.map((i) => ({ partId: i.partId, quantity: i.quantity, unitCost: i.unitCost })));
     setModalOpen(true);
   };
 
@@ -104,17 +136,27 @@ export function PurchaseOrders() {
     }
     setSaving(true);
     try {
-      const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>('/purchase-orders', {
-        supplierId,
-        items: lines,
-        expectedDate: expectedDate || undefined,
-        notes: notes || undefined,
-      });
-      setOrders((prev) => [purchaseOrder, ...prev]);
-      toast.success(`${purchaseOrder.poNumber} created`);
+      if (editingOrderId) {
+        const { purchaseOrder } = await api.patch<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${editingOrderId}`, {
+          items: lines,
+          expectedDate: expectedDate || undefined,
+          notes: notes || undefined,
+        });
+        setOrders((prev) => prev.map((o) => (o.id === purchaseOrder.id ? purchaseOrder : o)));
+        toast.success(`${purchaseOrder.poNumber} updated`);
+      } else {
+        const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>('/purchase-orders', {
+          supplierId,
+          items: lines,
+          expectedDate: expectedDate || undefined,
+          notes: notes || undefined,
+        });
+        setOrders((prev) => [purchaseOrder, ...prev]);
+        toast.success(`${purchaseOrder.poNumber} created`);
+      }
       setModalOpen(false);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to create purchase order');
+      toast.error(err instanceof ApiError ? err.message : `Failed to ${editingOrderId ? 'update' : 'create'} purchase order`);
     } finally {
       setSaving(false);
     }
@@ -130,6 +172,43 @@ export function PurchaseOrders() {
       toast.error(err instanceof ApiError ? err.message : 'Failed to update purchase order');
     } finally {
       setActingId(null);
+    }
+  };
+
+  const openPay = (order: PurchaseOrder) => {
+    setPayTarget(order);
+    setPayAmount(String(order.balance));
+    setPayMethod('Cash');
+    setPayChequeNumber('');
+    setPayBankAccountId('');
+  };
+
+  const recordPayment = async () => {
+    if (!payTarget) return;
+    const amount = Number(payAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Enter a valid payment amount');
+      return;
+    }
+    if (payMethod === 'Cheque' && !payChequeNumber.trim()) {
+      toast.error('Enter the cheque number');
+      return;
+    }
+    setPaying(true);
+    try {
+      const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${payTarget.id}/payment`, {
+        amount,
+        method: payMethod,
+        chequeNumber: payMethod === 'Cheque' ? payChequeNumber.trim() : undefined,
+        bankAccountId: payBankAccountId || undefined,
+      });
+      setOrders((prev) => prev.map((o) => (o.id === purchaseOrder.id ? purchaseOrder : o)));
+      toast.success('Payment recorded');
+      setPayTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to record payment');
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -184,6 +263,7 @@ export function PurchaseOrders() {
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{o.poNumber}</p>
                     <StatusBadge status={o.status} />
+                    {(o.status === 'Ordered' || o.status === 'Received') && <StatusBadge status={o.paymentStatus} />}
                   </div>
                   <p className="mt-1 text-xs text-text-gray dark:text-slate-400">{o.supplier} · {o.items.length} item{o.items.length === 1 ? '' : 's'}</p>
                   <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
@@ -191,11 +271,22 @@ export function PurchaseOrders() {
                     {o.expectedDate && ` · Expected ${formatDate(o.expectedDate)}`}
                     {o.receivedAt && ` · Received ${formatDate(o.receivedAt)}`}
                   </p>
+                  {(o.status === 'Ordered' || o.status === 'Received') && o.paidAmount > 0 &&
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                      Paid {formatCurrency(o.paidAmount)}{o.balance > 0 ? ` · Owed ${formatCurrency(o.balance)}` : ''}
+                    </p>
+              }
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="teal">{formatCurrency(o.total)}</Badge>
+                  {(o.status === 'Ordered' || o.status === 'Received') && o.balance > 0 &&
+              <Button size="sm" variant="secondary" onClick={() => openPay(o)}>Record payment</Button>
+              }
                   {o.status === 'Draft' &&
               <>
+                      <button onClick={() => openEdit(o)} aria-label={`Edit ${o.poNumber}`} className="rounded-lg p-2 text-slate-400 transition hover:bg-soft-gray hover:text-navy dark:hover:bg-slate-800 dark:hover:text-slate-100">
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
                       <Button size="sm" variant="secondary" loading={actingId === o.id} onClick={() => runAction(o, 'order', `${o.poNumber} marked as ordered`)}>Mark as ordered</Button>
                       <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
                     </>
@@ -218,12 +309,12 @@ export function PurchaseOrders() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="New purchase order"
+        title={editingOrderId ? 'Edit purchase order' : 'New purchase order'}
         size="xl"
         footer={
         <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={save} loading={saving}>Create purchase order</Button>
+            <Button onClick={save} loading={saving}>{editingOrderId ? 'Save changes' : 'Create purchase order'}</Button>
           </>
         }>
 
@@ -233,6 +324,7 @@ export function PurchaseOrders() {
             <Select
               id="po-supplier"
               value={supplierId}
+              disabled={!!editingOrderId}
               onChange={(e) => {
                 setSupplierId(e.target.value);
                 setLines([]);
@@ -240,6 +332,7 @@ export function PurchaseOrders() {
 
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
+            {editingOrderId && <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Supplier can't be changed after creation.</p>}
           </div>
           <div>
             <Label htmlFor="po-expected">Expected date (optional)</Label>
@@ -285,6 +378,51 @@ export function PurchaseOrders() {
         <div className="mt-4">
           <Label htmlFor="po-notes">Notes</Label>
           <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!payTarget}
+        onClose={() => setPayTarget(null)}
+        title={payTarget ? `Record payment — ${payTarget.poNumber}` : ''}
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setPayTarget(null)}>Cancel</Button>
+            <Button onClick={recordPayment} loading={paying}>Record payment</Button>
+          </>
+        }>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="pay-amount">Amount</Label>
+            <Input id="pay-amount" type="number" min={0} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+            {payTarget && <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Owed: {formatCurrency(payTarget.balance)}</p>}
+          </div>
+          <div>
+            <Label htmlFor="pay-method">Method</Label>
+            <Select id="pay-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as SupplierPaymentMethod)}>
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Other">Other</option>
+            </Select>
+          </div>
+          {payMethod === 'Cheque' &&
+          <div>
+              <Label htmlFor="pay-cheque">Cheque number</Label>
+              <Input id="pay-cheque" value={payChequeNumber} onChange={(e) => setPayChequeNumber(e.target.value)} placeholder="e.g. 000123" />
+            </div>
+          }
+          {(payMethod === 'Cheque' || payMethod === 'Bank Transfer') && bankAccounts.length > 0 &&
+          <div>
+              <Label htmlFor="pay-bank">Bank account (optional)</Label>
+              <Select id="pay-bank" value={payBankAccountId} onChange={(e) => setPayBankAccountId(e.target.value)}>
+                <option value="">— none —</option>
+                {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNumber}</option>)}
+              </Select>
+            </div>
+          }
         </div>
       </Modal>
     </div>);

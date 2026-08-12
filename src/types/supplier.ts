@@ -6,4 +6,6 @@ export interface Supplier {
   openOrders: number;
   lastOrder?: string;
   onTime?: number;
+  totalOutstanding: number;
+  totalPaid: number;
 }

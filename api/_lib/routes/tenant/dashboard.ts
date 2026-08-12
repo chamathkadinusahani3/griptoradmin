@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await connectToDatabase();
 
   const [openJobs, parts, upcomingReminders] = await Promise.all([
-    JobCard.countDocuments({ clientId: session.clientId, status: { $ne: 'Completed' } }),
+    JobCard.countDocuments({ clientId: session.clientId, status: { $nin: ['Completed', 'Cancelled'] } }),
     Part.find({ clientId: session.clientId }).lean(),
     Reminder.countDocuments({ clientId: session.clientId, status: 'Scheduled' }),
   ]);

@@ -33,7 +33,7 @@ const JobCardSchema = new Schema(
     // The quoted/expected amount — kept as a simple staff-entered figure
     // (see partsUsed/laborCost below for the real actual-cost tracking).
     estimate: { type: Number, default: 0 },
-    status: { type: String, enum: ['New', 'In Progress', 'Awaiting Parts', 'Completed'], default: 'New' },
+    status: { type: String, enum: ['New', 'In Progress', 'Awaiting Parts', 'Completed', 'Cancelled'], default: 'New' },
     checklist: { type: [ChecklistItemSchema], default: [] },
     bayId: { type: Schema.Types.ObjectId, ref: 'Bay' },
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch' },

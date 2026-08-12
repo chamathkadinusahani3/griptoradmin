@@ -94,6 +94,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     items: lines,
     subtotal,
     total: subtotal,
+    balance: subtotal,
     status: 'Draft',
     expectedDate: expectedDate ? new Date(expectedDate) : undefined,
     notes,

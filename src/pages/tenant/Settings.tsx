@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, CopyIcon, LockIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -158,6 +158,14 @@ export function Settings() {
   const otherSelfServePlan: SelfServePlan = garage.plan === 'Starter' ? 'Professional' : 'Starter';
   const trialEndsAt = garage.trialEndsAt ? new Date(garage.trialEndsAt) : null;
   const trialDaysLeft = trialEndsAt ? Math.ceil((trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : null;
+  const loginLink = garage.slug ? `${window.location.origin}/login/${garage.slug}` : null;
+  const copyLoginLink = () => {
+    if (!loginLink) return;
+    navigator.clipboard.writeText(loginLink);
+    toast.success('Link copied');
+  };
+  const brandingEnabled = garage.addOns.includes('gms-brand');
+  const canEditBranding = canEdit && brandingEnabled;
 
   return (
     <div>
@@ -195,6 +203,15 @@ export function Settings() {
 
         <Card>
           <CardHeader title="Branding" subtitle="Your dashboard's color palette, logo, and default theme" />
+          {!brandingEnabled && (
+            <div className="mx-5 mb-1 flex items-center gap-3 rounded-xl border border-border-soft bg-soft-gray p-3 dark:border-slate-800 dark:bg-slate-800/60">
+              <LockIcon className="h-5 w-5 shrink-0 text-text-gray dark:text-slate-400" />
+              <div>
+                <p className="text-sm font-bold text-navy dark:text-slate-100">Custom Branding isn't enabled</p>
+                <p className="text-xs text-text-gray dark:text-slate-400">Ask GRIPTOR to enable the Custom Branding add-on to change your logo, colors, and theme.</p>
+              </div>
+            </div>
+          )}
           <div className="space-y-5 p-5">
             <div>
               <Label>Color palette</Label>
@@ -203,7 +220,7 @@ export function Settings() {
                   <button
                     key={p.id}
                     type="button"
-                    disabled={!canEdit}
+                    disabled={!canEditBranding}
                     onClick={() => setPaletteId(p.id)}
                     className={cn(
                       'rounded-xl border-2 p-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
@@ -223,7 +240,7 @@ export function Settings() {
                 ))}
                 <button
                   type="button"
-                  disabled={!canEdit}
+                  disabled={!canEditBranding}
                   onClick={() => setPaletteId('custom')}
                   className={cn(
                     'rounded-xl border-2 p-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60',
@@ -251,7 +268,7 @@ export function Settings() {
                   <input
                     type="color"
                     aria-label="Custom accent color"
-                    disabled={!canEdit}
+                    disabled={!canEditBranding}
                     value={accentColor ?? '#2164B4'}
                     onChange={(e) => setAccentColor(e.target.value)}
                     className="h-10 w-14 shrink-0 cursor-pointer rounded-lg border border-border-soft bg-transparent p-1 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700"
@@ -276,11 +293,11 @@ export function Settings() {
                     id="logo-input"
                     type="file"
                     accept="image/*"
-                    disabled={!canEdit}
+                    disabled={!canEditBranding}
                     onChange={handleLogoChange}
                     className="block w-full text-sm text-text-gray file:mr-3 file:rounded-lg file:border-0 file:bg-light-blue file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-royal disabled:opacity-60 dark:text-slate-400"
                   />
-                  {logoDataUrl && canEdit && (
+                  {logoDataUrl && canEditBranding && (
                     <button
                       type="button"
                       onClick={() => setLogoDataUrl(undefined)}
@@ -302,13 +319,13 @@ export function Settings() {
                 <span className="text-xs font-semibold text-text-gray dark:text-slate-400">
                   {defaultMode === 'dark' ? 'Dark' : 'Light'}
                 </span>
-                <Toggle checked={defaultMode === 'dark'} disabled={!canEdit} onChange={(next) => setDefaultMode(next ? 'dark' : 'light')} />
+                <Toggle checked={defaultMode === 'dark'} disabled={!canEditBranding} onChange={(next) => setDefaultMode(next ? 'dark' : 'light')} />
               </div>
             </div>
 
             <div>
               <Label htmlFor="font-select">Font</Label>
-              <Select id="font-select" value={fontFamily} disabled={!canEdit} onChange={(e) => setFontFamily(e.target.value)}>
+              <Select id="font-select" value={fontFamily} disabled={!canEditBranding} onChange={(e) => setFontFamily(e.target.value)}>
                 {FONT_OPTIONS.map((f) => (
                   <option key={f.id} value={f.id} style={{ fontFamily: f.id }}>
                     {f.label}
@@ -319,19 +336,29 @@ export function Settings() {
 
             <div>
               <Label htmlFor="sidebar-style-select">Sidebar style</Label>
-              <Select id="sidebar-style-select" value={sidebarStyle} disabled={!canEdit} onChange={(e) => setSidebarStyle(e.target.value as 'expanded' | 'compact')}>
+              <Select id="sidebar-style-select" value={sidebarStyle} disabled={!canEditBranding} onChange={(e) => setSidebarStyle(e.target.value as 'expanded' | 'compact')}>
                 <option value="expanded">Expanded (default)</option>
                 <option value="compact">Compact</option>
               </Select>
             </div>
 
-            {canEdit && (
+            {canEditBranding && (
               <Button loading={savingBranding} onClick={saveBranding}>
                 Save branding
               </Button>
             )}
           </div>
         </Card>
+
+        {loginLink && (
+          <Card>
+            <CardHeader title="Your admin login link" subtitle="Bookmark this so your staff sign in to a branded page with your logo and colors" />
+            <div className="flex items-center gap-2 p-5 pt-0">
+              <p className="flex-1 truncate rounded-xl bg-soft-gray px-3 py-2 text-sm text-navy dark:bg-slate-800/60 dark:text-slate-200">{loginLink}</p>
+              <Button variant="secondary" onClick={copyLoginLink}><CopyIcon className="h-4 w-4" /> Copy</Button>
+            </div>
+          </Card>
+        )}
 
         <Card>
           <CardHeader title="Plan" subtitle="Your subscription with Griptor" />

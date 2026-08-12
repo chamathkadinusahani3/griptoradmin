@@ -17,15 +17,30 @@ const LineItemSchema = new Schema(
 const PaymentRecordSchema = new Schema(
   {
     amount: { type: Number, required: true },
-    method: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Other', 'PayHere'], required: true },
+    method: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other', 'PayHere'], required: true },
     date: { type: Date, required: true },
     notes: { type: String },
     // Only set for method: 'PayHere' — the notify callback's idempotency
     // key (PayHere's payment_id), so a redelivered notification can't
     // double-record the same payment.
     payherePaymentId: { type: String },
-  },
-  { _id: false }
+    // Only meaningful for method: 'Cheque'.
+    chequeNumber: { type: String },
+    // Which BankAccount this cheque/transfer went through — unset for Cash
+    // (and typically PayHere, which settles to whatever account is on file
+    // with the gateway, not tracked here).
+    bankAccountId: { type: Schema.Types.ObjectId, ref: 'BankAccount' },
+    // Reconciliation is deliberately a simple manual flag (not statement
+    // import/matching) — flipped once this payment shows up on the actual
+    // bank statement. See PurchaseOrder.ts's identical fields for the other
+    // direction of money.
+    reconciled: { type: Boolean, default: false },
+    reconciledAt: { type: Date },
+  }
+  // No { _id: false } here (unlike the rest of this codebase's subdocument
+  // convention) — reconciliation needs to address one specific payment
+  // entry, and payments are append-only (never reordered/removed), so a
+  // real per-entry _id is worth the extra bytes.
 );
 
 const CustomerInvoiceSchema = new Schema(

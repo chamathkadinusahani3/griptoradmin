@@ -74,6 +74,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     update.items = lines;
     update.subtotal = Math.round(subtotal * 100) / 100;
     update.total = update.subtotal;
+    // Safe to mirror straight onto balance — payments are only ever
+    // recordable once a PO leaves Draft (see purchaseOrderPayments.ts), so
+    // paidAmount is guaranteed 0 here.
+    update.balance = update.total;
   }
 
   const updated = (await PurchaseOrder.findOneAndUpdate({ _id: id, clientId: session.clientId, status: 'Draft' }, update, {

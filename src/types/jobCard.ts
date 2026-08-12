@@ -1,4 +1,4 @@
-export type JobStatus = 'New' | 'In Progress' | 'Awaiting Parts' | 'Completed';
+export type JobStatus = 'New' | 'In Progress' | 'Awaiting Parts' | 'Completed' | 'Cancelled';
 
 export interface ChecklistItem {
   label: string;

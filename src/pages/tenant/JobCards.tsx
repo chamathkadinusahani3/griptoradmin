@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { PlusIcon, XIcon, CarIcon, UserIcon, ChevronRightIcon, ChevronLeftIcon, ReceiptIcon, WrenchIcon } from 'lucide-react';
+import { PlusIcon, XIcon, CarIcon, UserIcon, ChevronRightIcon, ChevronLeftIcon, ReceiptIcon, WrenchIcon, LayoutGridIcon, ListIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { StatusBadge } from '../../components/StatusBadge';
+import { Card } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { JobCard, JobStatus, ChecklistItem } from '../../types/jobCard';
@@ -54,6 +57,13 @@ export function JobCards() {
   const [addPartQty, setAddPartQty] = useState('1');
   const [addingPart, setAddingPart] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  // customers/technicians both start as [] before their fetch resolves, so
+  // "0 customers" and "still loading" are indistinguishable by array length
+  // alone — without this, the "you need a customer/technician" warning (and
+  // disabled New job card button) flashes on every load even when the
+  // tenant already has both, until the fetch finishes.
+  const [prereqsLoading, setPrereqsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
 
   const loadJobs = () => {
     api
@@ -65,8 +75,10 @@ export function JobCards() {
   useEffect(loadJobs, [branchFilter]);
 
   useEffect(() => {
-    api.get<{ customers: Customer[] }>('/customers').then(({ customers }) => setCustomers(customers)).catch(() => setCustomers([]));
-    api.get<{ technicians: Technician[] }>('/technicians').then(({ technicians }) => setTechnicians(technicians)).catch(() => setTechnicians([]));
+    Promise.allSettled([
+      api.get<{ customers: Customer[] }>('/customers').then(({ customers }) => setCustomers(customers)).catch(() => setCustomers([])),
+      api.get<{ technicians: Technician[] }>('/technicians').then(({ technicians }) => setTechnicians(technicians)).catch(() => setTechnicians([])),
+    ]).finally(() => setPrereqsLoading(false));
     api.get<{ bays: Bay[] }>('/bays').then(({ bays }) => setBays(bays)).catch(() => setBays([]));
     api.get<{ branches: Branch[] }>('/branches').then(({ branches }) => setBranches(branches)).catch(() => setBranches([]));
     api.get<{ parts: Part[] }>('/parts').then(({ parts }) => setParts(parts)).catch(() => setParts([]));
@@ -123,7 +135,7 @@ export function JobCards() {
       setAddPartQty('1');
       // Stock just changed — refresh the parts list so the picker's own
       // stock figures don't go stale.
-      api.get<{ parts: Part[] }>('/parts').then(({ parts }) => setParts(parts)).catch(() => {});
+      api.get<{ parts: Part[] }>('/parts').then(({ parts }) => setParts(parts)).catch(() => undefined);
       toast.success('Part added');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to add part');
@@ -205,13 +217,37 @@ export function JobCards() {
         title="Job Cards"
         description="Track every job through your workshop pipeline."
         action={
-        <Button onClick={openCreate} disabled={customers.length === 0 || technicians.length === 0}>
-            <PlusIcon className="h-4 w-4" /> New job card
-          </Button>
+        <div className="flex items-center gap-2">
+            <div className="flex rounded-xl border border-border-soft p-0.5 dark:border-slate-800">
+              <button
+              type="button"
+              onClick={() => setViewMode('board')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition',
+                viewMode === 'board' ? 'bg-griptor-gradient text-white' : 'text-text-gray hover:text-navy dark:text-slate-400 dark:hover:text-slate-100'
+              )}>
+
+                <LayoutGridIcon className="h-3.5 w-3.5" /> Board
+              </button>
+              <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition',
+                viewMode === 'list' ? 'bg-griptor-gradient text-white' : 'text-text-gray hover:text-navy dark:text-slate-400 dark:hover:text-slate-100'
+              )}>
+
+                <ListIcon className="h-3.5 w-3.5" /> List
+              </button>
+            </div>
+            <Button onClick={openCreate} disabled={prereqsLoading || customers.length === 0 || technicians.length === 0} loading={prereqsLoading}>
+              <PlusIcon className="h-4 w-4" /> New job card
+            </Button>
+          </div>
         } />
 
 
-      {(customers.length === 0 || technicians.length === 0) &&
+      {!prereqsLoading && (customers.length === 0 || technicians.length === 0) &&
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           You need at least one {customers.length === 0 && technicians.length === 0 ? 'customer and one technician' : customers.length === 0 ? 'customer' : 'technician'} before you can create a job card.
         </div>
@@ -226,6 +262,7 @@ export function JobCards() {
         </div>
       }
 
+      {viewMode === 'board' &&
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {STATUSES.map((col) => {
           const items = jobs.filter((j) => j.status === col.key);
@@ -284,6 +321,44 @@ export function JobCards() {
 
         })}
       </div>
+      }
+
+      {viewMode === 'list' &&
+      <Card>
+          {jobs.length === 0 ?
+        <EmptyState icon={CarIcon} title="No job cards yet" description="Create a job card to see it here." /> :
+
+        <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border-soft text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
+                    <th className="px-5 py-3 font-bold">Job</th>
+                    <th className="px-5 py-3 font-bold">Customer</th>
+                    <th className="px-5 py-3 font-bold">Vehicle</th>
+                    <th className="px-5 py-3 font-bold">Plate</th>
+                    <th className="px-5 py-3 font-bold">Status</th>
+                    <th className="px-5 py-3 font-bold">Technician</th>
+                    <th className="px-5 py-3 text-right font-bold">Estimate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((job) =>
+              <tr key={job.id} onClick={() => openEdit(job)} className="cursor-pointer border-b border-border-soft transition last:border-0 hover:bg-soft-gray dark:border-slate-800 dark:hover:bg-slate-800/50">
+                      <td className="px-5 py-3 font-bold text-navy dark:text-slate-100">{job.id}</td>
+                      <td className="px-5 py-3 text-text-gray dark:text-slate-400">{job.customer}</td>
+                      <td className="px-5 py-3 text-text-gray dark:text-slate-400">{job.vehicle}</td>
+                      <td className="px-5 py-3 text-text-gray dark:text-slate-400">{job.plate || '—'}</td>
+                      <td className="px-5 py-3"><StatusBadge status={job.status} /></td>
+                      <td className="px-5 py-3 text-text-gray dark:text-slate-400">{job.technician}</td>
+                      <td className="px-5 py-3 text-right font-semibold text-navy dark:text-slate-100">{formatCurrency(job.estimate)}</td>
+                    </tr>
+              )}
+                </tbody>
+              </table>
+            </div>
+        }
+        </Card>
+      }
 
       <Modal
         open={modalOpen}
@@ -351,8 +426,11 @@ export function JobCards() {
           <div>
             <Label htmlFor="jc-status">Status</Label>
             <Select id="jc-status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as JobStatus })}>
-              {ORDER.map((s) => <option key={s}>{s}</option>)}
+              {[...ORDER, 'Cancelled' as JobStatus].map((s) => <option key={s}>{s}</option>)}
             </Select>
+            {form.status === 'Cancelled' &&
+            <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Cancelling drops this job off the board and restocks any parts already added.</p>
+            }
           </div>
           <div>
             <Label htmlFor="jc-bay">Bay (optional)</Label>

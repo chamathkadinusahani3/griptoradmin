@@ -12,6 +12,7 @@ import {
   LifeBuoyIcon,
   ActivityIcon,
   ImageIcon,
+  CopyIcon,
   LogInIcon,
   PlusIcon,
   PencilIcon,
@@ -378,6 +379,13 @@ export function ClientDetail() {
   { label: 'Active customers', value: '1,204', pct: 88 },
   { label: 'Staff seats used', value: `${client.staff}/15`, pct: client.staff / 15 * 100 }];
 
+  const loginLink = client.slug ? `${window.location.origin}/login/${client.slug}` : null;
+  const copyLoginLink = () => {
+    if (!loginLink) return;
+    navigator.clipboard.writeText(loginLink);
+    toast.success('Link copied');
+  };
+
   const handleSavePlan = async () => {
     setSavingPlan(true);
     try {
@@ -586,6 +594,12 @@ export function ClientDetail() {
                 </p>
               </div>
             </div>
+            {loginLink && (
+              <div className="flex items-center gap-2 px-5 pb-5">
+                <p className="flex-1 truncate rounded-xl bg-soft-gray px-3 py-2 text-xs text-navy dark:bg-slate-800/60 dark:text-slate-200">{loginLink}</p>
+                <Button size="sm" variant="secondary" onClick={copyLoginLink}><CopyIcon className="h-4 w-4" /> Copy</Button>
+              </div>
+            )}
           </Card>
 
           <Card>

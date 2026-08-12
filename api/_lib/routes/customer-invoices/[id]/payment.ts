@@ -7,9 +7,11 @@ import { recordCustomerInvoicePayment } from '../../../customerInvoicePayments.j
 
 interface RecordPaymentBody {
   amount?: number;
-  method?: 'Cash' | 'Card' | 'Bank Transfer' | 'Other';
+  method?: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
   date?: string;
   notes?: string;
+  chequeNumber?: string;
+  bankAccountId?: string;
 }
 
 // Manual payment recording — the real gateway path is
@@ -28,9 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id } = req.query;
   if (typeof id !== 'string') return res.status(400).json({ error: 'Missing invoice id' });
 
-  const { amount, method, date, notes } = (req.body ?? {}) as RecordPaymentBody;
+  const { amount, method, date, notes, chequeNumber, bankAccountId } = (req.body ?? {}) as RecordPaymentBody;
   if (!amount || amount <= 0 || !method) {
     return res.status(400).json({ error: 'A positive amount and a payment method are required' });
+  }
+  if (method === 'Cheque' && !chequeNumber?.trim()) {
+    return res.status(400).json({ error: 'A cheque number is required for cheque payments' });
   }
 
   await connectToDatabase();
@@ -40,6 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     method,
     date: date ? new Date(date) : undefined,
     notes,
+    chequeNumber: method === 'Cheque' ? chequeNumber : undefined,
+    bankAccountId,
   });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
 

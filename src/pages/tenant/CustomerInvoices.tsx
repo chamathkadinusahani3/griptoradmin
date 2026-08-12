@@ -15,13 +15,14 @@ import { CustomerInvoice, InvoiceStatus, PaymentMethod } from '../../types/custo
 import { LineItem } from '../../types/quotation';
 import { Customer } from '../../types/customer';
 import { JobCard } from '../../types/jobCard';
+import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { downloadDocumentPdf } from '../../lib/pdf';
 
 const STATUS_FILTERS: ('All' | InvoiceStatus)[] = ['All', 'Draft', 'Issued', 'Paid', 'Void'];
-const PAYMENT_METHODS: PaymentMethod[] = ['Cash', 'Card', 'Bank Transfer', 'Other'];
+const PAYMENT_METHODS: PaymentMethod[] = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'];
 const emptyItem: LineItem = { description: '', quantity: 1, unitPrice: 0 };
 const emptyForm = { customerId: '', jobCardId: '', vehicle: '', plate: '', notes: '', dueDate: '' };
 
@@ -41,7 +42,10 @@ export function CustomerInvoices() {
   const [payTarget, setPayTarget] = useState<CustomerInvoice | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('Cash');
+  const [payChequeNumber, setPayChequeNumber] = useState('');
+  const [payBankAccountId, setPayBankAccountId] = useState('');
   const [paying, setPaying] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [creatingLinkFor, setCreatingLinkFor] = useState<string | null>(null);
 
   const loadInvoices = () => {
@@ -57,6 +61,7 @@ export function CustomerInvoices() {
   useEffect(() => {
     api.get<{ customers: Customer[] }>('/customers').then(({ customers }) => setCustomers(customers)).catch(() => setCustomers([]));
     api.get<{ jobCards: JobCard[] }>('/job-cards').then(({ jobCards }) => setJobCards(jobCards.filter((j) => j.status === 'Completed'))).catch(() => setJobCards([]));
+    api.get<{ bankAccounts: BankAccount[] }>('/bank-accounts').then(({ bankAccounts }) => setBankAccounts(bankAccounts)).catch(() => setBankAccounts([]));
   }, []);
 
   const { revenueThisMonth, outstandingBalance } = useMemo(() => {
@@ -116,6 +121,8 @@ export function CustomerInvoices() {
     setPayTarget(inv);
     setPayAmount(String(inv.balance));
     setPayMethod('Cash');
+    setPayChequeNumber('');
+    setPayBankAccountId('');
   };
 
   const recordPayment = async () => {
@@ -125,11 +132,17 @@ export function CustomerInvoices() {
       toast.error('Enter a valid payment amount');
       return;
     }
+    if (payMethod === 'Cheque' && !payChequeNumber.trim()) {
+      toast.error('Enter the cheque number');
+      return;
+    }
     setPaying(true);
     try {
       const { invoice } = await api.post<{ invoice: CustomerInvoice }>(`/customer-invoices/${payTarget.id}/payment`, {
         amount,
         method: payMethod,
+        chequeNumber: payMethod === 'Cheque' ? payChequeNumber.trim() : undefined,
+        bankAccountId: payBankAccountId || undefined,
       });
       setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? invoice : x)));
       toast.success('Payment recorded');
@@ -354,6 +367,21 @@ export function CustomerInvoices() {
                 {PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}
               </Select>
             </div>
+            {payMethod === 'Cheque' &&
+          <div>
+                <Label htmlFor="pay-cheque">Cheque number</Label>
+                <Input id="pay-cheque" value={payChequeNumber} onChange={(e) => setPayChequeNumber(e.target.value)} placeholder="e.g. 000123" />
+              </div>
+          }
+            {(payMethod === 'Cheque' || payMethod === 'Bank Transfer') && bankAccounts.length > 0 &&
+          <div>
+                <Label htmlFor="pay-bank">Bank account (optional)</Label>
+                <Select id="pay-bank" value={payBankAccountId} onChange={(e) => setPayBankAccountId(e.target.value)}>
+                  <option value="">— none —</option>
+                  {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNumber}</option>)}
+                </Select>
+              </div>
+          }
           </div>
         }
       </Modal>

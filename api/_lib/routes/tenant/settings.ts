@@ -3,6 +3,7 @@ import { connectToDatabase } from '../../db.js';
 import { Client, ClientDoc } from '../../models/Client.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeClient } from '../../serializers.js';
+import { hasAddOn } from '../../entitlements.js';
 
 interface UpdateSettingsBody {
   name?: string;
@@ -50,6 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   await connectToDatabase();
+  if (branding !== undefined && !(await hasAddOn(session.clientId, 'gms-brand'))) {
+    return res.status(400).json({ error: 'Custom Branding requires the Custom Branding add-on' });
+  }
   const existing = (await Client.findById(session.clientId).lean()) as ClientDoc | null;
   if (!existing) return res.status(404).json({ error: 'Garage not found' });
 

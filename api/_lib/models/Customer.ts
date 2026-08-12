@@ -32,6 +32,15 @@ const CustomerSchema = new Schema(
     // Never returned by any serializer — only a derived `hasPortalAccount`
     // boolean is.
     passwordHash: { type: String },
+    // Which module context this customer was created under (a MODULE_CATALOG
+    // id, e.g. 'gms' vs 'crm' — both surface the same Customers page — or
+    // 'booking-system' for the public booking auto-create). Unset for
+    // customers created before this field existed or via customer-portal
+    // self-registration, which isn't attributable to any one module. Powers
+    // the "which module did this customer come from" filter on the tenant
+    // Customers page — not enforced/validated beyond api/_lib/moduleCatalog.ts
+    // membership at the write boundary.
+    sourceModule: { type: String },
   },
   { timestamps: true }
 );

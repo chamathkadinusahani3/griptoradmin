@@ -10,20 +10,20 @@ import { Toggle } from '../../components/ui/Toggle';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { LoyaltyReward } from '../../types/loyaltyReward';
-import { Client } from '../../types/client';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 const emptyForm = { name: '', pointsCost: '100' };
 
 export function Rewards() {
+  const { user } = useAuth();
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
-  const [garage, setGarage] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const loyaltyEnabled = garage?.addOns.includes('crm-loyalty') ?? false;
+  const loyaltyEnabled = user?.addOns?.includes('crm-loyalty') ?? false;
 
   const loadRewards = () => {
     setLoading(true);
@@ -35,9 +35,6 @@ export function Rewards() {
   };
 
   useEffect(loadRewards, []);
-  useEffect(() => {
-    api.get<{ client: Client }>('/tenant/me').then(({ client }) => setGarage(client)).catch(() => setGarage(null));
-  }, []);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

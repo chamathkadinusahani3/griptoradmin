@@ -61,6 +61,9 @@ import { CorporateAccounts } from './pages/tenant/CorporateAccounts';
 import { PurchaseOrders } from './pages/tenant/PurchaseOrders';
 import { Expenses } from './pages/tenant/Expenses';
 import { Payroll } from './pages/tenant/Payroll';
+import { BankAccounts } from './pages/tenant/BankAccounts';
+import { Transactions } from './pages/tenant/Transactions';
+import { Returns } from './pages/tenant/Returns';
 import { Employees } from './pages/tenant/Employees';
 import { LeaveRequests } from './pages/tenant/LeaveRequests';
 import { Attendance } from './pages/tenant/Attendance';
@@ -178,6 +181,7 @@ export function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/login/:slug" element={<Login />} />
             <Route path="/approve/:token" element={<PublicInspectionApproval />} />
             <Route path="/book/:slug" element={<PublicBooking />} />
             <Route path="/pay/thank-you" element={<PublicPaymentThankYou />} />
@@ -236,6 +240,9 @@ export function App() {
                 <Route path="roles" element={<RolesPermissions />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="purchase-orders" element={<PurchaseOrders />} />
+                <Route path="bank-accounts" element={<BankAccounts />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="returns" element={<Returns />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="payroll" element={<Payroll />} />
                 <Route path="employees" element={<Employees />} />

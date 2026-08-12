@@ -18,7 +18,7 @@ export function useAutoRefresh(onBookings: (bookings: Booking[]) => void) {
 
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => undefined);
     }
   }, []);
 
@@ -40,7 +40,7 @@ export function useAutoRefresh(onBookings: (bookings: Booking[]) => void) {
           seenIdsRef.current = currentIds;
           onBookings(bookings);
         })
-        .catch(() => {});
+        .catch(() => undefined);
     };
 
     const interval = setInterval(poll, POLL_INTERVAL_MS);

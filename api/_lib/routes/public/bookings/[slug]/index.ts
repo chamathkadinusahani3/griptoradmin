@@ -79,7 +79,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const normalizedEmail = email.toLowerCase().trim();
   let customer = (await Customer.findOne({ clientId: client._id, email: normalizedEmail }).lean()) as CustomerDoc | null;
   if (!customer) {
-    const created = await Customer.create({ clientId: client._id, name, email: normalizedEmail, phone });
+    const created = await Customer.create({ clientId: client._id, name, email: normalizedEmail, phone, sourceModule: 'booking-system' });
     customer = created.toObject() as CustomerDoc;
   }
 

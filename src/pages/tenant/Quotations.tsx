@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { FileTextIcon, PlusIcon, TrashIcon, DownloadIcon, ArrowRightIcon } from 'lucide-react';
+import { FileTextIcon, PlusIcon, TrashIcon, DownloadIcon, ArrowRightIcon, WrenchIcon, ClipboardCheckIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,6 +13,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Quotation, QuotationStatus, LineItem } from '../../types/quotation';
 import { Customer } from '../../types/customer';
 import { JobCard } from '../../types/jobCard';
+import { Technician } from '../../types/technician';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +28,7 @@ export function Quotations() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [jobCards, setJobCards] = useState<JobCard[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'All' | QuotationStatus>('All');
 
@@ -35,6 +37,9 @@ export function Quotations() {
   const [items, setItems] = useState<LineItem[]>([{ ...emptyItem }]);
   const [saving, setSaving] = useState(false);
   const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [startJobTarget, setStartJobTarget] = useState<Quotation | null>(null);
+  const [startJobTechId, setStartJobTechId] = useState('');
+  const [startingJob, setStartingJob] = useState(false);
 
   const loadQuotations = () => {
     api
@@ -49,6 +54,7 @@ export function Quotations() {
   useEffect(() => {
     api.get<{ customers: Customer[] }>('/customers').then(({ customers }) => setCustomers(customers)).catch(() => setCustomers([]));
     api.get<{ jobCards: JobCard[] }>('/job-cards').then(({ jobCards }) => setJobCards(jobCards)).catch(() => setJobCards([]));
+    api.get<{ technicians: Technician[] }>('/technicians').then(({ technicians }) => setTechnicians(technicians)).catch(() => setTechnicians([]));
   }, []);
 
   const openCreate = () => {
@@ -110,6 +116,26 @@ export function Quotations() {
       toast.error(err instanceof ApiError ? err.message : 'Failed to convert quotation');
     } finally {
       setConvertingId(null);
+    }
+  };
+
+  const openStartJob = (q: Quotation) => {
+    setStartJobTarget(q);
+    setStartJobTechId(technicians[0]?.id ?? '');
+  };
+
+  const doStartJob = async () => {
+    if (!startJobTarget || !startJobTechId) return;
+    setStartingJob(true);
+    try {
+      const { jobCard } = await api.post<{ jobCard: JobCard }>(`/quotations/${startJobTarget.id}/convert-to-job`, { technicianId: startJobTechId });
+      setQuotations((prev) => prev.map((x) => (x.id === startJobTarget.id ? { ...x, jobCardId: jobCard.id } : x)));
+      toast.success('Job card created');
+      setStartJobTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to start job');
+    } finally {
+      setStartingJob(false);
     }
   };
 
@@ -187,6 +213,12 @@ export function Quotations() {
                       <Button size="sm" variant="ghost" onClick={() => setStatus(q, 'Rejected')}>Reject</Button>
                     </>
               }
+                  {q.status === 'Approved' && !q.jobCardId &&
+              <Button size="sm" variant="secondary" onClick={() => openStartJob(q)}>
+                      <WrenchIcon className="h-3.5 w-3.5" /> Start job
+                    </Button>
+              }
+                  {q.jobCardId && <Badge tone="green"><ClipboardCheckIcon className="h-3 w-3" /> Job card</Badge>}
                   {q.status === 'Approved' &&
               <Button size="sm" onClick={() => convert(q)} loading={convertingId === q.id}>
                       <ArrowRightIcon className="h-3.5 w-3.5" /> Convert to invoice
@@ -284,6 +316,24 @@ export function Quotations() {
           <Label htmlFor="q-notes">Notes</Label>
           <Textarea id="q-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
+      </Modal>
+
+      <Modal
+        open={!!startJobTarget}
+        onClose={() => setStartJobTarget(null)}
+        title="Start job"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setStartJobTarget(null)}>Cancel</Button>
+            <Button onClick={doStartJob} loading={startingJob} disabled={!startJobTechId}>Create job card</Button>
+          </>
+        }>
+
+        <Label htmlFor="start-job-tech">Assign a technician</Label>
+        <Select id="start-job-tech" value={startJobTechId} onChange={(e) => setStartJobTechId(e.target.value)}>
+          {technicians.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </Select>
+        {technicians.length === 0 && <p className="mt-2 text-xs text-red-600">Add a technician first.</p>}
       </Modal>
     </div>);
 

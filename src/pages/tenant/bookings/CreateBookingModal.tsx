@@ -162,7 +162,7 @@ export function CreateBookingModal({ open, onClose, onCreated, branches, service
             setResolvedCustomerId('');
           }
         })
-        .catch(() => {})
+        .catch(() => undefined)
         .finally(() => setLookupLoading(false));
     }, 400);
     return () => clearTimeout(handle);

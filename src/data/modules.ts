@@ -178,7 +178,10 @@ export const MODULES: ModuleDef[] = [
     items: [
     { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
     { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
-    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' }]
+    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
+    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
+    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' }]
 
   }
 },

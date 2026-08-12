@@ -27,10 +27,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'customers:manage');
   if (!session) return;
 
-  if (!(await hasAddOn(session.clientId, 'crm-loyalty'))) {
-    return res.status(400).json({ error: 'Loyalty & Rewards is not enabled for this account' });
-  }
-
   const { id } = req.query;
   if (typeof id !== 'string') return res.status(400).json({ error: 'Missing customer id' });
 
@@ -38,6 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!rewardId) return res.status(400).json({ error: 'rewardId is required' });
 
   await connectToDatabase();
+
+  if (!(await hasAddOn(session.clientId, 'crm-loyalty'))) {
+    return res.status(400).json({ error: 'Loyalty & Rewards is not enabled for this account' });
+  }
 
   const reward = (await LoyaltyReward.findOne({ _id: rewardId, clientId: session.clientId, active: true }).lean()) as LoyaltyRewardDoc | null;
   if (!reward) return res.status(400).json({ error: 'Unknown or inactive reward' });

@@ -17,4 +17,6 @@ export interface Customer {
   discountPct: number;
   creditPeriodDays: number;
   hasPortalAccount: boolean;
+  /** Which module this customer was created under (a MODULES id, e.g. 'gms' vs 'crm'), or 'booking-system' for public-booking auto-create. Unset for older customers or portal self-registration. */
+  sourceModule?: string;
 }

@@ -4,10 +4,12 @@ import { awardPoints } from './loyalty.js';
 
 export interface RecordPaymentInput {
   amount: number;
-  method: 'Cash' | 'Card' | 'Bank Transfer' | 'Other' | 'PayHere';
+  method: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other' | 'PayHere';
   date?: Date;
   notes?: string;
   payherePaymentId?: string;
+  chequeNumber?: string;
+  bankAccountId?: string;
 }
 
 /**
@@ -51,6 +53,8 @@ export async function recordCustomerInvoicePayment(
           date: input.date ?? new Date(),
           notes: input.notes,
           payherePaymentId: input.payherePaymentId,
+          chequeNumber: input.chequeNumber,
+          bankAccountId: input.bankAccountId,
         },
       },
     },

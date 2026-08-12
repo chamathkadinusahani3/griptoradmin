@@ -31,12 +31,13 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   const bays = (await Bay.find(bayFilter).sort({ name: 1 }).lean()) as BayDoc[];
 
   // Occupancy is computed here, not stored — a bay is "Occupied" if some
-  // non-Completed job card currently points at it. No separate occupancy
-  // field to keep in sync, same discipline as Technician.activeJobs.
+  // active (non-Completed, non-Cancelled) job card currently points at it.
+  // No separate occupancy field to keep in sync, same discipline as
+  // Technician.activeJobs.
   const occupyingJobs = (await JobCard.find({
     clientId: session.clientId,
     bayId: { $in: bays.map((b) => b._id) },
-    status: { $ne: 'Completed' },
+    status: { $nin: ['Completed', 'Cancelled'] },
   }).lean()) as JobCardDoc[];
   const technicians = (await Technician.find({ clientId: session.clientId }).lean()) as TechnicianDoc[];
   const technicianNameById = new Map(technicians.map((t) => [t._id.toString(), t.name]));

@@ -53,7 +53,7 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     technicians: technicians.map((t) => {
       const own = jobs.filter((j) => j.technicianId.toString() === t._id.toString());
-      const activeJobs = own.filter((j) => j.status !== 'Completed').length;
+      const activeJobs = own.filter((j) => j.status !== 'Completed' && j.status !== 'Cancelled').length;
       const completedToday = own.filter(
         (j) => j.status === 'Completed' && (j as unknown as { updatedAt: Date }).updatedAt >= todayStart
       ).length;

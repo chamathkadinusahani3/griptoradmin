@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { SearchIcon, UsersIcon, StarIcon, CarIcon, PhoneIcon, MailIcon, PlusIcon, BuildingIcon, TrashIcon, DownloadIcon, WalletIcon, AlertTriangleIcon, CopyIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -13,12 +13,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import { StatCard } from '../../components/ui/StatCard';
 import { Customer } from '../../types/customer';
-import { Client } from '../../types/client';
+import { MODULES } from '../../data/modules';
 import { Vehicle } from '../../types/vehicle';
 import { CustomerStatement } from '../../types/statement';
 import { LoyaltyReward } from '../../types/loyaltyReward';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 const TAG_TONE: Record<string, 'purple' | 'teal' | 'blue' | 'amber' | 'gray' | 'red' | 'green'> = {
   VIP: 'purple',
@@ -50,17 +51,19 @@ function exportStatementCsv(customer: Customer, statement: CustomerStatement) {
 }
 
 export function Customers() {
+  const { moduleId } = useParams();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [garage, setGarage] = useState<Client | null>(null);
   const [query, setQuery] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
   const [selected, setSelected] = useState<Customer | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const loyaltyEnabled = garage?.addOns.includes('crm-loyalty') ?? false;
-  const fleetEnabled = garage?.addOns.includes('gms-fleet') ?? false;
+  const loyaltyEnabled = user?.addOns?.includes('crm-loyalty') ?? false;
+  const fleetEnabled = user?.addOns?.includes('gms-fleet') ?? false;
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
@@ -100,25 +103,35 @@ export function Customers() {
 
   useEffect(() => {
     api
-      .get<{ client: Client }>('/tenant/me')
-      .then(({ client }) => setGarage(client))
-      .catch(() => setGarage(null));
-    api
       .get<{ rewards: LoyaltyReward[] }>('/loyalty-rewards')
       .then(({ rewards }) => setRewards(rewards.filter((r) => r.active)))
       .catch(() => setRewards([]));
   }, []);
 
-  const portalLink = garage?.slug ? `${window.location.origin}/portal/${garage.slug}` : null;
+  const portalLink = user?.garageSlug ? `${window.location.origin}/portal/${user.garageSlug}` : null;
   const copyPortalLink = () => {
     if (!portalLink) return;
     navigator.clipboard.writeText(portalLink);
     toast.success('Link copied');
   };
 
+  // Only offer modules this garage actually has enabled, and only ones that
+  // can create customers (both nav-share Customers page like gms/crm, or
+  // auto-create them like booking-system) — a tenant without Booking System
+  // shouldn't see a filter option that can never match anything.
+  const moduleFilterOptions = useMemo(
+    () => MODULES.filter((m) => user?.modules?.includes(m.id)),
+    [user]
+  );
+
   const filtered = useMemo(
-    () => customers.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) || c.email.toLowerCase().includes(query.toLowerCase())),
-    [customers, query]
+    () =>
+      customers.filter(
+        (c) =>
+          (c.name.toLowerCase().includes(query.toLowerCase()) || c.email.toLowerCase().includes(query.toLowerCase())) &&
+          (!moduleFilter || c.sourceModule === moduleFilter)
+      ),
+    [customers, query, moduleFilter]
   );
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -134,6 +147,7 @@ export function Customers() {
         creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
         discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
         creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
+        sourceModule: moduleId,
       });
       // First vehicle (if given) becomes a real Vehicle document instead of
       // the legacy free-text `vehicles` array — same field, real storage.
@@ -251,8 +265,14 @@ export function Customers() {
       }
 
       <Card>
-        <div className="border-b border-border-soft p-4 dark:border-slate-800">
-          <Input icon={SearchIcon} placeholder="Search customers…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search customers" />
+        <div className="flex flex-wrap items-center gap-3 border-b border-border-soft p-4 dark:border-slate-800">
+          <Input icon={SearchIcon} placeholder="Search customers…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search customers" className="flex-1" />
+          {moduleFilterOptions.length > 0 &&
+          <Select aria-label="Filter by module" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="w-auto">
+              <option value="">All modules</option>
+              {moduleFilterOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </Select>
+          }
         </div>
 
         {loading ?

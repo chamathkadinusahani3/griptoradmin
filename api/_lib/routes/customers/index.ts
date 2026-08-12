@@ -5,6 +5,7 @@ import { Vehicle, VehicleDoc } from '../../models/Vehicle.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomer } from '../../serializers.js';
 import { hasAddOn } from '../../entitlements.js';
+import { findModule } from '../../moduleCatalog.js';
 
 interface CreateCustomerBody {
   name?: string;
@@ -17,6 +18,7 @@ interface CreateCustomerBody {
   creditLimit?: number;
   discountPct?: number;
   creditPeriodDays?: number;
+  sourceModule?: string;
 }
 
 /** True if this body is trying to use a corporate-only field. */
@@ -66,9 +68,12 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   if (!session) return;
 
   const body = (req.body ?? {}) as CreateCustomerBody;
-  const { name, email, phone, vehicles, tags, type, contactPerson, creditLimit, discountPct, creditPeriodDays } = body;
+  const { name, email, phone, vehicles, tags, type, contactPerson, creditLimit, discountPct, creditPeriodDays, sourceModule } = body;
   if (!name || !email) {
     return res.status(400).json({ error: 'name and email are required' });
+  }
+  if (sourceModule !== undefined && !findModule(sourceModule)) {
+    return res.status(400).json({ error: 'Unknown sourceModule' });
   }
 
   await connectToDatabase();
@@ -89,6 +94,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     creditLimit: Number(creditLimit) || 0,
     discountPct: Number(discountPct) || 0,
     creditPeriodDays: creditPeriodDays !== undefined ? Math.max(1, Number(creditPeriodDays) || 30) : 30,
+    sourceModule,
   });
 
   return res.status(201).json({ customer: serializeCustomer(customer.toObject()) });

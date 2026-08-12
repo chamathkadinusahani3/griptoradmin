@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import mongoose from 'mongoose';
 import { connectToDatabase } from '../../db.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { Technician, TechnicianDoc } from '../../models/Technician.js';
 import { Bay, BayDoc } from '../../models/Bay.js';
+import { Part } from '../../models/Part.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeJobCard } from '../../serializers.js';
 
@@ -15,7 +17,7 @@ interface UpdateJobCardBody {
   service?: string;
   technicianId?: string;
   estimate?: number;
-  status?: 'New' | 'In Progress' | 'Awaiting Parts' | 'Completed';
+  status?: 'New' | 'In Progress' | 'Awaiting Parts' | 'Completed' | 'Cancelled';
   bayId?: string | null;
   checklist?: { label: string; done: boolean }[];
   laborCost?: number;
@@ -55,11 +57,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (justStarted) update.startedAt = new Date();
   if (justCompleted) update.completedAt = new Date();
 
-  const job = (await JobCard.findOneAndUpdate(
-    { _id: id, clientId: session.clientId },
-    update,
-    { returnDocument: 'after' }
-  ).lean()) as JobCardDoc;
+  // Cancelling a job that already consumed real stock (via
+  // job-cards/[id]/parts.ts) means that work never actually happened —
+  // restock everything it used, atomically with the status change so a
+  // failure can't leave stock decremented with nothing to show for it.
+  const justCancelled = existing.status !== 'Cancelled' && body.status === 'Cancelled';
+  let job: JobCardDoc;
+  if (justCancelled && existing.partsUsed.length > 0) {
+    const dbSession = await mongoose.startSession();
+    try {
+      let updated: JobCardDoc | undefined;
+      await dbSession.withTransaction(async () => {
+        for (const used of existing.partsUsed) {
+          await Part.updateOne({ _id: used.partId }, { $inc: { stock: used.qty } }, { session: dbSession });
+        }
+        const result = await JobCard.findOneAndUpdate(
+          { _id: id, clientId: session.clientId },
+          update,
+          { session: dbSession, returnDocument: 'after' }
+        );
+        updated = result!.toObject() as JobCardDoc;
+      });
+      job = updated!;
+    } finally {
+      await dbSession.endSession();
+    }
+  } else {
+    job = (await JobCard.findOneAndUpdate(
+      { _id: id, clientId: session.clientId },
+      update,
+      { returnDocument: 'after' }
+    ).lean()) as JobCardDoc;
+  }
 
   if (justCompleted) {
     await Customer.updateOne(

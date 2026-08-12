@@ -39,6 +39,9 @@ import {
   BriefcaseIcon,
   TrendingUpIcon,
   ShieldIcon,
+  LandmarkIcon,
+  ArrowLeftRightIcon,
+  RotateCcwIcon,
   LucideIcon } from
 'lucide-react';
 import { ModuleDef } from '../../data/modules';
@@ -85,7 +88,10 @@ const ICONS: Record<string, LucideIcon> = {
   ClockIcon,
   BriefcaseIcon,
   TrendingUpIcon,
-  ShieldIcon
+  ShieldIcon,
+  LandmarkIcon,
+  ArrowLeftRightIcon,
+  RotateCcwIcon
 };
 
 export const SUPER_NAV: NavGroup[] = [

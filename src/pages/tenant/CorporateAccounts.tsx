@@ -9,10 +9,10 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { StatCard } from '../../components/ui/StatCard';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import { CorporateAccount } from '../../types/corporateAccount';
-import { Client } from '../../types/client';
 import { SmsLog } from '../../types/messageTemplate';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 function statusBadge(account: CorporateAccount) {
   if (account.avgDaysToPay === null && account.purchasesLast90Days === 0 && account.purchasesPrior90Days === 0 && account.totalOutstanding === 0) {
@@ -23,19 +23,15 @@ function statusBadge(account: CorporateAccount) {
 
 export function CorporateAccounts() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [tab, setTab] = useState<'accounts' | 'report'>('accounts');
   const [accounts, setAccounts] = useState<CorporateAccount[]>([]);
-  const [garage, setGarage] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportLogs, setReportLogs] = useState<SmsLog[]>([]);
   const [reportLogsLoading, setReportLogsLoading] = useState(false);
-  const fleetEnabled = garage?.addOns.includes('gms-fleet') ?? false;
+  const fleetEnabled = user?.addOns?.includes('gms-fleet') ?? false;
 
   useEffect(() => {
-    api
-      .get<{ client: Client }>('/tenant/me')
-      .then(({ client }) => setGarage(client))
-      .catch(() => setGarage(null));
     api
       .get<{ accounts: CorporateAccount[] }>('/customers/corporate-summary')
       .then(({ accounts }) => setAccounts(accounts))

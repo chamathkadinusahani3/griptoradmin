@@ -12,6 +12,29 @@ const PurchaseOrderLineSchema = new Schema(
   { _id: false }
 );
 
+// Same shape as CustomerInvoice's PaymentRecordSchema, plus chequeNumber —
+// the garage-pays-supplier direction of the same debit/credit record-keeping,
+// so a supplier statement can be computed live the same "derive, don't
+// store" way Supplier.openOrders/lastOrder/onTime already are.
+const PaymentRecordSchema = new Schema(
+  {
+    amount: { type: Number, required: true },
+    method: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'], required: true },
+    date: { type: Date, required: true },
+    notes: { type: String },
+    // Only meaningful for method: 'Cheque'.
+    chequeNumber: { type: String },
+    // Which BankAccount this cheque/transfer was drawn from — unset for Cash.
+    bankAccountId: { type: Schema.Types.ObjectId, ref: 'BankAccount' },
+    // Simple manual reconciliation flag — see CustomerInvoice.ts's identical
+    // fields (the other direction of money) for the full reasoning.
+    reconciled: { type: Boolean, default: false },
+    reconciledAt: { type: Date },
+  }
+  // No { _id: false } — same reasoning as CustomerInvoice.ts's
+  // PaymentRecordSchema: reconciliation needs a stable per-entry id.
+);
+
 const PurchaseOrderSchema = new Schema(
   {
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
@@ -28,6 +51,14 @@ const PurchaseOrderSchema = new Schema(
     expectedDate: { type: Date },
     receivedAt: { type: Date },
     notes: { type: String },
+    // paidAmount/balance/paymentStatus are server-computed from
+    // paymentHistory (api/_lib/purchaseOrderPayments.ts) — never set
+    // directly by the client. Payments are only recordable once a PO is
+    // Ordered or Received (a real commitment/delivery), never while Draft.
+    paidAmount: { type: Number, default: 0 },
+    balance: { type: Number, required: true },
+    paymentStatus: { type: String, enum: ['Unpaid', 'Partial', 'Paid'], default: 'Unpaid' },
+    paymentHistory: { type: [PaymentRecordSchema], default: [] },
   },
   { timestamps: true }
 );
