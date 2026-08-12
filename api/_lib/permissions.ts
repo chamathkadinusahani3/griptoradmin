@@ -31,6 +31,7 @@ const PAIRED_RESOURCES = [
   'payroll',
   'bank-accounts',
   'returns',
+  'complaints',
 ] as const;
 
 // View-only resources — either genuinely read-only today (reports) or where

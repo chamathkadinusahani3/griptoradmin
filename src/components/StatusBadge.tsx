@@ -49,7 +49,9 @@ const map: Record<string, 'gray' | 'green' | 'blue' | 'teal' | 'amber' | 'red' |
   Ordered: 'blue',
   Received: 'green',
   Cancelled: 'red',
-  Finalized: 'blue'
+  Finalized: 'blue',
+  // complaints
+  Closed: 'gray'
 };
 
 export function StatusBadge({ status, dot = true }: {status: string;dot?: boolean;}) {

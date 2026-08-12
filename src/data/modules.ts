@@ -181,7 +181,9 @@ export const MODULES: ModuleDef[] = [
     { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
     { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
     { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
-    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' }]
+    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
+    { label: 'Financial Overview', to: 'financial-overview', icon: 'TrendingUpIcon' }]
 
   }
 },

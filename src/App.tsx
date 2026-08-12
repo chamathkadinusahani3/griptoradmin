@@ -64,6 +64,8 @@ import { Payroll } from './pages/tenant/Payroll';
 import { BankAccounts } from './pages/tenant/BankAccounts';
 import { Transactions } from './pages/tenant/Transactions';
 import { Returns } from './pages/tenant/Returns';
+import { Complaints } from './pages/tenant/Complaints';
+import { FinancialOverview } from './pages/tenant/FinancialOverview';
 import { Employees } from './pages/tenant/Employees';
 import { LeaveRequests } from './pages/tenant/LeaveRequests';
 import { Attendance } from './pages/tenant/Attendance';
@@ -243,6 +245,8 @@ export function App() {
                 <Route path="bank-accounts" element={<BankAccounts />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="returns" element={<Returns />} />
+                <Route path="complaints" element={<Complaints />} />
+                <Route path="financial-overview" element={<FinancialOverview />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="payroll" element={<Payroll />} />
                 <Route path="employees" element={<Employees />} />

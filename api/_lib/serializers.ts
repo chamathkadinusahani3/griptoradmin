@@ -10,6 +10,7 @@ import { SupplierDoc } from './models/Supplier.js';
 import { PartDoc } from './models/Part.js';
 import { BankAccountDoc } from './models/BankAccount.js';
 import { ReturnDoc } from './models/Return.js';
+import { ComplaintDoc } from './models/Complaint.js';
 import { InspectionDoc } from './models/Inspection.js';
 import { SaleDoc } from './models/Sale.js';
 import { ReminderDoc } from './models/Reminder.js';
@@ -376,6 +377,27 @@ export function serializeReturn(ret: ReturnDoc, party?: string, reference?: stri
     party,
     reference,
     createdAt: (ret as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeComplaint(complaint: ComplaintDoc, partyName?: string) {
+  return {
+    id: complaint._id.toString(),
+    direction: complaint.direction,
+    customerId: complaint.customerId?.toString(),
+    supplierId: complaint.supplierId?.toString(),
+    party: partyName,
+    complaintNumber: complaint.complaintNumber,
+    category: complaint.category,
+    subject: complaint.subject,
+    description: complaint.description,
+    priority: complaint.priority ?? 'Medium',
+    status: complaint.status ?? 'Open',
+    resolution: complaint.resolution,
+    resolvedAt: complaint.resolvedAt,
+    jobCardId: complaint.jobCardId?.toString(),
+    purchaseOrderId: complaint.purchaseOrderId?.toString(),
+    createdAt: (complaint as unknown as { createdAt: Date }).createdAt,
   };
 }
 
