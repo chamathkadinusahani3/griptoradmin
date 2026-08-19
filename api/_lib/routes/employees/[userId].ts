@@ -14,6 +14,9 @@ interface UpdateEmployeeBody {
   hireDate?: string;
   employmentType?: string;
   notes?: string;
+  hourlyRate?: number | null;
+  active?: boolean;
+  departmentId?: string | null;
 }
 
 // One endpoint handles both "add a profile" and "edit an existing one" via
@@ -50,6 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (body.notes !== undefined) update.notes = body.notes;
   if (body.dateOfBirth !== undefined) update.dateOfBirth = body.dateOfBirth ? new Date(body.dateOfBirth) : undefined;
   if (body.hireDate !== undefined) update.hireDate = body.hireDate ? new Date(body.hireDate) : undefined;
+  if (body.hourlyRate !== undefined) update.hourlyRate = body.hourlyRate ?? undefined;
+  if (body.active !== undefined) update.active = body.active;
+  if (body.departmentId !== undefined) update.departmentId = body.departmentId || undefined;
 
   const employee = (await Employee.findOneAndUpdate(
     { clientId: session.clientId, userId },

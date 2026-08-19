@@ -37,7 +37,9 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   for (const order of orders) {
     const key = order.supplierId.toString();
     const stat = statsBySupplier.get(key) ?? { openOrders: 0, lastOrder: null, received: 0, onTimeCount: 0, onTimeEligible: 0, totalOutstanding: 0, totalPaid: 0 };
-    if (order.status === 'Draft' || order.status === 'Ordered') stat.openOrders += 1;
+    if (order.status === 'Draft' || order.status === 'Ordered' || order.status === 'Partially Received') stat.openOrders += 1;
+    // On-time delivery is only meaningful once a PO is FULLY received —
+    // a partial delivery hasn't finished, so it can't yet be judged early/late.
     if (order.status === 'Received' && order.receivedAt) {
       if (!stat.lastOrder || order.receivedAt > stat.lastOrder) stat.lastOrder = order.receivedAt;
       if (order.expectedDate) {
@@ -45,10 +47,11 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
         if (order.receivedAt <= order.expectedDate) stat.onTimeCount += 1;
       }
     }
-    // Debit/credit standing — only Ordered/Received POs are real payables
-    // (matching purchaseOrderPayments.ts's own payable-state guard); a
-    // Draft or Cancelled PO was never actually owed to the supplier.
-    if (order.status === 'Ordered' || order.status === 'Received') {
+    // Debit/credit standing — Ordered/Partially Received/Received POs are
+    // all real payables (matching purchaseOrderPayments.ts's own
+    // payable-state guard); a Draft or Cancelled PO was never actually
+    // owed to the supplier.
+    if (order.status === 'Ordered' || order.status === 'Partially Received' || order.status === 'Received') {
       stat.totalOutstanding += order.balance ?? order.total;
       stat.totalPaid += order.paidAmount ?? 0;
     }

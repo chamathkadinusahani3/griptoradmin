@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { SearchIcon, UsersIcon, StarIcon, CarIcon, PhoneIcon, MailIcon, PlusIcon, BuildingIcon, TrashIcon, DownloadIcon, WalletIcon, AlertTriangleIcon, CopyIcon } from 'lucide-react';
+import { SearchIcon, UsersIcon, StarIcon, CarIcon, PhoneIcon, MailIcon, PlusIcon, BuildingIcon, TrashIcon, DownloadIcon, WalletIcon, AlertTriangleIcon, CopyIcon, PencilIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
@@ -16,6 +16,7 @@ import { Customer } from '../../types/customer';
 import { MODULES } from '../../data/modules';
 import { Vehicle } from '../../types/vehicle';
 import { CustomerStatement } from '../../types/statement';
+import { CustomerHistory, TimelineEvent } from '../../types/customerHistory';
 import { LoyaltyReward } from '../../types/loyaltyReward';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
@@ -62,6 +63,7 @@ export function Customers() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const loyaltyEnabled = user?.addOns?.includes('crm-loyalty') ?? false;
   const fleetEnabled = user?.addOns?.includes('gms-fleet') ?? false;
 
@@ -70,6 +72,8 @@ export function Customers() {
   const [newVehicleLabel, setNewVehicleLabel] = useState('');
   const [addingVehicle, setAddingVehicle] = useState(false);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [history, setHistory] = useState<CustomerHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activatingPortal, setActivatingPortal] = useState(false);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [redeemRewardId, setRedeemRewardId] = useState('');
@@ -134,32 +138,74 @@ export function Customers() {
     [customers, query, moduleFilter]
   );
 
+  const openCreate = () => {
+    setForm(emptyForm);
+    setEditingCustomerId(null);
+    setAddOpen(true);
+  };
+
+  const openEdit = (customer: Customer) => {
+    setForm({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || '',
+      vehicle: '',
+      type: customer.type,
+      contactPerson: customer.contactPerson || '',
+      creditLimit: customer.creditLimit ? String(customer.creditLimit) : '',
+      discountPct: customer.discountPct ? String(customer.discountPct) : '',
+      creditPeriodDays: customer.creditPeriodDays ? String(customer.creditPeriodDays) : '',
+    });
+    setEditingCustomerId(customer.id);
+    setSelected(null);
+    setAddOpen(true);
+  };
+
+  const closeModal = () => {
+    setAddOpen(false);
+    setEditingCustomerId(null);
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { customer } = await api.post<{ customer: Customer }>('/customers', {
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        type: form.type,
-        contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
-        creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
-        discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
-        creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
-        sourceModule: moduleId,
-      });
-      // First vehicle (if given) becomes a real Vehicle document instead of
-      // the legacy free-text `vehicles` array — same field, real storage.
-      if (form.vehicle.trim()) {
-        await api.post(`/customers/${customer.id}/vehicles`, { label: form.vehicle.trim() });
+      if (editingCustomerId) {
+        const { customer } = await api.patch<{ customer: Customer }>(`/customers/${editingCustomerId}`, {
+          name: form.name,
+          phone: form.phone,
+          type: form.type,
+          contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
+          creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
+          discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
+          creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
+        });
+        setCustomers((prev) => prev.map((c) => (c.id === customer.id ? customer : c)));
+        toast.success('Customer updated');
+      } else {
+        const { customer } = await api.post<{ customer: Customer }>('/customers', {
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          type: form.type,
+          contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
+          creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
+          discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
+          creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
+          sourceModule: moduleId,
+        });
+        // First vehicle (if given) becomes a real Vehicle document instead of
+        // the legacy free-text `vehicles` array — same field, real storage.
+        if (form.vehicle.trim()) {
+          await api.post(`/customers/${customer.id}/vehicles`, { label: form.vehicle.trim() });
+        }
+        toast.success('Customer added');
+        loadCustomers();
       }
-      toast.success('Customer added');
-      setAddOpen(false);
+      closeModal();
       setForm(emptyForm);
-      loadCustomers();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to add customer');
+      toast.error(err instanceof ApiError ? err.message : `Failed to ${editingCustomerId ? 'update' : 'add'} customer`);
     } finally {
       setSaving(false);
     }
@@ -169,6 +215,7 @@ export function Customers() {
     if (!selected) {
       setVehicles([]);
       setStatement(null);
+      setHistory(null);
       return;
     }
     setVehiclesLoading(true);
@@ -186,6 +233,13 @@ export function Customers() {
     } else {
       setStatement(null);
     }
+
+    setHistoryLoading(true);
+    api
+      .get<CustomerHistory>(`/customers/${selected.id}/history`)
+      .then(setHistory)
+      .catch(() => setHistory(null))
+      .finally(() => setHistoryLoading(false));
   }, [selected]);
 
   const handleAddVehicle = async () => {
@@ -251,7 +305,7 @@ export function Customers() {
       <PageHeader
         title="Customers"
         description={`${customers.length} customers${loyaltyEnabled ? ' · Loyalty & Rewards active' : ''}`}
-        action={<Button onClick={() => setAddOpen(true)}><PlusIcon className="h-4 w-4" /> Add customer</Button>} />
+        action={<Button onClick={openCreate}><PlusIcon className="h-4 w-4" /> Add customer</Button>} />
 
 
       {portalLink &&
@@ -328,17 +382,22 @@ export function Customers() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name || ''} size="md">
         {selected &&
         <div>
-            <div className="flex items-center gap-3">
-              <Avatar name={selected.name} size="lg" />
-              <div>
-                <p className="flex items-center gap-1.5 font-bold text-navy dark:text-slate-100">
-                  {selected.name}
-                  {selected.type === 'corporate' && <Badge tone="purple"><BuildingIcon className="mr-1 inline h-3 w-3" />Corporate</Badge>}
-                </p>
-                <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><MailIcon className="h-3.5 w-3.5" /> {selected.email}</p>
-                {selected.phone && <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><PhoneIcon className="h-3.5 w-3.5" /> {selected.phone}</p>}
-                {selected.type === 'corporate' && selected.contactPerson && <p className="text-sm text-text-gray dark:text-slate-400">Contact: {selected.contactPerson}</p>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Avatar name={selected.name} size="lg" />
+                <div>
+                  <p className="flex items-center gap-1.5 font-bold text-navy dark:text-slate-100">
+                    {selected.name}
+                    {selected.type === 'corporate' && <Badge tone="purple"><BuildingIcon className="mr-1 inline h-3 w-3" />Corporate</Badge>}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><MailIcon className="h-3.5 w-3.5" /> {selected.email}</p>
+                  {selected.phone && <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><PhoneIcon className="h-3.5 w-3.5" /> {selected.phone}</p>}
+                  {selected.type === 'corporate' && selected.contactPerson && <p className="text-sm text-text-gray dark:text-slate-400">Contact: {selected.contactPerson}</p>}
+                </div>
               </div>
+              <button type="button" onClick={() => openEdit(selected)} aria-label={`Edit ${selected.name}`} className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-soft-gray hover:text-navy dark:hover:bg-slate-800 dark:hover:text-slate-100">
+                <PencilIcon className="h-4 w-4" />
+              </button>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -443,18 +502,39 @@ export function Customers() {
                 <Button type="button" variant="secondary" onClick={handleAddVehicle} loading={addingVehicle}>Add</Button>
               </div>
             </div>
+
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Recent activity</p>
+              {historyLoading ?
+              <p className="text-sm text-text-gray dark:text-slate-400">Loading…</p> :
+              !history || history.timeline.length === 0 ?
+              <p className="text-sm text-text-gray dark:text-slate-400">Nothing recorded yet — job cards, invoices, complaints, and calls will show up here.</p> :
+
+              <div className="space-y-1.5">
+                  {history.timeline.slice(0, 8).map((event: TimelineEvent) =>
+                <div key={`${event.type}-${event.id}`} className="flex items-center justify-between gap-2 rounded-xl border border-border-soft px-3 py-2 text-sm dark:border-slate-800">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-navy dark:text-slate-100">{event.title}</p>
+                        <p className="text-xs text-text-gray dark:text-slate-400">{formatDate(event.date)}</p>
+                      </div>
+                      <Badge tone="gray">{event.status}</Badge>
+                    </div>
+                )}
+                </div>
+            }
+            </div>
           </div>
         }
       </Modal>
 
       <Modal
         open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="Add customer"
+        onClose={closeModal}
+        title={editingCustomerId ? 'Edit customer' : 'Add customer'}
         footer={
         <>
-            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button form="add-customer-form" type="submit" loading={saving}>Add customer</Button>
+            <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+            <Button form="add-customer-form" type="submit" loading={saving}>{editingCustomerId ? 'Save changes' : 'Add customer'}</Button>
           </>
         }>
         <form id="add-customer-form" onSubmit={handleAdd} className="space-y-4">
@@ -462,18 +542,22 @@ export function Customers() {
             <Label htmlFor="cust-name">Full name</Label>
             <Input id="cust-name" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           </div>
+          {!editingCustomerId &&
           <div>
             <Label htmlFor="cust-email">Email</Label>
             <Input id="cust-email" type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
           </div>
+          }
           <div>
             <Label htmlFor="cust-phone">Phone</Label>
             <Input id="cust-phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
           </div>
+          {!editingCustomerId &&
           <div>
             <Label htmlFor="cust-vehicle">Vehicle</Label>
             <Input id="cust-vehicle" placeholder="e.g. 2021 Toyota Camry" value={form.vehicle} onChange={(e) => setForm((f) => ({ ...f, vehicle: e.target.value }))} />
           </div>
+          }
 
           {fleetEnabled &&
           <>

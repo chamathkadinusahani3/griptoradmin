@@ -14,12 +14,20 @@ import { api, ApiError } from '../../lib/api';
 
 const DIRECTION_FILTERS: ('All' | 'in' | 'out')[] = ['All', 'in', 'out'];
 const DIRECTION_LABEL: Record<'in' | 'out', string> = { in: 'In', out: 'Out' };
+type SourceFilter = 'All' | 'invoice' | 'purchase-order' | 'return';
+const SOURCE_FILTERS: SourceFilter[] = ['All', 'invoice', 'purchase-order', 'return'];
+const SOURCE_LABEL: Record<Exclude<SourceFilter, 'All'>, string> = {
+  invoice: 'Customer payments',
+  'purchase-order': 'Supplier payments',
+  return: 'Refunds',
+};
 
 export function Transactions() {
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [summary, setSummary] = useState<BankTransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [directionFilter, setDirectionFilter] = useState<'All' | 'in' | 'out'>('All');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('All');
   const [pendingOnly, setPendingOnly] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -61,6 +69,7 @@ export function Transactions() {
 
   const filtered = transactions
     .filter((t) => directionFilter === 'All' || t.direction === directionFilter)
+    .filter((t) => sourceFilter === 'All' || t.sourceType === sourceFilter)
     .filter((t) => !pendingOnly || !t.reconciled);
 
   return (
@@ -92,6 +101,18 @@ export function Transactions() {
           Pending only
           <Toggle checked={pendingOnly} onChange={setPendingOnly} />
         </label>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {SOURCE_FILTERS.map((s) =>
+        <button
+          key={s}
+          onClick={() => setSourceFilter(s)}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${sourceFilter === s ? 'bg-navy text-white dark:bg-slate-700' : 'bg-soft-gray text-text-gray hover:bg-light-blue dark:bg-slate-800 dark:text-slate-300'}`}>
+
+            {s === 'All' ? 'All types' : SOURCE_LABEL[s]}
+          </button>
+        )}
       </div>
 
       {loading ?

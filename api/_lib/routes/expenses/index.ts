@@ -4,6 +4,8 @@ import { Expense, ExpenseDoc, EXPENSE_CATEGORIES } from '../../models/Expense.js
 import { requireTenantPermission } from '../../auth.js';
 import { resolveBranchFilter } from '../../branch.js';
 import { generateSequentialNumber } from '../../numbering.js';
+import { accountIdForExpenseCategory } from '../../chartOfAccountsSeed.js';
+import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
 import { serializeExpense } from '../../serializers.js';
 
 interface CreateExpenseBody {
@@ -14,6 +16,8 @@ interface CreateExpenseBody {
   branchId?: string;
   vendorName?: string;
   notes?: string;
+  paymentMethod?: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
+  accountId?: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -48,7 +52,8 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'expenses:manage');
   if (!session) return;
 
-  const { category, description, amount, date, branchId: requestedBranchId, vendorName, notes } = (req.body ?? {}) as CreateExpenseBody;
+  const { category, description, amount, date, branchId: requestedBranchId, vendorName, notes, paymentMethod, accountId } =
+    (req.body ?? {}) as CreateExpenseBody;
   if (!category || !(EXPENSE_CATEGORIES as readonly string[]).includes(category)) {
     return res.status(400).json({ error: `category must be one of: ${EXPENSE_CATEGORIES.join(', ')}` });
   }
@@ -58,7 +63,11 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   await connectToDatabase();
   const branchId = resolveBranchFilter(session, requestedBranchId);
-  const expenseNumber = await generateSequentialNumber(Expense, session.clientId, 'expenseNumber', 'EXP');
+  const expenseNumber = await generateSequentialNumber(Expense, session.clientId, 'expenseNumber', 'expense');
+  // Auto-tag the Chart of Accounts entry matching this category when the
+  // caller didn't pick one explicitly — the 1:1 naming means this always
+  // resolves once ensureDefaultChartOfAccounts has run at least once.
+  const resolvedAccountId = accountId || (await accountIdForExpenseCategory(session.clientId, category));
 
   const expense = await Expense.create({
     clientId: session.clientId,
@@ -70,7 +79,31 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     date: new Date(date),
     vendorName,
     notes,
+    paymentMethod: paymentMethod || 'Cash',
+    accountId: resolvedAccountId || undefined,
   });
+
+  // Best-effort, outside any transaction — a broken journal posting must
+  // never block an expense from being logged, same reasoning as
+  // customerInvoicePayments.ts's identical block.
+  try {
+    if (resolvedAccountId) {
+      const cashOrBankName = cashOrBankAccountName(paymentMethod || 'Cash');
+      const accountIds = await getAccountIdsByNames(session.clientId, [cashOrBankName]);
+      const cashOrBankId = accountIds.get(cashOrBankName);
+      if (cashOrBankId) {
+        await postJournalEntry({
+          clientId: session.clientId,
+          description: `Expense — ${expenseNumber}`,
+          sourceType: 'expense',
+          sourceId: expense._id.toString(),
+          lines: [{ accountId: resolvedAccountId, debit: amount }, { accountId: cashOrBankId, credit: amount }],
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Journal posting failed for expense', expense._id.toString(), err);
+  }
 
   return res.status(201).json({ expense: serializeExpense(expense.toObject()) });
 }

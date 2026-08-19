@@ -47,6 +47,7 @@ const map: Record<string, 'gray' | 'green' | 'blue' | 'teal' | 'amber' | 'red' |
   Invited: 'amber',
   // purchase orders / payroll runs
   Ordered: 'blue',
+  'Partially Received': 'amber',
   Received: 'green',
   Cancelled: 'red',
   Finalized: 'blue',

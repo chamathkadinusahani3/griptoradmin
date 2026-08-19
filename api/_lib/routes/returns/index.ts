@@ -8,6 +8,8 @@ import { Supplier, SupplierDoc } from '../../models/Supplier.js';
 import { Part } from '../../models/Part.js';
 import { requireTenantPermission } from '../../auth.js';
 import { generateSequentialNumber } from '../../numbering.js';
+import { effectiveReceivedQuantity } from '../../purchaseOrderReceiving.js';
+import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
 import { serializeReturn } from '../../serializers.js';
 
 interface ReturnLineBody {
@@ -114,10 +116,14 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   } else {
     const order = (await PurchaseOrder.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as PurchaseOrderDoc | null;
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
-    if (order.status !== 'Received') {
-      return res.status(400).json({ error: 'Only a Received purchase order can have items returned to the supplier' });
+    if (order.status !== 'Received' && order.status !== 'Partially Received') {
+      return res.status(400).json({ error: 'Only a Received (or Partially Received) purchase order can have items returned to the supplier' });
     }
-    sourceLineByPart = new Map(order.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.unitCost, qty: i.quantity }]));
+    // Capped by what actually ARRIVED, not the full ordered quantity — a
+    // partial delivery can't have more returned against it than showed up.
+    sourceLineByPart = new Map(
+      order.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.unitCost, qty: effectiveReceivedQuantity(i, order.status) }])
+    );
   }
 
   const lines: { partId: string; name: string; quantity: number; unitPrice: number }[] = [];
@@ -135,6 +141,14 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     totalAmount += line.quantity! * source.unitPrice;
   }
   totalAmount = Math.round(totalAmount * 100) / 100;
+
+  // Resolved before the transaction starts — same "doesn't need
+  // transactional consistency with the stock/Return writes, only the
+  // actual JournalEntry insert does" reasoning as sales/index.ts.
+  const hasRefund = !!refundAmount && refundAmount > 0;
+  const accountIds = hasRefund
+    ? await getAccountIdsByNames(session.clientId, ['Sales Returns & Allowances', 'Cost of Goods Sold', cashOrBankAccountName(refundMethod!)])
+    : null;
 
   const dbSession = await mongoose.startSession();
   try {
@@ -158,7 +172,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      const returnNumber = await generateSequentialNumber(Return, session.clientId, 'returnNumber', 'RET');
+      const returnNumber = await generateSequentialNumber(Return, session.clientId, 'returnNumber', 'return');
       const [doc] = await Return.create(
         [
           {
@@ -181,6 +195,31 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
         { session: dbSession }
       );
       created = doc.toObject() as ReturnDoc;
+
+      if (hasRefund && accountIds) {
+        const cashOrBankId = accountIds.get(cashOrBankAccountName(refundMethod!));
+        // Customer return: we hand cash back out, reversing revenue we
+        // recognized earlier. Supplier return: the supplier hands cash
+        // back to us, reversing the expense we recognized when we paid
+        // them (Cost of Goods Sold — same account supplier payments post
+        // to, see purchaseOrderPayments.ts).
+        const contraId = accountIds.get(direction === 'customer' ? 'Sales Returns & Allowances' : 'Cost of Goods Sold');
+        if (cashOrBankId && contraId) {
+          await postJournalEntry(
+            {
+              clientId: session.clientId,
+              description: `${direction === 'customer' ? 'Customer' : 'Supplier'} return refund`,
+              sourceType: 'return-refund',
+              sourceId: created._id.toString(),
+              lines:
+                direction === 'customer'
+                  ? [{ accountId: contraId, debit: refundAmount! }, { accountId: cashOrBankId, credit: refundAmount! }]
+                  : [{ accountId: cashOrBankId, debit: refundAmount! }, { accountId: contraId, credit: refundAmount! }],
+            },
+            dbSession
+          );
+        }
+      }
     });
 
     let party: string | undefined;

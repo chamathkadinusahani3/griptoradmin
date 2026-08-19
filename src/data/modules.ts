@@ -48,6 +48,7 @@ export const MODULES: ModuleDef[] = [
     { label: 'Staff', to: 'staff', icon: 'UsersIcon' },
     { label: 'Roles & Permissions', to: 'roles', icon: 'ShieldIcon' },
     { label: 'Corporate Accounts', to: 'corporate-accounts', icon: 'BuildingIcon' },
+    { label: 'Job Report', to: 'job-report', icon: 'BarChart3Icon' },
     { label: 'Settings', to: 'settings', icon: 'SettingsIcon' }]
 
   }
@@ -67,8 +68,18 @@ export const MODULES: ModuleDef[] = [
     heading: 'Inventory & POS',
     items: [
     { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
+    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
+    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
+    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
     { label: 'Point of Sale', to: 'checkout', icon: 'ScanBarcodeIcon' },
-    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' }]
+    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
+    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
+    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
+    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' }]
 
   }
 },
@@ -87,13 +98,19 @@ export const MODULES: ModuleDef[] = [
     heading: 'Customer CRM',
     items: [
     { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+    { label: 'Prospects', to: 'prospects', icon: 'UserPlusIcon' },
     { label: 'Corporate Accounts', to: 'corporate-accounts', icon: 'BuildingIcon' },
+    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
     { label: 'Reminders', to: 'reminders', icon: 'BellRingIcon' },
+    { label: 'Follow-ups', to: 'followups', icon: 'CalendarClockIcon' },
     { label: 'Feedback', to: 'feedback', icon: 'StarIcon' },
     { label: 'Call Logs', to: 'call-logs', icon: 'PhoneIcon' },
     { label: 'Rewards', to: 'rewards', icon: 'GiftIcon' },
     { label: 'Approvals', to: 'approvals', icon: 'ClipboardCheckIcon' },
-    { label: 'Messaging', to: 'messaging', icon: 'MessageSquareIcon' }]
+    { label: 'Messaging', to: 'messaging', icon: 'MessageSquareIcon' },
+    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
+    { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
+    { label: 'Customer Report', to: 'customer-report', icon: 'BarChart3Icon' }]
 
   }
 },
@@ -106,7 +123,12 @@ export const MODULES: ModuleDef[] = [
   addOns: [],
   navGroup: {
     heading: 'Vehicle Inspection',
-    items: [{ label: 'Digital Inspections', to: 'inspections', icon: 'CameraIcon' }]
+    items: [
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Digital Inspections', to: 'inspections', icon: 'CameraIcon' },
+    { label: 'Inspection Report', to: 'inspection-report', icon: 'BarChart3Icon' }]
+
   }
 },
 {
@@ -120,7 +142,8 @@ export const MODULES: ModuleDef[] = [
     heading: 'Booking System',
     items: [
     { label: 'Bookings', to: 'bookings', icon: 'CalendarIcon' },
-    { label: 'Services', to: 'services', icon: 'ListChecksIcon' }]
+    { label: 'Services', to: 'services', icon: 'ListChecksIcon' },
+    { label: 'Booking Report', to: 'booking-report', icon: 'BarChart3Icon' }]
 
   }
 },
@@ -135,7 +158,8 @@ export const MODULES: ModuleDef[] = [
     heading: 'Workshop Management',
     items: [
     { label: 'Bays', to: 'bays', icon: 'LayoutGridIcon' },
-    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' }]
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Workshop Report', to: 'workshop-report', icon: 'BarChart3Icon' }]
 
   }
 },
@@ -149,8 +173,10 @@ export const MODULES: ModuleDef[] = [
   navGroup: {
     heading: 'Accounting',
     items: [
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
     { label: 'Quotations', to: 'quotations', icon: 'FileTextIcon' },
-    { label: 'Invoices', to: 'invoices', icon: 'ReceiptIcon' }]
+    { label: 'Invoices', to: 'invoices', icon: 'ReceiptIcon' },
+    { label: 'Accounting Report', to: 'accounting-report', icon: 'BarChart3Icon' }]
 
   }
 },
@@ -163,27 +189,147 @@ export const MODULES: ModuleDef[] = [
   addOns: [],
   navGroup: {
     heading: 'Reports & Analytics',
-    items: [{ label: 'Reports', to: 'reports', icon: 'BarChart3Icon' }]
+    items: [
+    { label: 'Reports', to: 'reports', icon: 'BarChart3Icon' },
+    { label: 'Financial Overview', to: 'financial-overview', icon: 'TrendingUpIcon' },
+    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' }]
+
   }
 },
 {
   id: 'erp',
   name: 'ERP',
-  price: 69,
-  tagline: 'Purchase orders, expense tracking & payroll in one place',
-  core: ['Purchase Orders', 'Expense Tracking', 'Payroll'],
+  price: 39,
+  tagline: 'Purchase orders, inventory & core accounting',
+  core: ['Purchase Orders & GRN', 'Inventory & Stock Control', 'Expense Tracking', 'Chart of Accounts & General Ledger'],
   addOns: [],
   navGroup: {
     heading: 'ERP',
     items: [
+    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
+    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
+    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
+    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
+    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
     { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
+    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
+    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
+    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
     { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
-    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
+    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
+    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
     { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
     { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
     { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
     { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
-    { label: 'Financial Overview', to: 'financial-overview', icon: 'TrendingUpIcon' }]
+    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
+    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
+    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
+    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
+    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+
+  }
+},
+{
+  id: 'erp-plus',
+  name: 'ERP+',
+  price: 69,
+  tagline: 'Everything in ERP, plus procurement workflow, payroll & claims tracking',
+  core: ['Everything in ERP', 'Purchase Requisitions → RFQ workflow', 'Payroll, Salary Advances & Payslips', 'Warranty & Supplier Claims'],
+  addOns: [],
+  navGroup: {
+    heading: 'ERP+',
+    items: [
+    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
+    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
+    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
+    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
+    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
+    { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
+    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
+    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
+    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
+    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
+    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
+    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
+    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
+    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
+    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
+    { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
+    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
+    { label: 'Departments', to: 'departments', icon: 'BuildingIcon' },
+    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
+    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
+    { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
+    { label: 'Supplier Claims', to: 'supplier-claims', icon: 'FileWarningIcon' },
+    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
+    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
+    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
+    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
+    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+
+  }
+},
+{
+  id: 'erp-pro',
+  name: 'ERP Pro',
+  price: 109,
+  tagline: 'The full ERP+ feature set, with priority access as advanced Finance & multi-branch tools ship',
+  core: ['Everything in ERP+', 'Priority access to Fixed Assets, Multi-Company & Bank Reconciliation as they ship', 'Priority support'],
+  addOns: [],
+  navGroup: {
+    heading: 'ERP Pro',
+    items: [
+    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
+    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
+    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
+    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
+    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
+    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
+    { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
+    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
+    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
+    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
+    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
+    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
+    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
+    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
+    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
+    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
+    { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
+    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
+    { label: 'Departments', to: 'departments', icon: 'BuildingIcon' },
+    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
+    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
+    { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
+    { label: 'Supplier Claims', to: 'supplier-claims', icon: 'FileWarningIcon' },
+    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
+    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
+    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
+    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
+    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
 
   }
 },
@@ -198,11 +344,17 @@ export const MODULES: ModuleDef[] = [
     heading: 'HRM',
     items: [
     { label: 'Employees', to: 'employees', icon: 'UsersIcon' },
+    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
+    { label: 'Departments', to: 'departments', icon: 'BuildingIcon' },
     { label: 'Attendance', to: 'attendance', icon: 'ClockIcon' },
+    { label: 'Timesheets', to: 'timesheets', icon: 'ClockIcon' },
     { label: 'Leave Requests', to: 'leave-requests', icon: 'CalendarClockIcon' },
     { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+    { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
+    { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
     { label: 'Recruitment', to: 'job-openings', icon: 'BriefcaseIcon' },
-    { label: 'Performance', to: 'performance-reviews', icon: 'TrendingUpIcon' }]
+    { label: 'Performance', to: 'performance-reviews', icon: 'TrendingUpIcon' },
+    { label: 'HR Report', to: 'hr-report', icon: 'BarChart3Icon' }]
 
   }
 }];

@@ -4,7 +4,10 @@ import { connectToDatabase } from '../../db.js';
 import { PurchaseOrder, PurchaseOrderDoc } from '../../models/PurchaseOrder.js';
 import { Part } from '../../models/Part.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
+import { GoodsReceivedNote } from '../../models/GoodsReceivedNote.js';
 import { requireTenantPermission } from '../../auth.js';
+import { generateSequentialNumber } from '../../numbering.js';
+import { effectiveReceivedQuantity } from '../../purchaseOrderReceiving.js';
 import { serializePurchaseOrder } from '../../serializers.js';
 
 interface UpdateLine {
@@ -39,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (req.body ?? {}) as UpdatePurchaseOrderBody;
 
-  if (body.action === 'receive') return handleReceive(req, res, session.clientId, existing);
+  if (body.action === 'receive') return handleReceive(req, res, session.clientId, existing, body.items);
   if (body.action === 'order') return handleSimpleTransition(req, res, session.clientId, 'Draft', 'Ordered');
   if (body.action === 'cancel') return handleCancel(req, res, session.clientId, existing);
 
@@ -128,30 +131,78 @@ async function handleCancel(req: VercelRequest, res: VercelResponse, clientId: s
 // decrement, and the direct fix for Supplier.openOrders/lastOrder/onTime
 // having been dead decorative fields since the original migration (now
 // derived live from real PurchaseOrder documents, see api/suppliers/index.ts).
-async function handleReceive(req: VercelRequest, res: VercelResponse, clientId: string, existing: PurchaseOrderDoc) {
+//
+// Supports partial receiving: `items` names how much of each line arrived
+// THIS delivery (defaulting to a line's full remaining quantity when
+// omitted, so the existing single-click "Receive" flow still works
+// unchanged for the common full-delivery case). A GoodsReceivedNote is
+// created for every receive call — the real per-delivery record — and the
+// PO's status reflects whether every line is now fully received.
+async function handleReceive(
+  req: VercelRequest,
+  res: VercelResponse,
+  clientId: string,
+  existing: PurchaseOrderDoc,
+  requestedItems: UpdateLine[] | undefined
+) {
   const { id } = req.query as { id: string };
-  if (existing.status !== 'Ordered') {
-    return res.status(400).json({ error: 'Only an Ordered purchase order can be received' });
+  if (existing.status !== 'Ordered' && existing.status !== 'Partially Received') {
+    return res.status(400).json({ error: 'Only an Ordered or Partially Received purchase order can be received' });
+  }
+
+  const requestedByPart = new Map((requestedItems ?? []).filter((l) => l.partId).map((l) => [l.partId!, l.quantity]));
+
+  const receiveLines: { partId: string; name: string; quantityReceived: number }[] = [];
+  for (const line of existing.items) {
+    const alreadyReceived = effectiveReceivedQuantity(line, existing.status);
+    const remaining = line.quantity - alreadyReceived;
+    if (remaining <= 0) continue;
+    // Omitted from the request body ⇒ receive everything still outstanding
+    // on this line (today's one-click "Receive" behavior, unchanged).
+    const requested = requestedByPart.has(line.partId.toString()) ? requestedByPart.get(line.partId.toString()) : remaining;
+    if (!requested || requested <= 0) continue;
+    if (requested > remaining) {
+      return res.status(400).json({ error: `Cannot receive ${requested} of "${line.name}" — only ${remaining} still outstanding` });
+    }
+    receiveLines.push({ partId: line.partId.toString(), name: line.name, quantityReceived: requested });
+  }
+  if (receiveLines.length === 0) {
+    return res.status(400).json({ error: 'Nothing to receive — specify a quantity for at least one outstanding line' });
   }
 
   const dbSession = await mongoose.startSession();
   try {
     let updated: PurchaseOrderDoc | undefined;
     await dbSession.withTransaction(async () => {
-      for (const line of existing.items) {
-        await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: line.quantity } }, { session: dbSession });
+      const receivedByPart = new Map(receiveLines.map((l) => [l.partId, l.quantityReceived]));
+      for (const line of receiveLines) {
+        await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: line.quantityReceived } }, { session: dbSession });
       }
+
+      const newItems = existing.items.map((line) => {
+        const delta = receivedByPart.get(line.partId.toString()) ?? 0;
+        return { ...line, receivedQuantity: effectiveReceivedQuantity(line, existing.status) + delta };
+      });
+      const fullyReceived = newItems.every((l) => l.receivedQuantity >= l.quantity);
       const receivedAt = new Date();
+
       const order = await PurchaseOrder.findOneAndUpdate(
-        { _id: id, clientId, status: 'Ordered' },
-        { status: 'Received', receivedAt },
+        { _id: id, clientId, status: existing.status },
+        { items: newItems, status: fullyReceived ? 'Received' : 'Partially Received', receivedAt },
         { session: dbSession, returnDocument: 'after' }
       );
       if (!order) {
-        // Already received (or cancelled) by a concurrent request — abort
-        // the whole transaction, including the stock increments just made.
-        throw Object.assign(new Error('This purchase order was already received'), { statusCode: 400 });
+        // Status changed by a concurrent request — abort the whole
+        // transaction, including the stock increments just made.
+        throw Object.assign(new Error('This purchase order changed status — refresh and try again'), { statusCode: 400 });
       }
+
+      const grnNumber = await generateSequentialNumber(GoodsReceivedNote, clientId, 'grnNumber', 'grn');
+      await GoodsReceivedNote.create(
+        [{ clientId, grnNumber, purchaseOrderId: id, supplierId: existing.supplierId, items: receiveLines }],
+        { session: dbSession }
+      );
+
       updated = order.toObject() as PurchaseOrderDoc;
     });
 

@@ -11,21 +11,25 @@ import { Sale } from '../../types/sale';
 import { Branch } from '../../types/branch';
 import { formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface CartLine {
   part: Part;
   qty: number;
 }
 
-const TAX_RATE = 0.08;
-
 export function POS() {
+  const { user } = useAuth();
+  // Preview only — the server always recomputes tax authoritatively
+  // (api/_lib/accounting.ts's getTaxRatePct) at checkout.
+  const taxRatePct = user?.taxRatePct ?? 8;
   const [parts, setParts] = useState<Part[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'Bank Transfer' | 'Other'>('Cash');
 
   const loadParts = () => {
     api
@@ -70,7 +74,7 @@ export function POS() {
   const remove = (id: string) => setCart((prev) => prev.filter((l) => l.part.id !== id));
 
   const subtotal = cart.reduce((s, l) => s + l.part.price * l.qty, 0);
-  const tax = subtotal * TAX_RATE;
+  const tax = subtotal * (taxRatePct / 100);
   const total = subtotal + tax;
 
   const checkout = async () => {
@@ -79,6 +83,7 @@ export function POS() {
       const { sale } = await api.post<{ sale: Sale }>('/sales', {
         items: cart.map((l) => ({ partId: l.part.id, qty: l.qty })),
         branchId: branchId || undefined,
+        paymentMethod,
       });
       setCart([]);
       loadParts();
@@ -177,10 +182,21 @@ export function POS() {
                 <div className="border-t border-border-soft p-4 dark:border-slate-800">
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between text-text-gray dark:text-slate-400"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                    <div className="flex justify-between text-text-gray dark:text-slate-400"><span>Tax (8%)</span><span>{formatCurrency(tax)}</span></div>
+                    <div className="flex justify-between text-text-gray dark:text-slate-400"><span>Tax ({taxRatePct}%)</span><span>{formatCurrency(tax)}</span></div>
                     <div className="flex justify-between border-t border-border-soft pt-2 text-base font-extrabold text-navy dark:border-slate-800 dark:text-slate-100"><span>Total</span><span>{formatCurrency(total)}</span></div>
                   </div>
-                  <Button className="mt-4 w-full" size="lg" loading={checkingOut} onClick={checkout}>
+                  <Select
+                    aria-label="Payment method"
+                    className="mt-3"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}>
+
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Other">Other</option>
+                  </Select>
+                  <Button className="mt-3 w-full" size="lg" loading={checkingOut} onClick={checkout}>
                     <CreditCardIcon className="h-4 w-4" /> Charge {formatCurrency(total)}
                   </Button>
                 </div>

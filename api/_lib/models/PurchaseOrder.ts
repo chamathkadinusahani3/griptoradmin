@@ -8,6 +8,13 @@ const PurchaseOrderLineSchema = new Schema(
     name: { type: String, required: true },
     quantity: { type: Number, required: true },
     unitCost: { type: Number, required: true },
+    // How much of this line has actually arrived so far — a PO can now be
+    // received across more than one delivery (see GoodsReceivedNote.ts).
+    // Documents written before this field existed read as 0 here even
+    // though an old-model 'Received' PO really was fully received —
+    // serializePurchaseOrder() backfills that read-side, see its comment,
+    // rather than a destructive write migration against real tenant data.
+    receivedQuantity: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -47,7 +54,7 @@ const PurchaseOrderSchema = new Schema(
     // customer-facing tax document like Quotation/CustomerInvoice.
     subtotal: { type: Number, required: true },
     total: { type: Number, required: true },
-    status: { type: String, enum: ['Draft', 'Ordered', 'Received', 'Cancelled'], default: 'Draft' },
+    status: { type: String, enum: ['Draft', 'Ordered', 'Partially Received', 'Received', 'Cancelled'], default: 'Draft' },
     expectedDate: { type: Date },
     receivedAt: { type: Date },
     notes: { type: String },
@@ -59,6 +66,8 @@ const PurchaseOrderSchema = new Schema(
     balance: { type: Number, required: true },
     paymentStatus: { type: String, enum: ['Unpaid', 'Partial', 'Paid'], default: 'Unpaid' },
     paymentHistory: { type: [PaymentRecordSchema], default: [] },
+    // Foundation for Phase 8's GL auto-posting — see Expense.ts's identical field.
+    accountId: { type: Schema.Types.ObjectId, ref: 'ChartOfAccounts' },
   },
   { timestamps: true }
 );

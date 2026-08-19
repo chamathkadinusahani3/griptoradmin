@@ -4,6 +4,7 @@ import { Part, PartDoc } from '../../models/Part.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
 import { requireTenantPermission } from '../../auth.js';
 import { isValidBranch, resolveBranchFilter } from '../../branch.js';
+import { isValidWarehouse } from '../../warehouse.js';
 import { serializePart } from '../../serializers.js';
 
 interface CreatePartBody {
@@ -16,6 +17,7 @@ interface CreatePartBody {
   price?: number;
   supplierId?: string;
   branchId?: string;
+  warehouseId?: string;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -30,10 +32,11 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   if (!session) return;
 
   await connectToDatabase();
-  const { branchId } = req.query;
+  const { branchId, warehouseId } = req.query;
   const effectiveBranchId = resolveBranchFilter(session, typeof branchId === 'string' ? branchId : undefined);
   const filter: Record<string, unknown> = { clientId: session.clientId };
   if (effectiveBranchId) filter.branchId = effectiveBranchId;
+  if (typeof warehouseId === 'string') filter.warehouseId = warehouseId;
   const parts = (await Part.find(filter).sort({ createdAt: -1 }).lean()) as PartDoc[];
   const suppliers = (await Supplier.find({ clientId: session.clientId }).lean()) as SupplierDoc[];
   const nameById = new Map(suppliers.map((s) => [s._id.toString(), s.name]));
@@ -47,7 +50,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'parts:manage');
   if (!session) return;
 
-  const { name, sku, barcode, category, stock, reorderAt, price, supplierId, branchId } = (req.body ?? {}) as CreatePartBody;
+  const { name, sku, barcode, category, stock, reorderAt, price, supplierId, branchId, warehouseId } = (req.body ?? {}) as CreatePartBody;
   if (!name || !category) {
     return res.status(400).json({ error: 'name and category are required' });
   }
@@ -62,6 +65,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   if (branchId && !(await isValidBranch(session.clientId, branchId))) {
     return res.status(400).json({ error: 'Unknown branch' });
   }
+  if (warehouseId && !(await isValidWarehouse(session.clientId, warehouseId))) {
+    return res.status(400).json({ error: 'Unknown warehouse' });
+  }
 
   const part = await Part.create({
     clientId: session.clientId,
@@ -74,6 +80,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     price: price ?? 0,
     supplierId: supplierId || undefined,
     branchId: branchId || undefined,
+    warehouseId: warehouseId || undefined,
   });
 
   return res.status(201).json({ part: serializePart(part.toObject(), supplier?.name) });

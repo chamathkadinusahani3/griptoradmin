@@ -1,11 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectToDatabase } from '../../db.js';
 import { PayrollRun, PayrollRunDoc } from '../../models/PayrollRun.js';
+import { Payslip } from '../../models/Payslip.js';
 import { requireTenantPermission } from '../../auth.js';
+import { postJournalEntry, getAccountIdsByNames } from '../../journal.js';
 import { serializePayrollRun } from '../../serializers.js';
 
 interface UpdateRunBody {
-  lines?: { technicianId?: string; hoursWorked?: number }[];
+  lines?: { technicianId?: string; employeeId?: string; hoursWorked?: number }[];
   action?: 'finalize' | 'markPaid';
 }
 
@@ -36,6 +38,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { returnDocument: 'after' }
     ).lean()) as PayrollRunDoc | null;
     if (!updated) return res.status(400).json({ error: 'This run is no longer Draft' });
+
+    // Best-effort, outside any transaction — same reasoning as
+    // expenses/index.ts's identical block. Finalize (not markPaid) is the
+    // scoped GL hook point: treats a finalized run as both expense-
+    // recognized and paid via Bank in one step (payroll is almost always
+    // bank-transferred, and PayrollRun has no per-run payment-method field
+    // to ask, unlike Expense/Sale).
+    try {
+      if (updated.totalAmount > 0) {
+        const accountIds = await getAccountIdsByNames(session.clientId, ['Salaries Expense', 'Bank']);
+        const salariesId = accountIds.get('Salaries Expense');
+        const bankId = accountIds.get('Bank');
+        if (salariesId && bankId) {
+          await postJournalEntry({
+            clientId: session.clientId,
+            description: `Payroll run finalized`,
+            sourceType: 'payroll',
+            sourceId: id,
+            lines: [{ accountId: salariesId, debit: updated.totalAmount }, { accountId: bankId, credit: updated.totalAmount }],
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Journal posting failed for payroll run', id, err);
+    }
+
+    // Best-effort, same reasoning as the GL posting above — one persisted
+    // Payslip per line, so "every payslip for this person" is a real query
+    // instead of scanning PayrollRun documents. Skips lines with 0 hours
+    // (already filtered out of the run at generation time, but defensive
+    // here too since these are lines, not a fresh generation).
+    try {
+      if (updated.lines.length > 0) {
+        await Payslip.insertMany(
+          updated.lines.map((l) => ({
+            clientId: session.clientId,
+            payrollRunId: id,
+            technicianId: l.technicianId,
+            employeeId: l.employeeId,
+            subjectName: l.technicianName,
+            periodStart: updated.periodStart,
+            periodEnd: updated.periodEnd,
+            hourlyRate: l.hourlyRate,
+            hoursWorked: l.hoursWorked,
+            grossPay: l.grossPay,
+            missingRate: l.missingRate,
+          })),
+          { ordered: false }
+        );
+      }
+    } catch (err) {
+      console.error('Payslip creation failed for payroll run', id, err);
+    }
+
     return res.status(200).json({ payrollRun: serializePayrollRun(updated) });
   }
 
@@ -62,9 +118,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'No changes provided' });
   }
 
-  const hoursByTechnician = new Map(body.lines.map((l) => [l.technicianId, l.hoursWorked]));
+  // Keyed by whichever id the line actually has (technician OR employee —
+  // see PayrollRun.ts's comment on why exactly one is ever set per line).
+  const hoursBySubject = new Map(body.lines.map((l) => [l.technicianId ?? l.employeeId, l.hoursWorked]));
   const updatedLines = existing.lines.map((line) => {
-    const newHours = hoursByTechnician.get(line.technicianId.toString());
+    const subjectKey = (line.technicianId ?? line.employeeId)?.toString();
+    const newHours = subjectKey ? hoursBySubject.get(subjectKey) : undefined;
     if (newHours == null || newHours < 0) return line;
     const grossPay = line.missingRate ? 0 : Math.round(newHours * (line.hourlyRate ?? 0) * 100) / 100;
     return { ...line, hoursWorked: newHours, grossPay };

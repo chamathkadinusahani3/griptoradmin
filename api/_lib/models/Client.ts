@@ -49,6 +49,33 @@ const SmsConfigSchema = new Schema(
   { _id: false }
 );
 
+// Per-document-type invoice/PO/etc. number prefix — defaults match the
+// literals every route hardcoded before this existed (api/_lib/numbering.ts's
+// DEFAULT_NUMBERING_PREFIXES), so an unconfigured tenant sees byte-identical
+// numbers to today. Empty/unset per-key falls back to that same default at
+// generation time, not here — this sub-schema only stores an override.
+const NumberingPrefixesSchema = new Schema(
+  {
+    invoice: { type: String },
+    quotation: { type: String },
+    purchaseOrder: { type: String },
+    complaint: { type: String },
+    expense: { type: String },
+    return: { type: String },
+    purchaseRequisition: { type: String },
+    rfq: { type: String },
+    supplierQuotation: { type: String },
+    grn: { type: String },
+    purchaseInvoice: { type: String },
+    salesOrder: { type: String },
+    deliveryNote: { type: String },
+    salaryAdvance: { type: String },
+    warrantyClaim: { type: String },
+    supplierClaim: { type: String },
+  },
+  { _id: false }
+);
+
 const ClientSchema = new Schema(
   {
     name: { type: String, required: true },
@@ -103,6 +130,29 @@ const ClientSchema = new Schema(
     // subscription and overwrites this; the old one keeps charging until
     // manually cancelled in PayHere's dashboard, clearly warned in the UI.
     payhereSubscriptionId: { type: String },
+    // --- Phase 2 (ERP Settings foundation) additions below ---
+    // Company profile fields the original schema never had — Settings.tsx's
+    // "Garage profile" card only ever exposed name/contact/email.
+    address: { type: String },
+    phone: { type: String },
+    taxId: { type: String },
+    website: { type: String },
+    // Percentage (8 means 8%), not a fraction — matches how it's displayed
+    // in Settings.tsx. Default matches the TAX_RATE=0.08 every route used
+    // to hardcode (api/_lib/accounting.ts, routes/sales/index.ts,
+    // POS.tsx) before this existed, so an unconfigured tenant computes
+    // byte-identical totals to today.
+    taxRatePct: { type: Number, default: 8 },
+    // Storage only for now — PayHere and all pricing display remain
+    // hardcoded to LKR (api/_lib/griptorPricingLkr.ts). Rewiring actual
+    // money formatting/payment-gateway currency is out of scope here.
+    currency: { type: String, default: 'LKR' },
+    // 1 = January (calendar year, the default). Not yet consumed by any
+    // report or payroll period calculation — those stay ad-hoc
+    // from/to-date-picked as today; this just records the tenant's answer
+    // for when that wiring happens.
+    fiscalYearStartMonth: { type: Number, min: 1, max: 12, default: 1 },
+    numberingPrefixes: { type: NumberingPrefixesSchema, default: () => ({}) },
   },
   { timestamps: true }
 );

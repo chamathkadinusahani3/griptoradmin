@@ -13,6 +13,16 @@ const ExpenseSchema = new Schema(
     date: { type: Date, required: true },
     vendorName: { type: String },
     notes: { type: String },
+    // How this expense was actually paid — for Cash Management's till
+    // reconciliation (api/_lib/routes/cash-sessions). Defaults to Cash,
+    // the small-shop norm, rather than forcing every existing expense flow
+    // to specify one.
+    paymentMethod: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'], default: 'Cash' },
+    // Which Chart of Accounts entry this belongs to — auto-defaulted from
+    // `category` via accountIdForExpenseCategory() when not given
+    // explicitly (api/_lib/routes/expenses/index.ts). Foundation for
+    // Phase 8's GL auto-posting; not consumed by anything yet.
+    accountId: { type: Schema.Types.ObjectId, ref: 'ChartOfAccounts' },
   },
   { timestamps: true }
 );

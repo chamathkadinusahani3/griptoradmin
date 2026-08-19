@@ -11,6 +11,7 @@ interface UpdateExpenseBody {
   date?: string;
   vendorName?: string;
   notes?: string;
+  paymentMethod?: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -35,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const update: Record<string, unknown> = {};
-    for (const key of ['category', 'description', 'vendorName', 'notes', 'amount'] as const) {
+    for (const key of ['category', 'description', 'vendorName', 'notes', 'amount', 'paymentMethod'] as const) {
       if (body[key] !== undefined) update[key] = body[key];
     }
     if (body.date !== undefined) update.date = new Date(body.date);

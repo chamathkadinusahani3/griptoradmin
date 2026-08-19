@@ -1,4 +1,5 @@
 import { PurchaseOrder, PurchaseOrderDoc } from './models/PurchaseOrder.js';
+import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
 
 export interface RecordSupplierPaymentInput {
   amount: number;
@@ -25,7 +26,7 @@ export async function recordPurchaseOrderPayment(
   input: RecordSupplierPaymentInput
 ): Promise<PurchaseOrderDoc | null> {
   const existing = (await PurchaseOrder.findOne({ _id: poId, clientId }).lean()) as PurchaseOrderDoc | null;
-  if (!existing || (existing.status !== 'Ordered' && existing.status !== 'Received')) return null;
+  if (!existing || (existing.status !== 'Ordered' && existing.status !== 'Partially Received' && existing.status !== 'Received')) return null;
 
   const paidAmount = Math.round((existing.paidAmount + input.amount) * 100) / 100;
   const balance = Math.round((existing.total - paidAmount) * 100) / 100;
@@ -50,6 +51,28 @@ export async function recordPurchaseOrderPayment(
     },
     { returnDocument: 'after' }
   ).lean()) as PurchaseOrderDoc;
+
+  // Best-effort, outside any transaction (same reasoning as
+  // customerInvoicePayments.ts's identical block, the other direction of
+  // money) — recognizes the expense at PAYMENT time, crediting Cash/Bank
+  // and debiting Cost of Goods Sold directly rather than Accounts Payable
+  // (this codebase doesn't hook PO-creation for GL purposes).
+  try {
+    const accountIds = await getAccountIdsByNames(clientId, [cashOrBankAccountName(input.method), 'Cost of Goods Sold']);
+    const cashOrBankId = accountIds.get(cashOrBankAccountName(input.method));
+    const cogsId = accountIds.get('Cost of Goods Sold');
+    if (cashOrBankId && cogsId) {
+      await postJournalEntry({
+        clientId,
+        description: `Supplier payment — ${order.poNumber}`,
+        sourceType: 'supplier-payment',
+        sourceId: poId,
+        lines: [{ accountId: cogsId, debit: input.amount }, { accountId: cashOrBankId, credit: input.amount }],
+      });
+    }
+  } catch (err) {
+    console.error('Journal posting failed for supplier payment', poId, err);
+  }
 
   return order;
 }

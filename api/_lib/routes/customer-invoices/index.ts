@@ -5,7 +5,7 @@ import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomerInvoice } from '../../serializers.js';
-import { computeTotals, LineItemInput } from '../../accounting.js';
+import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 import { generateSequentialNumber } from '../../numbering.js';
 import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
@@ -64,15 +64,17 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   }
 
   const effectiveDiscountPct = await getEffectiveDiscountPct(customer, session.clientId);
+  const taxRatePct = await getTaxRatePct(session.clientId);
   const { items: computedItems, subtotal, discountPct, discountAmount, taxAmount, total } = computeTotals(
     items,
-    effectiveDiscountPct
+    effectiveDiscountPct,
+    taxRatePct
   );
 
   const limitCheck = await checkCreditExposureLimit(session, customer, total);
   if (limitCheck.blocked) return res.status(400).json({ error: limitCheck.message });
 
-  const invoiceNumber = await generateSequentialNumber(CustomerInvoice, session.clientId, 'invoiceNumber', 'INV');
+  const invoiceNumber = await generateSequentialNumber(CustomerInvoice, session.clientId, 'invoiceNumber', 'invoice');
 
   const invoice = await CustomerInvoice.create({
     clientId: session.clientId,

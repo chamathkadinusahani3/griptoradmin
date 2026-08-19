@@ -2,10 +2,20 @@ import mongoose, { Schema, InferSchemaType } from 'mongoose';
 
 const PayrollLineSchema = new Schema(
   {
-    technicianId: { type: Schema.Types.ObjectId, ref: 'Technician', required: true },
+    // Exactly one of technicianId/employeeId is set per line (same optional-
+    // pair convention as Attendance.technicianId/userId) — Phase 9 extended
+    // payroll to cover Employees without a schema migration: technicianId
+    // went from required to optional, employeeId is new, and every
+    // pre-Phase-9 line (which only ever had technicianId) still reads
+    // correctly with employeeId simply absent.
+    technicianId: { type: Schema.Types.ObjectId, ref: 'Technician' },
+    employeeId: { type: Schema.Types.ObjectId, ref: 'Employee' },
     // Snapshotted at generation time — a payroll run must never silently
-    // reflow if the technician's name/rate changes later, same reasoning as
-    // Quotation.discountPct being fixed at creation rather than re-read live.
+    // reflow if the subject's name/rate changes later, same reasoning as
+    // Quotation.discountPct being fixed at creation rather than re-read
+    // live. Field name kept as `technicianName` (not renamed to something
+    // generic) to avoid a migration — it holds the subject's display name
+    // regardless of whether the line is a technician or an employee.
     technicianName: { type: String, required: true },
     hourlyRate: { type: Number },
     hoursWorked: { type: Number, required: true },

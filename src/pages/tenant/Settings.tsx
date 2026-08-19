@@ -51,6 +51,19 @@ export function Settings() {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [website, setWebsite] = useState('');
+  const [taxRatePct, setTaxRatePct] = useState('8');
+  const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState('1');
+  const [savingFinance, setSavingFinance] = useState(false);
+  const [numberingPrefixes, setNumberingPrefixes] = useState({
+    invoice: '', quotation: '', purchaseOrder: '', complaint: '', expense: '', return: '',
+    purchaseRequisition: '', rfq: '', supplierQuotation: '', grn: '', purchaseInvoice: '',
+    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '',
+  });
+  const [savingNumbering, setSavingNumbering] = useState(false);
   const [paletteId, setPaletteId] = useState('blue');
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
   const [defaultMode, setDefaultMode] = useState<'light' | 'dark'>('light');
@@ -75,12 +88,36 @@ export function Settings() {
         setName(client.name);
         setContact(client.contact);
         setEmail(client.email);
+        setAddress(client.address ?? '');
+        setPhone(client.phone ?? '');
+        setTaxId(client.taxId ?? '');
+        setWebsite(client.website ?? '');
         setPaletteId(client.branding.paletteId);
         setLogoDataUrl(client.branding.logoDataUrl);
         setDefaultMode(client.branding.defaultMode);
         setAccentColor(client.branding.accentColor);
         setSidebarStyle(client.branding.sidebarStyle);
         setFontFamily(client.branding.fontFamily);
+        setTaxRatePct(String(client.taxRatePct));
+        setFiscalYearStartMonth(String(client.fiscalYearStartMonth));
+        setNumberingPrefixes({
+          invoice: client.numberingPrefixes.invoice ?? '',
+          quotation: client.numberingPrefixes.quotation ?? '',
+          purchaseOrder: client.numberingPrefixes.purchaseOrder ?? '',
+          complaint: client.numberingPrefixes.complaint ?? '',
+          expense: client.numberingPrefixes.expense ?? '',
+          return: client.numberingPrefixes.return ?? '',
+          purchaseRequisition: client.numberingPrefixes.purchaseRequisition ?? '',
+          rfq: client.numberingPrefixes.rfq ?? '',
+          supplierQuotation: client.numberingPrefixes.supplierQuotation ?? '',
+          grn: client.numberingPrefixes.grn ?? '',
+          purchaseInvoice: client.numberingPrefixes.purchaseInvoice ?? '',
+          salesOrder: client.numberingPrefixes.salesOrder ?? '',
+          deliveryNote: client.numberingPrefixes.deliveryNote ?? '',
+          salaryAdvance: client.numberingPrefixes.salaryAdvance ?? '',
+          warrantyClaim: client.numberingPrefixes.warrantyClaim ?? '',
+          supplierClaim: client.numberingPrefixes.supplierClaim ?? '',
+        });
       })
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
@@ -105,13 +142,63 @@ export function Settings() {
   const saveProfile = async () => {
     setSavingProfile(true);
     try {
-      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { name, contact, email });
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { name, contact, email, address, phone, taxId, website });
       setGarage(updated);
       toast.success('Garage profile updated');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to update profile');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const saveFinance = async () => {
+    setSavingFinance(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', {
+        taxRatePct: Number(taxRatePct),
+        fiscalYearStartMonth: Number(fiscalYearStartMonth),
+      });
+      setGarage(updated);
+      await refreshUser();
+      toast.success('Finance settings updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update finance settings');
+    } finally {
+      setSavingFinance(false);
+    }
+  };
+
+  const saveNumbering = async () => {
+    setSavingNumbering(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', {
+        numberingPrefixes: Object.fromEntries(Object.entries(numberingPrefixes).map(([k, v]) => [k, v.toUpperCase()])),
+      });
+      setGarage(updated);
+      setNumberingPrefixes({
+        invoice: updated.numberingPrefixes.invoice ?? '',
+        quotation: updated.numberingPrefixes.quotation ?? '',
+        purchaseOrder: updated.numberingPrefixes.purchaseOrder ?? '',
+        complaint: updated.numberingPrefixes.complaint ?? '',
+        expense: updated.numberingPrefixes.expense ?? '',
+        return: updated.numberingPrefixes.return ?? '',
+        purchaseRequisition: updated.numberingPrefixes.purchaseRequisition ?? '',
+        rfq: updated.numberingPrefixes.rfq ?? '',
+        supplierQuotation: updated.numberingPrefixes.supplierQuotation ?? '',
+        grn: updated.numberingPrefixes.grn ?? '',
+        purchaseInvoice: updated.numberingPrefixes.purchaseInvoice ?? '',
+        salesOrder: updated.numberingPrefixes.salesOrder ?? '',
+        deliveryNote: updated.numberingPrefixes.deliveryNote ?? '',
+        salaryAdvance: updated.numberingPrefixes.salaryAdvance ?? '',
+        warrantyClaim: updated.numberingPrefixes.warrantyClaim ?? '',
+        supplierClaim: updated.numberingPrefixes.supplierClaim ?? '',
+      });
+      toast.success('Document numbering updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update document numbering');
+    } finally {
+      setSavingNumbering(false);
     }
   };
 
@@ -193,9 +280,96 @@ export function Settings() {
               <Label htmlFor="garage-email">Email</Label>
               <Input id="garage-email" type="email" value={email} disabled={!canEdit} onChange={(e) => setEmail(e.target.value)} />
             </div>
+            <div>
+              <Label htmlFor="garage-address">Address (optional)</Label>
+              <Input id="garage-address" value={address} disabled={!canEdit} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="garage-phone">Phone (optional)</Label>
+              <Input id="garage-phone" value={phone} disabled={!canEdit} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="garage-taxid">Tax / registration ID (optional)</Label>
+              <Input id="garage-taxid" value={taxId} disabled={!canEdit} onChange={(e) => setTaxId(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="garage-website">Website (optional)</Label>
+              <Input id="garage-website" value={website} disabled={!canEdit} onChange={(e) => setWebsite(e.target.value)} />
+            </div>
             {canEdit && (
               <Button loading={savingProfile} onClick={saveProfile}>
                 Save profile
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Tax &amp; fiscal year" subtitle="Used when computing totals on quotations, invoices, and sales" />
+          <div className="space-y-4 p-5">
+            <div>
+              <Label htmlFor="tax-rate">Tax rate (%)</Label>
+              <Input id="tax-rate" type="number" min={0} max={100} step="0.01" value={taxRatePct} disabled={!canEdit} onChange={(e) => setTaxRatePct(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="fiscal-year-start">Fiscal year starts in</Label>
+              <Select id="fiscal-year-start" value={fiscalYearStartMonth} disabled={!canEdit} onChange={(e) => setFiscalYearStartMonth(e.target.value)}>
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </Select>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Recorded for future fiscal-year reporting — not yet used by any report.</p>
+            </div>
+            <div>
+              <Label>Currency</Label>
+              <p className="rounded-lg border border-border-soft bg-soft-gray px-3 py-2 text-sm text-text-gray dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                {garage.currency ?? 'LKR'} — fixed for now, all pricing and payment collection run in Sri Lankan Rupees.
+              </p>
+            </div>
+            {canEdit && (
+              <Button loading={savingFinance} onClick={saveFinance}>
+                Save finance settings
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Document numbering" subtitle="Prefixes used for auto-generated document numbers, e.g. INV-202607-0001" />
+          <div className="space-y-4 p-5">
+            {([
+              ['invoice', 'Invoices'],
+              ['quotation', 'Quotations'],
+              ['purchaseOrder', 'Purchase orders'],
+              ['complaint', 'Complaints'],
+              ['expense', 'Expenses'],
+              ['return', 'Returns'],
+              ['purchaseRequisition', 'Purchase requisitions'],
+              ['rfq', 'RFQs'],
+              ['supplierQuotation', 'Supplier quotations'],
+              ['grn', 'Goods received notes'],
+              ['purchaseInvoice', 'Purchase invoices'],
+              ['salesOrder', 'Sales orders'],
+              ['deliveryNote', 'Delivery notes'],
+              ['salaryAdvance', 'Salary advances'],
+              ['warrantyClaim', 'Warranty claims'],
+              ['supplierClaim', 'Supplier claims'],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
+                <Label htmlFor={`numbering-${key}`}>{label}</Label>
+                <Input
+                  id={`numbering-${key}`}
+                  placeholder="e.g. INV"
+                  maxLength={6}
+                  value={numberingPrefixes[key]}
+                  disabled={!canEdit}
+                  onChange={(e) => setNumberingPrefixes((p) => ({ ...p, [key]: e.target.value.toUpperCase() }))}
+                />
+              </div>
+            ))}
+            {canEdit && (
+              <Button loading={savingNumbering} onClick={saveNumbering}>
+                Save numbering
               </Button>
             )}
           </div>

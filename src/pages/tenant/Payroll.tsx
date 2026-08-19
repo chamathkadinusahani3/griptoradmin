@@ -67,13 +67,19 @@ export function Payroll() {
     }
   };
 
+  // Exactly one of technicianId/employeeId is set per line (Phase 9
+  // extended payroll to cover Employees) — this is the shared key used
+  // wherever a line needs a stable identity: React keys, the hours-draft
+  // dictionary, and the hour-correction PATCH body.
+  const lineKey = (line: PayrollRun['lines'][number]) => line.technicianId ?? line.employeeId ?? line.technicianName;
+
   const toggleExpand = (run: PayrollRun) => {
     if (expandedId === run.id) {
       setExpandedId(null);
       return;
     }
     setExpandedId(run.id);
-    setHoursDraft(Object.fromEntries(run.lines.map((l) => [l.technicianId, String(l.hoursWorked)])));
+    setHoursDraft(Object.fromEntries(run.lines.map((l) => [lineKey(l), String(l.hoursWorked)])));
   };
 
   const finalize = async (run: PayrollRun) => {
@@ -105,7 +111,11 @@ export function Payroll() {
   const saveHourCorrections = async (run: PayrollRun) => {
     setSavingHours(true);
     try {
-      const lines = run.lines.map((l) => ({ technicianId: l.technicianId, hoursWorked: Number(hoursDraft[l.technicianId] ?? l.hoursWorked) }));
+      const lines = run.lines.map((l) => ({
+        technicianId: l.technicianId,
+        employeeId: l.employeeId,
+        hoursWorked: Number(hoursDraft[lineKey(l)] ?? l.hoursWorked),
+      }));
       const { payrollRun } = await api.patch<{ payrollRun: PayrollRun }>(`/payroll-runs/${run.id}`, { lines });
       setRuns((prev) => prev.map((r) => (r.id === run.id ? payrollRun : r)));
       toast.success('Hours updated');
@@ -132,7 +142,7 @@ export function Payroll() {
     <div>
       <PageHeader
         title="Payroll"
-        description="Generate technician pay from real attendance hours."
+        description="Generate technician and employee pay from real attendance hours."
         action={<Button onClick={openGenerate}><PlusIcon className="h-4 w-4" /> Generate payroll run</Button>} />
 
 
@@ -150,7 +160,7 @@ export function Payroll() {
                     <p className="font-bold text-navy dark:text-slate-100">{formatDate(run.periodStart)} – {formatDate(run.periodEnd)}</p>
                     <StatusBadge status={run.status} />
                   </div>
-                  <p className="mt-1 text-xs text-text-gray dark:text-slate-400">{run.lines.length} technician{run.lines.length === 1 ? '' : 's'}</p>
+                  <p className="mt-1 text-xs text-text-gray dark:text-slate-400">{run.lines.length} {run.lines.length === 1 ? 'person' : 'people'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone="teal">{formatCurrency(run.totalAmount)}</Badge>
@@ -162,16 +172,19 @@ export function Payroll() {
           <div className="border-t border-border-soft p-4 dark:border-slate-800">
                   <div className="space-y-2">
                     {run.lines.map((line) =>
-              <div key={line.technicianId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
+              <div key={lineKey(line)} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
                         <div className="min-w-0">
-                          <p className="font-semibold text-navy dark:text-slate-100">{line.technicianName}</p>
+                          <p className="font-semibold text-navy dark:text-slate-100">
+                            {line.technicianName}
+                            <Badge tone={line.technicianId ? 'blue' : 'purple'} className="ml-1.5 align-middle">{line.technicianId ? 'Technician' : 'Employee'}</Badge>
+                          </p>
                           <p className="text-xs text-text-gray dark:text-slate-400">
                             {line.hourlyRate != null ? `${formatCurrency(line.hourlyRate)}/hr` : 'No hourly rate set'}
                           </p>
                         </div>
                         {line.missingRate &&
                   <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                            <AlertTriangleIcon className="h-3.5 w-3.5" /> Set an hourly rate under Technicians
+                            <AlertTriangleIcon className="h-3.5 w-3.5" /> Set an hourly rate under {line.technicianId ? 'Technicians' : 'Employees'}
                           </span>
                   }
                         <div className="flex items-center gap-3">
@@ -180,8 +193,8 @@ export function Payroll() {
                       type="number"
                       min={0}
                       className="w-24"
-                      value={hoursDraft[line.technicianId] ?? String(line.hoursWorked)}
-                      onChange={(e) => setHoursDraft((prev) => ({ ...prev, [line.technicianId]: e.target.value }))} /> :
+                      value={hoursDraft[lineKey(line)] ?? String(line.hoursWorked)}
+                      onChange={(e) => setHoursDraft((prev) => ({ ...prev, [lineKey(line)]: e.target.value }))} /> :
 
                     <span className="text-sm text-text-gray dark:text-slate-400">{line.hoursWorked} hrs</span>
                     }
@@ -232,7 +245,7 @@ export function Payroll() {
           </div>
         </div>
         <p className="mt-3 text-xs text-text-gray dark:text-slate-400">
-          Pulls real clocked hours from Attendance for every active technician in this range, multiplied by their hourly rate.
+          Pulls real clocked hours from Attendance for every active technician and employee in this range, multiplied by their hourly rate.
         </p>
       </Modal>
     </div>);

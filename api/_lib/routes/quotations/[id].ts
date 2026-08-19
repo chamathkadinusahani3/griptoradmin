@@ -4,7 +4,7 @@ import { Quotation, QuotationDoc } from '../../models/Quotation.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeQuotation } from '../../serializers.js';
-import { computeTotals, LineItemInput } from '../../accounting.js';
+import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 
 interface UpdateQuotationBody {
   vehicle?: string;
@@ -43,9 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // a client-sent total, on update just as on create. Preserves the
   // quotation's own existing discountPct rather than resetting it to 0.
   if (body.items !== undefined) {
+    const taxRatePct = await getTaxRatePct(session.clientId);
     const { items, subtotal, discountPct, discountAmount, taxAmount, total } = computeTotals(
       body.items,
-      existing.discountPct ?? 0
+      existing.discountPct ?? 0,
+      taxRatePct
     );
     update.items = items;
     update.subtotal = subtotal;

@@ -32,6 +32,9 @@ const PAIRED_RESOURCES = [
   'bank-accounts',
   'returns',
   'complaints',
+  'departments',
+  'prospects',
+  'followups',
 ] as const;
 
 // View-only resources — either genuinely read-only today (reports) or where

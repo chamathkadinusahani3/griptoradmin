@@ -87,7 +87,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     partyName = supplier.name;
   }
 
-  const complaintNumber = await generateSequentialNumber(Complaint, session.clientId, 'complaintNumber', 'CMP');
+  const complaintNumber = await generateSequentialNumber(Complaint, session.clientId, 'complaintNumber', 'complaint');
   const complaint = await Complaint.create({
     clientId: session.clientId,
     direction,

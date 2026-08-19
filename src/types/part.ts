@@ -10,4 +10,5 @@ export interface Part {
   supplierId?: string;
   supplier?: string;
   branchId?: string;
+  warehouseId?: string;
 }

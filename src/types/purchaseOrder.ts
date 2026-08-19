@@ -1,4 +1,4 @@
-export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Received' | 'Cancelled';
+export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partially Received' | 'Received' | 'Cancelled';
 export type SupplierPaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type SupplierPaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
 
@@ -7,6 +7,7 @@ export interface PurchaseOrderLine {
   name: string;
   quantity: number;
   unitCost: number;
+  receivedQuantity: number;
 }
 
 export interface SupplierPaymentRecord {

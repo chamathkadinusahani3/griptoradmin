@@ -22,4 +22,29 @@ export interface Client {
   alertsPhone?: string;
   trialEndsAt?: string;
   payhereSubscriptionId?: string;
+  address?: string;
+  phone?: string;
+  taxId?: string;
+  website?: string;
+  taxRatePct: number;
+  currency: string;
+  fiscalYearStartMonth: number;
+  numberingPrefixes: {
+    invoice?: string;
+    quotation?: string;
+    purchaseOrder?: string;
+    complaint?: string;
+    expense?: string;
+    return?: string;
+    purchaseRequisition?: string;
+    rfq?: string;
+    supplierQuotation?: string;
+    grn?: string;
+    purchaseInvoice?: string;
+    salesOrder?: string;
+    deliveryNote?: string;
+    salaryAdvance?: string;
+    warrantyClaim?: string;
+    supplierClaim?: string;
+  };
 }

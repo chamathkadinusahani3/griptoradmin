@@ -28,6 +28,29 @@ import { BranchDoc } from './models/Branch.js';
 import { MessageTemplateDoc } from './models/MessageTemplate.js';
 import { SmsLogDoc } from './models/SmsLog.js';
 import { PurchaseOrderDoc } from './models/PurchaseOrder.js';
+import { DepartmentDoc } from './models/Department.js';
+import { WarehouseDoc } from './models/Warehouse.js';
+import { StockTransferDoc } from './models/StockTransfer.js';
+import { StockAdjustmentDoc } from './models/StockAdjustment.js';
+import { StockCountDoc } from './models/StockCount.js';
+import { PurchaseRequisitionDoc } from './models/PurchaseRequisition.js';
+import { RFQDoc } from './models/RFQ.js';
+import { SupplierQuotationDoc } from './models/SupplierQuotation.js';
+import { GoodsReceivedNoteDoc } from './models/GoodsReceivedNote.js';
+import { PurchaseInvoiceDoc } from './models/PurchaseInvoice.js';
+import { SalesOrderDoc } from './models/SalesOrder.js';
+import { DeliveryNoteDoc } from './models/DeliveryNote.js';
+import { ChartOfAccountsDoc } from './models/ChartOfAccounts.js';
+import { CashSessionDoc } from './models/CashSession.js';
+import { JournalEntryDoc } from './models/JournalEntry.js';
+import { PayslipDoc } from './models/Payslip.js';
+import { TimesheetDoc } from './models/Timesheet.js';
+import { SalaryAdvanceDoc } from './models/SalaryAdvance.js';
+import { ProspectDoc } from './models/Prospect.js';
+import { FollowupDoc } from './models/Followup.js';
+import { WarrantyClaimDoc } from './models/WarrantyClaim.js';
+import { SupplierClaimDoc } from './models/SupplierClaim.js';
+import { effectiveReceivedQuantity } from './purchaseOrderReceiving.js';
 import { ExpenseDoc } from './models/Expense.js';
 import { PayrollRunDoc } from './models/PayrollRun.js';
 import { PricingTierDoc } from './models/PricingTier.js';
@@ -73,6 +96,11 @@ export function serializeUser(user: UserDoc, client?: ClientDoc | null, role?: {
     modules: client?.modules,
     addOns: client?.addOns,
     branding: { ...DEFAULT_BRANDING, ...client?.branding },
+    // Lets pages that compute a live preview total (POS.tsx) use the
+    // tenant's real configured rate without a separate fetch — the
+    // authoritative computation still always happens server-side
+    // (api/_lib/accounting.ts's getTaxRatePct), this is preview-only.
+    taxRatePct: client?.taxRatePct ?? 8,
     status: user.status,
     teamRole: user.teamRole,
     // DEPRECATED (see api/_lib/models/Role.ts) — kept only so any
@@ -413,6 +441,390 @@ export function serializeBankAccount(account: BankAccountDoc) {
   };
 }
 
+export function serializeWarehouse(warehouse: WarehouseDoc) {
+  return {
+    id: warehouse._id.toString(),
+    branchId: warehouse.branchId?.toString(),
+    name: warehouse.name,
+    isDefault: warehouse.isDefault,
+  };
+}
+
+export function serializeStockTransfer(
+  transfer: StockTransferDoc,
+  fromPartName?: string,
+  toPartName?: string,
+  toWarehouseName?: string
+) {
+  return {
+    id: transfer._id.toString(),
+    fromPartId: transfer.fromPartId.toString(),
+    fromPartName,
+    toPartId: transfer.toPartId.toString(),
+    toPartName,
+    toWarehouseId: transfer.toWarehouseId.toString(),
+    toWarehouseName,
+    quantity: transfer.quantity,
+    notes: transfer.notes,
+    createdAt: (transfer as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeStockAdjustment(adjustment: StockAdjustmentDoc, partName?: string) {
+  return {
+    id: adjustment._id.toString(),
+    partId: adjustment.partId.toString(),
+    partName,
+    delta: adjustment.delta,
+    previousStock: adjustment.previousStock,
+    newStock: adjustment.newStock,
+    reason: adjustment.reason,
+    notes: adjustment.notes,
+    createdAt: (adjustment as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeStockCount(count: StockCountDoc) {
+  return {
+    id: count._id.toString(),
+    branchId: count.branchId?.toString(),
+    warehouseId: count.warehouseId?.toString(),
+    status: count.status,
+    lines: count.lines.map((l) => ({
+      partId: l.partId.toString(),
+      name: l.name,
+      systemQty: l.systemQty,
+      countedQty: l.countedQty,
+    })),
+    finalizedAt: count.finalizedAt,
+    notes: count.notes,
+    createdAt: (count as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePurchaseRequisition(req: PurchaseRequisitionDoc, requestedByName?: string, reviewedByName?: string) {
+  return {
+    id: req._id.toString(),
+    requisitionNumber: req.requisitionNumber,
+    requestedBy: req.requestedBy.toString(),
+    requestedByName,
+    items: req.items.map((i) => ({ partId: i.partId?.toString(), name: i.name, quantity: i.quantity, estimatedUnitCost: i.estimatedUnitCost })),
+    estimatedTotal: req.estimatedTotal,
+    status: req.status,
+    reviewedBy: req.reviewedBy?.toString(),
+    reviewedByName,
+    reviewedAt: req.reviewedAt,
+    rejectionReason: req.rejectionReason,
+    notes: req.notes,
+    createdAt: (req as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeRFQ(rfq: RFQDoc, supplierNames?: string[]) {
+  return {
+    id: rfq._id.toString(),
+    rfqNumber: rfq.rfqNumber,
+    requisitionId: rfq.requisitionId?.toString(),
+    items: rfq.items.map((i) => ({ partId: i.partId?.toString(), name: i.name, quantity: i.quantity })),
+    supplierIds: rfq.supplierIds.map((id) => id.toString()),
+    supplierNames,
+    status: rfq.status,
+    dueDate: rfq.dueDate,
+    notes: rfq.notes,
+    createdAt: (rfq as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeSupplierQuotation(quotation: SupplierQuotationDoc, supplierName?: string) {
+  return {
+    id: quotation._id.toString(),
+    rfqId: quotation.rfqId.toString(),
+    supplierId: quotation.supplierId.toString(),
+    supplierName,
+    quotationNumber: quotation.quotationNumber,
+    items: quotation.items.map((i) => ({ partId: i.partId?.toString(), name: i.name, quantity: i.quantity, unitCost: i.unitCost })),
+    subtotal: quotation.subtotal,
+    total: quotation.total,
+    validUntil: quotation.validUntil,
+    status: quotation.status,
+    notes: quotation.notes,
+    createdAt: (quotation as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeGoodsReceivedNote(grn: GoodsReceivedNoteDoc, poNumber?: string, supplierName?: string) {
+  return {
+    id: grn._id.toString(),
+    grnNumber: grn.grnNumber,
+    purchaseOrderId: grn.purchaseOrderId.toString(),
+    poNumber,
+    supplierId: grn.supplierId.toString(),
+    supplierName,
+    items: grn.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantityReceived: i.quantityReceived })),
+    notes: grn.notes,
+    createdAt: (grn as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePurchaseInvoice(invoice: PurchaseInvoiceDoc, poNumber?: string, supplierName?: string) {
+  return {
+    id: invoice._id.toString(),
+    purchaseInvoiceNumber: invoice.purchaseInvoiceNumber,
+    purchaseOrderId: invoice.purchaseOrderId.toString(),
+    poNumber,
+    supplierId: invoice.supplierId.toString(),
+    supplierName,
+    supplierReference: invoice.supplierReference,
+    items: invoice.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitCost: i.unitCost })),
+    subtotal: invoice.subtotal,
+    total: invoice.total,
+    invoiceDate: invoice.invoiceDate,
+    dueDate: invoice.dueDate,
+    matchStatus: invoice.matchStatus,
+    discrepancyNotes: invoice.discrepancyNotes,
+    notes: invoice.notes,
+    createdAt: (invoice as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeSalesOrder(order: SalesOrderDoc, customerName?: string) {
+  return {
+    id: order._id.toString(),
+    salesOrderNumber: order.salesOrderNumber,
+    customerId: order.customerId.toString(),
+    customerName,
+    branchId: order.branchId?.toString(),
+    items: order.items.map((i) => ({
+      partId: i.partId.toString(),
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      deliveredQuantity: i.deliveredQuantity ?? 0,
+    })),
+    subtotal: order.subtotal,
+    discountPct: order.discountPct,
+    discountAmount: order.discountAmount,
+    taxAmount: order.taxAmount,
+    total: order.total,
+    status: order.status,
+    notes: order.notes,
+    createdAt: (order as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeDeliveryNote(note: DeliveryNoteDoc, salesOrderNumber?: string, customerName?: string) {
+  return {
+    id: note._id.toString(),
+    deliveryNoteNumber: note.deliveryNoteNumber,
+    salesOrderId: note.salesOrderId.toString(),
+    salesOrderNumber,
+    customerId: note.customerId.toString(),
+    customerName,
+    items: note.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantityDelivered: i.quantityDelivered })),
+    notes: note.notes,
+    createdAt: (note as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeChartOfAccount(account: ChartOfAccountsDoc) {
+  return {
+    id: account._id.toString(),
+    code: account.code,
+    name: account.name,
+    type: account.type,
+    description: account.description,
+    isSystem: account.isSystem,
+    active: account.active,
+  };
+}
+
+export function serializeCashSession(session: CashSessionDoc, openedByName?: string, closedByName?: string) {
+  return {
+    id: session._id.toString(),
+    branchId: session.branchId?.toString(),
+    openedBy: session.openedBy.toString(),
+    openedByName,
+    openingFloat: session.openingFloat,
+    status: session.status,
+    closedBy: session.closedBy?.toString(),
+    closedByName,
+    closedAt: session.closedAt,
+    expectedCashIn: session.expectedCashIn,
+    expectedCashOut: session.expectedCashOut,
+    expectedClosingAmount: session.expectedClosingAmount,
+    closingCountedAmount: session.closingCountedAmount,
+    variance: session.variance,
+    notes: session.notes,
+    createdAt: (session as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeJournalEntry(entry: JournalEntryDoc, accountNameById: Map<string, string>) {
+  return {
+    id: entry._id.toString(),
+    date: entry.date,
+    description: entry.description,
+    sourceType: entry.sourceType,
+    sourceId: entry.sourceId.toString(),
+    lines: entry.lines.map((l) => ({
+      accountId: l.accountId.toString(),
+      accountName: accountNameById.get(l.accountId.toString()) ?? 'Unknown account',
+      debit: l.debit,
+      credit: l.credit,
+    })),
+    createdAt: (entry as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializePayslip(slip: PayslipDoc) {
+  return {
+    id: slip._id.toString(),
+    payrollRunId: slip.payrollRunId.toString(),
+    technicianId: slip.technicianId?.toString(),
+    employeeId: slip.employeeId?.toString(),
+    subjectName: slip.subjectName,
+    periodStart: slip.periodStart,
+    periodEnd: slip.periodEnd,
+    hourlyRate: slip.hourlyRate,
+    hoursWorked: slip.hoursWorked,
+    grossPay: slip.grossPay,
+    missingRate: slip.missingRate,
+    createdAt: (slip as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeTimesheet(sheet: TimesheetDoc, reviewedByName?: string) {
+  return {
+    id: sheet._id.toString(),
+    technicianId: sheet.technicianId?.toString(),
+    employeeId: sheet.employeeId?.toString(),
+    subjectName: sheet.subjectName,
+    periodStart: sheet.periodStart,
+    periodEnd: sheet.periodEnd,
+    totalHours: sheet.totalHours,
+    status: sheet.status,
+    reviewedBy: sheet.reviewedBy?.toString(),
+    reviewedByName,
+    reviewedAt: sheet.reviewedAt,
+    rejectionReason: sheet.rejectionReason,
+    notes: sheet.notes,
+    createdAt: (sheet as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeSalaryAdvance(advance: SalaryAdvanceDoc, approvedByName?: string) {
+  return {
+    id: advance._id.toString(),
+    advanceNumber: advance.advanceNumber,
+    technicianId: advance.technicianId?.toString(),
+    employeeId: advance.employeeId?.toString(),
+    subjectName: advance.subjectName,
+    amount: advance.amount,
+    reason: advance.reason,
+    status: advance.status,
+    paymentMethod: advance.paymentMethod,
+    approvedBy: advance.approvedBy?.toString(),
+    approvedByName,
+    approvedAt: advance.approvedAt,
+    rejectionReason: advance.rejectionReason,
+    notes: advance.notes,
+    createdAt: (advance as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeProspect(prospect: ProspectDoc, assignedToName?: string) {
+  return {
+    id: prospect._id.toString(),
+    name: prospect.name,
+    phone: prospect.phone,
+    email: prospect.email,
+    source: prospect.source,
+    status: prospect.status,
+    assignedTo: prospect.assignedTo?.toString(),
+    assignedToName,
+    convertedCustomerId: prospect.convertedCustomerId?.toString(),
+    lostReason: prospect.lostReason,
+    notes: prospect.notes,
+    createdAt: (prospect as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeFollowup(followup: FollowupDoc, assignedToName?: string) {
+  return {
+    id: followup._id.toString(),
+    customerId: followup.customerId?.toString(),
+    prospectId: followup.prospectId?.toString(),
+    subjectName: followup.subjectName,
+    dueDate: followup.dueDate,
+    type: followup.type,
+    assignedTo: followup.assignedTo?.toString(),
+    assignedToName,
+    status: followup.status,
+    completedAt: followup.completedAt,
+    notes: followup.notes,
+    createdAt: (followup as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeWarrantyClaim(claim: WarrantyClaimDoc, customerName?: string) {
+  // Computed here, not stored — the same "derive, don't store" discipline
+  // as everywhere else, so it can't go stale relative to providedDate/
+  // warrantyPeriodDays if either is edited.
+  let withinWarranty: boolean | null = null;
+  if (claim.providedDate && claim.warrantyPeriodDays != null) {
+    const expiresAt = new Date(claim.providedDate);
+    expiresAt.setDate(expiresAt.getDate() + claim.warrantyPeriodDays);
+    withinWarranty = new Date() <= expiresAt;
+  }
+  return {
+    id: claim._id.toString(),
+    claimNumber: claim.claimNumber,
+    customerId: claim.customerId.toString(),
+    customerName,
+    jobCardId: claim.jobCardId?.toString(),
+    partId: claim.partId?.toString(),
+    partName: claim.partName,
+    issueDescription: claim.issueDescription,
+    providedDate: claim.providedDate,
+    warrantyPeriodDays: claim.warrantyPeriodDays,
+    withinWarranty,
+    status: claim.status,
+    resolution: claim.resolution,
+    resolvedAt: claim.resolvedAt,
+    notes: claim.notes,
+    createdAt: (claim as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeSupplierClaim(claim: SupplierClaimDoc, supplierName?: string, poNumber?: string) {
+  return {
+    id: claim._id.toString(),
+    claimNumber: claim.claimNumber,
+    supplierId: claim.supplierId.toString(),
+    supplierName,
+    purchaseOrderId: claim.purchaseOrderId?.toString(),
+    poNumber,
+    reason: claim.reason,
+    description: claim.description,
+    amountClaimed: claim.amountClaimed,
+    amountSettled: claim.amountSettled,
+    settlementMethod: claim.settlementMethod,
+    status: claim.status,
+    settledAt: claim.settledAt,
+    notes: claim.notes,
+    createdAt: (claim as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeDepartment(department: DepartmentDoc) {
+  return {
+    id: department._id.toString(),
+    name: department.name,
+    description: department.description,
+    createdAt: (department as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
 export function serializeExpense(expense: ExpenseDoc) {
   return {
     id: expense._id.toString(),
@@ -424,6 +836,8 @@ export function serializeExpense(expense: ExpenseDoc) {
     date: expense.date,
     vendorName: expense.vendorName,
     notes: expense.notes,
+    paymentMethod: expense.paymentMethod ?? 'Cash',
+    accountId: expense.accountId?.toString(),
     createdAt: (expense as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -435,7 +849,8 @@ export function serializePayrollRun(run: PayrollRunDoc) {
     periodEnd: run.periodEnd,
     status: run.status,
     lines: run.lines.map((l) => ({
-      technicianId: l.technicianId.toString(),
+      technicianId: l.technicianId?.toString(),
+      employeeId: l.employeeId?.toString(),
       technicianName: l.technicianName,
       hourlyRate: l.hourlyRate,
       hoursWorked: l.hoursWorked,
@@ -469,7 +884,13 @@ export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: s
     supplierId: order.supplierId.toString(),
     supplier: supplierName,
     branchId: order.branchId?.toString(),
-    items: order.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitCost: i.unitCost })),
+    items: order.items.map((i) => ({
+      partId: i.partId.toString(),
+      name: i.name,
+      quantity: i.quantity,
+      unitCost: i.unitCost,
+      receivedQuantity: effectiveReceivedQuantity(i, order.status),
+    })),
     subtotal: order.subtotal,
     total: order.total,
     status: order.status,
@@ -507,6 +928,7 @@ export function serializePart(part: PartDoc, supplierName?: string) {
     supplierId: part.supplierId?.toString(),
     supplier: supplierName,
     branchId: part.branchId?.toString(),
+    warehouseId: part.warehouseId?.toString(),
   };
 }
 
@@ -561,6 +983,8 @@ export function serializeSale(sale: SaleDoc) {
     tax: sale.tax,
     total: sale.total,
     branchId: sale.branchId?.toString(),
+    paymentMethod: sale.paymentMethod ?? 'Cash',
+    accountId: sale.accountId?.toString(),
     date: (sale as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -614,6 +1038,14 @@ export function serializeClient(client: ClientDoc) {
     alertsPhone: client.alertsPhone,
     trialEndsAt: client.trialEndsAt,
     payhereSubscriptionId: client.payhereSubscriptionId,
+    address: client.address,
+    phone: client.phone,
+    taxId: client.taxId,
+    website: client.website,
+    taxRatePct: client.taxRatePct ?? 8,
+    currency: client.currency ?? 'LKR',
+    fiscalYearStartMonth: client.fiscalYearStartMonth ?? 1,
+    numberingPrefixes: client.numberingPrefixes ?? {},
   };
 }
 
@@ -741,6 +1173,13 @@ export function serializeEmployee(userId: string, name: string, email: string, t
     hireDate: employee?.hireDate,
     employmentType: employee?.employmentType ?? 'Full-time',
     notes: employee?.notes,
+    hourlyRate: employee?.hourlyRate,
+    active: employee?.active ?? true,
+    departmentId: employee?.departmentId?.toString(),
+    // Only meaningful once a real Employee profile exists — an id that
+    // hasn't been given a profile yet (hasProfile: false) has nothing to
+    // key a Payslip/Timesheet/SalaryAdvance against.
+    employeeId: employee?._id?.toString(),
   };
 }
 

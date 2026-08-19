@@ -10,7 +10,7 @@
 //    (the exact class of bug the payroll-runs omission was).
 import { execSync } from 'child_process';
 import { PERMISSIONS } from '../api/_lib/permissions.js';
-import { SEED_ROLES } from '../api/_lib/roleSeed.js';
+import { SEED_ROLES, CORE_SEED_ROLES } from '../api/_lib/roleSeed.js';
 
 let failures = 0;
 function assert(cond: boolean, label: string) {
@@ -38,7 +38,7 @@ for (const p of used) {
 }
 
 console.log('\n--- The 4 non-Owner seeded roles jointly cover every taxonomy permission ---');
-const nonOwnerRoles = SEED_ROLES.filter((r) => !r.isProtectedOwner);
+const nonOwnerRoles = CORE_SEED_ROLES.filter((r) => !r.isProtectedOwner);
 assert(nonOwnerRoles.length === 4, `exactly 4 non-Owner seeded roles exist (got ${nonOwnerRoles.length})`);
 const union = new Set(nonOwnerRoles.flatMap((r) => r.permissions));
 const missingFromUnion = PERMISSIONS.filter((p) => !union.has(p));

@@ -18,6 +18,13 @@ const SaleSchema = new Schema(
     tax: { type: Number, required: true },
     total: { type: Number, required: true },
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch' },
+    // Defaults to Cash — the walk-in-counter norm this model was built
+    // around (see api/_lib/routes/sales/index.ts's original comment: no
+    // payment-method distinction existed before Cash Management needed
+    // one to reconcile a till session against).
+    paymentMethod: { type: String, enum: ['Cash', 'Card', 'Bank Transfer', 'Other'], default: 'Cash' },
+    // Foundation for Phase 8's GL auto-posting — see Expense.ts's identical field.
+    accountId: { type: Schema.Types.ObjectId, ref: 'ChartOfAccounts' },
   },
   { timestamps: true }
 );

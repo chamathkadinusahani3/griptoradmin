@@ -214,15 +214,38 @@ const CATALOG_ROLES: { name: string; department: string }[] = [
 // does NOT retroactively apply is EDITING an existing entry's fields
 // (permissions/branchPinned/etc) — that only affects tenants seeded after
 // the edit, never a document already inserted.
-export const SEED_ROLES: SeedRoleDef[] = [
+// The 5 functionally real roles — the only ones a brand-new tenant actually
+// needs synchronously (the Owner role's _id is required immediately, to
+// create the tenant's first User). Exported separately from the full
+// CATALOG_SEED_ROLES tail below so client-creation call sites
+// (api/_lib/routes/clients/index.ts, api/_lib/routes/tenants/register.ts)
+// can seed just these 5 inside their creation transaction instead of all
+// ~150 — bulk-inserting the entire name-only catalog transactionally was
+// confirmed to make that transaction slow enough to fail outright on a
+// real (non-trivial-latency) MongoDB connection, for zero benefit: none of
+// the catalog roles are needed until a Super Admin actually assigns one to
+// a staff member later.
+export const CORE_SEED_ROLES: SeedRoleDef[] = [
   { name: 'Owner', department: 'Company Management', isProtectedOwner: true, permissions: [], branchPinned: false, requiresCreditLimit: false },
   { name: 'Manager', department: 'Company Management', isProtectedOwner: false, permissions: [...PERMISSIONS], branchPinned: false, requiresCreditLimit: false },
   { name: 'Technician', department: 'Workshop / Garage', isProtectedOwner: false, permissions: [...NON_MANAGER_PERMISSIONS], branchPinned: true, requiresCreditLimit: false },
   { name: 'Cashier', department: 'Finance & Accounts', isProtectedOwner: false, permissions: [...NON_MANAGER_PERMISSIONS], branchPinned: true, requiresCreditLimit: false },
   { name: 'Sales Executive', department: 'Sales & CRM', isProtectedOwner: false, permissions: [...NON_MANAGER_PERMISSIONS], branchPinned: false, requiresCreditLimit: true },
-  // Name-only catalog (no permissions) — see CATALOG_ROLES' own comment above.
-  ...CATALOG_ROLES.map((r) => ({ ...r, isProtectedOwner: false, permissions: [] as string[], branchPinned: false, requiresCreditLimit: false })),
 ];
+
+// Name-only catalog (no permissions) — see CATALOG_ROLES' own comment above.
+// Seeded best-effort, AFTER a new tenant's creation transaction has already
+// committed (see the two call sites above) — never blocks or fails tenant
+// creation itself.
+export const CATALOG_SEED_ROLES: SeedRoleDef[] = CATALOG_ROLES.map((r) => ({
+  ...r,
+  isProtectedOwner: false,
+  permissions: [] as string[],
+  branchPinned: false,
+  requiresCreditLimit: false,
+}));
+
+export const SEED_ROLES: SeedRoleDef[] = [...CORE_SEED_ROLES, ...CATALOG_SEED_ROLES];
 
 // Fallback for serializeRole — roles seeded before the `department` column
 // existed won't have it stored in Mongo (schema defaults don't apply

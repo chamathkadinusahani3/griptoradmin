@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     chequeNumber: method === 'Cheque' ? chequeNumber : undefined,
     bankAccountId,
   });
-  if (!order) return res.status(400).json({ error: 'This purchase order was not found or is not payable (must be Ordered or Received)' });
+  if (!order) return res.status(400).json({ error: 'This purchase order was not found or is not payable (must be Ordered, Partially Received, or Received)' });
 
   const supplier = (await Supplier.findById(order.supplierId).lean()) as SupplierDoc | null;
 

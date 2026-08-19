@@ -1,6 +1,7 @@
 import { CustomerInvoice, CustomerInvoiceDoc } from './models/CustomerInvoice.js';
 import { hasAddOn } from './entitlements.js';
 import { awardPoints } from './loyalty.js';
+import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
 
 export interface RecordPaymentInput {
   amount: number;
@@ -60,6 +61,29 @@ export async function recordCustomerInvoicePayment(
     },
     { returnDocument: 'after' }
   ).lean()) as CustomerInvoiceDoc;
+
+  // Best-effort, outside any transaction (this function has none of its
+  // own) — a broken journal posting must never take down the payment
+  // record itself, which is the actual money-received fact of record.
+  // Recognizes revenue at PAYMENT time (not at invoice-issue time, which
+  // this codebase doesn't hook into for GL purposes), so this credits
+  // Service Revenue directly rather than Accounts Receivable.
+  try {
+    const accountIds = await getAccountIdsByNames(clientId, [cashOrBankAccountName(input.method), 'Service Revenue']);
+    const cashOrBankId = accountIds.get(cashOrBankAccountName(input.method));
+    const revenueId = accountIds.get('Service Revenue');
+    if (cashOrBankId && revenueId) {
+      await postJournalEntry({
+        clientId,
+        description: `Invoice payment — ${invoice.invoiceNumber}`,
+        sourceType: 'customer-payment',
+        sourceId: invoiceId,
+        lines: [{ accountId: cashOrBankId, debit: input.amount }, { accountId: revenueId, credit: input.amount }],
+      });
+    }
+  } catch (err) {
+    console.error('Journal posting failed for customer payment', invoiceId, err);
+  }
 
   // Award loyalty points exactly once — only on the transition INTO 'Paid',
   // never on a re-save of an already-paid invoice (the same

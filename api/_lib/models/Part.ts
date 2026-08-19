@@ -17,6 +17,12 @@ const PartSchema = new Schema(
     // documents, each with its own real `stock` — genuine per-branch
     // inventory, not a display label.
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch' },
+    // Same "real independent document per location" reasoning as branchId,
+    // one level finer — the same SKU in two Warehouses of the SAME Branch is
+    // two independent Part documents, each with its own real `stock`, so a
+    // Stock Transfer between them is a genuine move (decrement one document,
+    // increment/create the other) rather than a label change.
+    warehouseId: { type: Schema.Types.ObjectId, ref: 'Warehouse' },
     // Edge-triggered de-dup for the daily low-stock SMS scan
     // (api/_lib/routes/cron/daily.ts) — true from the moment stock first
     // drops to/below reorderAt until it's restocked back above it, so the

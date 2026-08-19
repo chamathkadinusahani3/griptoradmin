@@ -15,4 +15,9 @@ export interface Employee {
   hireDate?: string;
   employmentType: EmploymentType;
   notes?: string;
+  hourlyRate?: number;
+  active: boolean;
+  departmentId?: string;
+  /** The Employee document's own id (only present once hasProfile is true) — this, not userId, is what Payroll/Timesheets/Salary Advances reference. */
+  employeeId?: string;
 }

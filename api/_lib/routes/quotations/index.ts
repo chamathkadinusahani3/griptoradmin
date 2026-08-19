@@ -5,7 +5,7 @@ import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeQuotation } from '../../serializers.js';
-import { computeTotals, LineItemInput } from '../../accounting.js';
+import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 import { generateSequentialNumber } from '../../numbering.js';
 import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
@@ -67,15 +67,17 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   }
 
   const effectiveDiscountPct = await getEffectiveDiscountPct(customer, session.clientId);
+  const taxRatePct = await getTaxRatePct(session.clientId);
   const { items: computedItems, subtotal, discountPct, discountAmount, taxAmount, total } = computeTotals(
     items,
-    effectiveDiscountPct
+    effectiveDiscountPct,
+    taxRatePct
   );
 
   const limitCheck = await checkCreditExposureLimit(session, customer, total);
   if (limitCheck.blocked) return res.status(400).json({ error: limitCheck.message });
 
-  const quoteNumber = await generateSequentialNumber(Quotation, session.clientId, 'quoteNumber', 'QT');
+  const quoteNumber = await generateSequentialNumber(Quotation, session.clientId, 'quoteNumber', 'quotation');
 
   const quotation = await Quotation.create({
     clientId: session.clientId,

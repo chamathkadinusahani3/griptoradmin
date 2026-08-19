@@ -6,12 +6,13 @@ import { Part, PartDoc } from '../../models/Part.js';
 import { requireTenantPermission } from '../../auth.js';
 import { resolveBranchFilter } from '../../branch.js';
 import { serializeSale } from '../../serializers.js';
-
-const TAX_RATE = 0.08;
+import { getTaxRatePct } from '../../accounting.js';
+import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
 
 interface CheckoutBody {
   items?: { partId?: string; qty?: number }[];
   branchId?: string;
+  paymentMethod?: 'Cash' | 'Card' | 'Bank Transfer' | 'Other';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -38,7 +39,7 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'sales:manage');
   if (!session) return;
 
-  const { items, branchId: requestedBranchId } = (req.body ?? {}) as CheckoutBody;
+  const { items, branchId: requestedBranchId, paymentMethod } = (req.body ?? {}) as CheckoutBody;
   const branchId = resolveBranchFilter(session, requestedBranchId);
   if (!items || items.length === 0) {
     return res.status(400).json({ error: 'Cart is empty' });
@@ -50,6 +51,14 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
   }
 
   await connectToDatabase();
+  // Read outside the transaction — a tax-rate lookup doesn't need
+  // transactional consistency with the stock decrements below, and
+  // Client isn't part of this transaction's write set anyway.
+  const taxRatePct = await getTaxRatePct(session.clientId);
+  // Same reasoning — account lookups (and the lazy default-seed they may
+  // trigger) don't need transactional consistency with the stock/sale
+  // writes below, only the actual JournalEntry insert does.
+  const accountIds = await getAccountIdsByNames(session.clientId, [cashOrBankAccountName(paymentMethod || 'Cash'), 'Sales Revenue', 'Sales Tax Payable']);
 
   const dbSession = await mongoose.startSession();
   try {
@@ -81,7 +90,7 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
         subtotal += part.price * item.qty!;
       }
 
-      const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
+      const tax = Math.round(subtotal * (taxRatePct / 100) * 100) / 100;
       const total = subtotal + tax;
 
       for (const line of lines) {
@@ -89,10 +98,22 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
       }
 
       const [sale] = await Sale.create(
-        [{ clientId: session.clientId, items: lines, subtotal, tax, total, branchId: branchId || undefined }],
+        [{ clientId: session.clientId, items: lines, subtotal, tax, total, branchId: branchId || undefined, paymentMethod: paymentMethod || 'Cash' }],
         { session: dbSession }
       );
       created = sale.toObject() as SaleDoc;
+
+      const cashOrBankId = accountIds.get(cashOrBankAccountName(paymentMethod || 'Cash'));
+      const revenueId = accountIds.get('Sales Revenue');
+      const taxPayableId = accountIds.get('Sales Tax Payable');
+      if (cashOrBankId && revenueId && taxPayableId) {
+        const glLines = [{ accountId: cashOrBankId, debit: total }, { accountId: revenueId, credit: subtotal }];
+        if (tax > 0) glLines.push({ accountId: taxPayableId, credit: tax });
+        await postJournalEntry(
+          { clientId: session.clientId, description: `POS sale`, sourceType: 'sale', sourceId: created._id.toString(), lines: glLines },
+          dbSession
+        );
+      }
     });
 
     return res.status(201).json({ sale: serializeSale(created!) });

@@ -11,5 +11,7 @@ export interface Expense {
   date: string;
   vendorName?: string;
   notes?: string;
+  paymentMethod: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
+  accountId?: string;
   createdAt: string;
 }

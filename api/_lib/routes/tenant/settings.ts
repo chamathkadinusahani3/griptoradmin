@@ -17,7 +17,54 @@ interface UpdateSettingsBody {
     sidebarStyle?: 'expanded' | 'compact';
     fontFamily?: string;
   };
+  address?: string;
+  phone?: string;
+  taxId?: string;
+  website?: string;
+  taxRatePct?: number;
+  fiscalYearStartMonth?: number;
+  numberingPrefixes?: {
+    invoice?: string;
+    quotation?: string;
+    purchaseOrder?: string;
+    complaint?: string;
+    expense?: string;
+    return?: string;
+    purchaseRequisition?: string;
+    rfq?: string;
+    supplierQuotation?: string;
+    grn?: string;
+    purchaseInvoice?: string;
+    salesOrder?: string;
+    deliveryNote?: string;
+    salaryAdvance?: string;
+    warrantyClaim?: string;
+    supplierClaim?: string;
+  };
 }
+
+const NUMBERING_KEYS = [
+  'invoice',
+  'quotation',
+  'purchaseOrder',
+  'complaint',
+  'expense',
+  'return',
+  'purchaseRequisition',
+  'rfq',
+  'supplierQuotation',
+  'grn',
+  'purchaseInvoice',
+  'salesOrder',
+  'deliveryNote',
+  'salaryAdvance',
+  'warrantyClaim',
+  'supplierClaim',
+] as const;
+// A document number is embedded in a URL-safe-ish reference string
+// everywhere it's shown (invoice PDFs, PO printouts) — same conservative
+// charset as generateUniqueSlug, just uppercased by convention.
+const PREFIX_PATTERN = /^[A-Z0-9]{1,6}$/;
 
 // Same server-side backstop as api/clients/[id].ts's MAX_LOGO_DATA_URL_LENGTH.
 const MAX_LOGO_DATA_URL_LENGTH = 2_000_000;
@@ -35,7 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'settings:edit');
   if (!session) return;
 
-  const { name, contact, email, branding } = (req.body ?? {}) as UpdateSettingsBody;
+  const { name, contact, email, branding, address, phone, taxId, website, taxRatePct, fiscalYearStartMonth, numberingPrefixes } =
+    (req.body ?? {}) as UpdateSettingsBody;
 
   if (name !== undefined && !name.trim()) {
     return res.status(400).json({ error: 'Garage name cannot be empty' });
@@ -48,6 +96,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (branding?.logoDataUrl && branding.logoDataUrl.length > MAX_LOGO_DATA_URL_LENGTH) {
     return res.status(400).json({ error: 'Logo image is too large' });
+  }
+  if (taxRatePct !== undefined && (typeof taxRatePct !== 'number' || taxRatePct < 0 || taxRatePct > 100)) {
+    return res.status(400).json({ error: 'Tax rate must be a number between 0 and 100' });
+  }
+  if (fiscalYearStartMonth !== undefined && (!Number.isInteger(fiscalYearStartMonth) || fiscalYearStartMonth < 1 || fiscalYearStartMonth > 12)) {
+    return res.status(400).json({ error: 'Fiscal year start month must be between 1 and 12' });
+  }
+  if (numberingPrefixes !== undefined) {
+    for (const key of NUMBERING_KEYS) {
+      const value = numberingPrefixes[key];
+      if (value !== undefined && value !== '' && !PREFIX_PATTERN.test(value)) {
+        return res.status(400).json({ error: `Numbering prefix for ${key} must be 1-6 uppercase letters/digits` });
+      }
+    }
   }
 
   await connectToDatabase();
@@ -70,6 +132,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sidebarStyle: existing.branding?.sidebarStyle ?? 'expanded',
       fontFamily: existing.branding?.fontFamily ?? 'Inter',
       ...branding,
+    };
+  }
+  if (address !== undefined) update.address = address.trim();
+  if (phone !== undefined) update.phone = phone.trim();
+  if (taxId !== undefined) update.taxId = taxId.trim();
+  if (website !== undefined) update.website = website.trim();
+  if (taxRatePct !== undefined) update.taxRatePct = taxRatePct;
+  if (fiscalYearStartMonth !== undefined) update.fiscalYearStartMonth = fiscalYearStartMonth;
+  if (numberingPrefixes !== undefined) {
+    update.numberingPrefixes = {
+      ...existing.numberingPrefixes,
+      ...Object.fromEntries(NUMBERING_KEYS.map((key) => [key, numberingPrefixes[key]?.trim() || undefined])),
     };
   }
 

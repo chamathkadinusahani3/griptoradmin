@@ -9,7 +9,7 @@ import { requireAuth } from '../../auth.js';
 import { serializeClient } from '../../serializers.js';
 import { computeMrr, isValidPlanName } from '../../pricing.js';
 import { generateUniqueSlug } from '../../slug.js';
-import { SEED_ROLES } from '../../roleSeed.js';
+import { CORE_SEED_ROLES, CATALOG_SEED_ROLES } from '../../roleSeed.js';
 
 interface CreateClientBody {
   name?: string;
@@ -81,8 +81,8 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
         { session }
       );
       const roles = await Role.create(
-        SEED_ROLES.map((r) => ({ clientId: client._id, ...r })),
-        { session }
+        CORE_SEED_ROLES.map((r) => ({ clientId: client._id, ...r })),
+        { session, ordered: true }
       );
       const ownerRole = roles.find((r) => r.isProtectedOwner)!;
 
@@ -93,6 +93,15 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
       );
       created = client.toObject() as ClientDoc;
     });
+
+    // Best-effort, outside the transaction — the large name-only role
+    // catalog isn't needed until a Super Admin actually assigns one to a
+    // staff member, so it must never be able to fail (or slow down) the
+    // client/owner-user creation that already committed above.
+    Role.insertMany(
+      CATALOG_SEED_ROLES.map((r) => ({ clientId: created!._id, ...r })),
+      { ordered: false }
+    ).catch((err) => console.error('Catalog role backfill failed for new client', created!._id, err));
 
     return res.status(201).json({ client: serializeClient(created!) });
   } finally {

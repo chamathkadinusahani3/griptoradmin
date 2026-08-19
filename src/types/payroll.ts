@@ -1,7 +1,8 @@
 export type PayrollRunStatus = 'Draft' | 'Finalized' | 'Paid';
 
 export interface PayrollLine {
-  technicianId: string;
+  technicianId?: string;
+  employeeId?: string;
   technicianName: string;
   hourlyRate?: number;
   hoursWorked: number;

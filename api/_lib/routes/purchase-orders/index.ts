@@ -85,7 +85,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   }
   subtotal = Math.round(subtotal * 100) / 100;
 
-  const poNumber = await generateSequentialNumber(PurchaseOrder, session.clientId, 'poNumber', 'PO');
+  const poNumber = await generateSequentialNumber(PurchaseOrder, session.clientId, 'poNumber', 'purchaseOrder');
   const order = await PurchaseOrder.create({
     clientId: session.clientId,
     branchId: branchId || undefined,

@@ -66,11 +66,45 @@ import { Transactions } from './pages/tenant/Transactions';
 import { Returns } from './pages/tenant/Returns';
 import { Complaints } from './pages/tenant/Complaints';
 import { FinancialOverview } from './pages/tenant/FinancialOverview';
+import { Sales } from './pages/tenant/Sales';
+import { JobReport } from './pages/tenant/JobReport';
+import { InventoryReport } from './pages/tenant/InventoryReport';
+import { CustomerReport } from './pages/tenant/CustomerReport';
+import { InspectionReport } from './pages/tenant/InspectionReport';
+import { BookingReport } from './pages/tenant/BookingReport';
+import { WorkshopReport } from './pages/tenant/WorkshopReport';
+import { AccountingReport } from './pages/tenant/AccountingReport';
+import { HrReport } from './pages/tenant/HrReport';
+import { PurchaseReport } from './pages/tenant/PurchaseReport';
+import { SupplierReport } from './pages/tenant/SupplierReport';
+import { ArAging } from './pages/tenant/ArAging';
+import { ApAging } from './pages/tenant/ApAging';
 import { Employees } from './pages/tenant/Employees';
 import { LeaveRequests } from './pages/tenant/LeaveRequests';
 import { Attendance } from './pages/tenant/Attendance';
 import { Recruitment } from './pages/tenant/Recruitment';
 import { PerformanceReviews } from './pages/tenant/PerformanceReviews';
+import { Departments } from './pages/tenant/Departments';
+import { Warehouses } from './pages/tenant/Warehouses';
+import { StockTransfers } from './pages/tenant/StockTransfers';
+import { StockAdjustments } from './pages/tenant/StockAdjustments';
+import { StockCounts } from './pages/tenant/StockCounts';
+import { PurchaseRequisitions } from './pages/tenant/PurchaseRequisitions';
+import { RFQs } from './pages/tenant/RFQs';
+import { GoodsReceivedNotes } from './pages/tenant/GoodsReceivedNotes';
+import { PurchaseInvoices } from './pages/tenant/PurchaseInvoices';
+import { SalesOrders } from './pages/tenant/SalesOrders';
+import { DeliveryNotes } from './pages/tenant/DeliveryNotes';
+import { ChartOfAccounts } from './pages/tenant/ChartOfAccounts';
+import { CashSessions } from './pages/tenant/CashSessions';
+import { GeneralLedger } from './pages/tenant/GeneralLedger';
+import { Timesheets } from './pages/tenant/Timesheets';
+import { SalaryAdvances } from './pages/tenant/SalaryAdvances';
+import { Payslips } from './pages/tenant/Payslips';
+import { Prospects } from './pages/tenant/Prospects';
+import { Followups } from './pages/tenant/Followups';
+import { WarrantyClaims } from './pages/tenant/WarrantyClaims';
+import { SupplierClaims } from './pages/tenant/SupplierClaims';
 
 function RequireRole({ role }: {role: Role;}) {
   const { user, bootstrapping } = useAuth();
@@ -220,23 +254,30 @@ export function App() {
                 <Route path="jobs" element={<JobCards />} />
                 <Route path="technicians" element={<Technicians />} />
                 <Route path="inspections" element={<Inspections />} />
+                <Route path="inspection-report" element={<InspectionReport />} />
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="checkout" element={<POS />} />
                 <Route path="suppliers" element={<Suppliers />} />
+                <Route path="inventory-report" element={<InventoryReport />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="corporate-accounts" element={<CorporateAccounts />} />
+                <Route path="job-report" element={<JobReport />} />
                 <Route path="reminders" element={<Reminders />} />
                 <Route path="feedback" element={<Feedback />} />
                 <Route path="bookings" element={<Bookings />} />
                 <Route path="services" element={<BookingServices />} />
+                <Route path="booking-report" element={<BookingReport />} />
                 <Route path="bays" element={<Workshop />} />
+                <Route path="workshop-report" element={<WorkshopReport />} />
                 <Route path="quotations" element={<Quotations />} />
                 <Route path="invoices" element={<CustomerInvoices />} />
+                <Route path="accounting-report" element={<AccountingReport />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="call-logs" element={<CallLogs />} />
                 <Route path="rewards" element={<Rewards />} />
                 <Route path="approvals" element={<Approvals />} />
                 <Route path="messaging" element={<Messaging />} />
+                <Route path="customer-report" element={<CustomerReport />} />
                 <Route path="branches" element={<Branches />} />
                 <Route path="staff" element={<Staff />} />
                 <Route path="roles" element={<RolesPermissions />} />
@@ -249,11 +290,38 @@ export function App() {
                 <Route path="financial-overview" element={<FinancialOverview />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="payroll" element={<Payroll />} />
+                <Route path="sales" element={<Sales />} />
                 <Route path="employees" element={<Employees />} />
                 <Route path="leave-requests" element={<LeaveRequests />} />
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="job-openings" element={<Recruitment />} />
                 <Route path="performance-reviews" element={<PerformanceReviews />} />
+                <Route path="hr-report" element={<HrReport />} />
+                <Route path="purchase-report" element={<PurchaseReport />} />
+                <Route path="supplier-report" element={<SupplierReport />} />
+                <Route path="ar-aging" element={<ArAging />} />
+                <Route path="ap-aging" element={<ApAging />} />
+                <Route path="departments" element={<Departments />} />
+                <Route path="warehouses" element={<Warehouses />} />
+                <Route path="stock-transfers" element={<StockTransfers />} />
+                <Route path="stock-adjustments" element={<StockAdjustments />} />
+                <Route path="stock-counts" element={<StockCounts />} />
+                <Route path="purchase-requisitions" element={<PurchaseRequisitions />} />
+                <Route path="rfqs" element={<RFQs />} />
+                <Route path="goods-received-notes" element={<GoodsReceivedNotes />} />
+                <Route path="purchase-invoices" element={<PurchaseInvoices />} />
+                <Route path="sales-orders" element={<SalesOrders />} />
+                <Route path="delivery-notes" element={<DeliveryNotes />} />
+                <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
+                <Route path="cash-sessions" element={<CashSessions />} />
+                <Route path="general-ledger" element={<GeneralLedger />} />
+                <Route path="timesheets" element={<Timesheets />} />
+                <Route path="salary-advances" element={<SalaryAdvances />} />
+                <Route path="payslips" element={<Payslips />} />
+                <Route path="prospects" element={<Prospects />} />
+                <Route path="followups" element={<Followups />} />
+                <Route path="warranty-claims" element={<WarrantyClaims />} />
+                <Route path="supplier-claims" element={<SupplierClaims />} />
               </Route>
             </Route>
 

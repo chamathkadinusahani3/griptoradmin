@@ -15,7 +15,8 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
 const CATEGORY_FILTERS: ('All' | ExpenseCategory)[] = ['All', ...EXPENSE_CATEGORIES];
-const emptyForm = { category: EXPENSE_CATEGORIES[0] as ExpenseCategory, description: '', amount: '', date: '', vendorName: '', notes: '' };
+const PAYMENT_METHODS = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'] as const;
+const emptyForm = { category: EXPENSE_CATEGORIES[0] as ExpenseCategory, description: '', amount: '', date: '', vendorName: '', notes: '', paymentMethod: 'Cash' as (typeof PAYMENT_METHODS)[number] };
 
 export function Expenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -53,6 +54,7 @@ export function Expenses() {
       date: e.date.slice(0, 10),
       vendorName: e.vendorName ?? '',
       notes: e.notes ?? '',
+      paymentMethod: e.paymentMethod,
     });
     setModalOpen(true);
   };
@@ -72,6 +74,7 @@ export function Expenses() {
         date: form.date,
         vendorName: form.vendorName || undefined,
         notes: form.notes || undefined,
+        paymentMethod: form.paymentMethod,
       };
       if (editingId) {
         const { expense } = await api.patch<{ expense: Expense }>(`/expenses/${editingId}`, body);
@@ -214,6 +217,12 @@ export function Expenses() {
           <div>
             <Label htmlFor="exp-vendor">Vendor (optional)</Label>
             <Input id="exp-vendor" value={form.vendorName} onChange={(e) => setForm({ ...form, vendorName: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="exp-payment-method">Paid via</Label>
+            <Select id="exp-payment-method" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value as typeof form.paymentMethod })}>
+              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </Select>
           </div>
           <div>
             <Label htmlFor="exp-notes">Notes</Label>

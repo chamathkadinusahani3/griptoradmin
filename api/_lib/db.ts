@@ -31,7 +31,13 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   if (cache.conn) return cache.conn;
 
   if (!cache.promise) {
-    cache.promise = mongoose.connect(uri);
+    // If this attempt fails, clear the cached promise so the next call
+    // retries a fresh connection instead of replaying the same rejection
+    // forever (which would otherwise wedge every request until restart).
+    cache.promise = mongoose.connect(uri).catch((err) => {
+      cache.promise = null;
+      throw err;
+    });
   }
 
   cache.conn = await cache.promise;

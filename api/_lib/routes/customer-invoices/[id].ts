@@ -4,7 +4,7 @@ import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoic
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomerInvoice } from '../../serializers.js';
-import { computeTotals, LineItemInput } from '../../accounting.js';
+import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 
 interface UpdateInvoiceBody {
   vehicle?: string;
@@ -41,9 +41,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (body.items !== undefined) {
     // Preserves the invoice's own existing discountPct rather than
     // resetting it to 0, same reasoning as api/quotations/[id].ts.
+    const taxRatePct = await getTaxRatePct(session.clientId);
     const { items, subtotal, discountPct, discountAmount, taxAmount, total } = computeTotals(
       body.items,
-      existing.discountPct ?? 0
+      existing.discountPct ?? 0,
+      taxRatePct
     );
     update.items = items;
     update.subtotal = subtotal;

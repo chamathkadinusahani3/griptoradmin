@@ -9,8 +9,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { Toggle } from '../../components/ui/Toggle';
 import { Employee, EmploymentType, EMPLOYMENT_TYPES } from '../../types/employee';
-import { formatDate } from '../../lib/utils';
+import { Department } from '../../types/department';
+import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useHasPermission } from '../../context/AuthContext';
 
@@ -23,6 +25,9 @@ const emptyForm = {
   hireDate: '',
   employmentType: 'Full-time' as EmploymentType,
   notes: '',
+  hourlyRate: '',
+  active: true,
+  departmentId: '',
 };
 
 export function Employees() {
@@ -30,6 +35,7 @@ export function Employees() {
   // permission-gated action in this app (Approvals, Staff invite/remove).
   const canEdit = useHasPermission('employees:edit');
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -45,6 +51,11 @@ export function Employees() {
   };
 
   useEffect(loadEmployees, []);
+  useEffect(() => {
+    api.get<{ departments: Department[] }>('/departments').then(({ departments }) => setDepartments(departments)).catch(() => setDepartments([]));
+  }, []);
+
+  const departmentNameById = new Map(departments.map((d) => [d.id, d.name]));
 
   const openEdit = (employee: Employee) => {
     setEditing(employee);
@@ -57,6 +68,9 @@ export function Employees() {
       hireDate: employee.hireDate ? employee.hireDate.slice(0, 10) : '',
       employmentType: employee.employmentType,
       notes: employee.notes ?? '',
+      hourlyRate: employee.hourlyRate != null ? String(employee.hourlyRate) : '',
+      active: employee.active,
+      departmentId: employee.departmentId ?? '',
     });
   };
 
@@ -68,6 +82,8 @@ export function Employees() {
         ...form,
         dateOfBirth: form.dateOfBirth || undefined,
         hireDate: form.hireDate || undefined,
+        hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : null,
+        departmentId: form.departmentId || null,
       });
       setEmployees((prev) => prev.map((e) => (e.userId === employee.userId ? employee : e)));
       toast.success(`${employee.name}'s profile updated`);
@@ -97,11 +113,14 @@ export function Employees() {
                     <p className="font-bold text-navy dark:text-slate-100">{e.name}</p>
                     <Badge tone="gray">{e.tenantRole}</Badge>
                     {!e.hasProfile && <Badge tone="amber">No profile yet</Badge>}
+                    {e.hasProfile && !e.active && <Badge tone="red">Inactive</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
                     {e.email}
                     {e.hireDate && ` · Hired ${formatDate(e.hireDate)}`}
                     {e.hasProfile && ` · ${e.employmentType}`}
+                    {e.departmentId && ` · ${departmentNameById.get(e.departmentId) ?? 'Unknown department'}`}
+                    {e.hourlyRate != null && ` · ${formatCurrency(e.hourlyRate)}/hr`}
                   </p>
                 </div>
                 {canEdit &&
@@ -149,6 +168,23 @@ export function Employees() {
             <Select id="emp-type" value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value as EmploymentType })}>
               {EMPLOYMENT_TYPES.map((t) => <option key={t}>{t}</option>)}
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="emp-rate">Hourly rate (optional)</Label>
+            <Input id="emp-rate" type="number" min={0} placeholder="Used to compute Payroll" value={form.hourlyRate} onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} />
+          </div>
+          {departments.length > 0 &&
+          <div>
+              <Label htmlFor="emp-dept">Department (optional)</Label>
+              <Select id="emp-dept" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+                <option value="">— none —</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </Select>
+            </div>
+          }
+          <div className="flex items-center justify-between rounded-xl border border-border-soft px-3 py-2.5 dark:border-slate-800">
+            <Label htmlFor="emp-active">Active (included in payroll)</Label>
+            <Toggle checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
           </div>
           <div>
             <Label htmlFor="emp-ec-name">Emergency contact name</Label>

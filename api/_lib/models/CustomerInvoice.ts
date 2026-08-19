@@ -77,6 +77,8 @@ const CustomerInvoiceSchema = new Schema(
     payToken: { type: String },
     dueDate: { type: Date },
     notes: { type: String },
+    // Foundation for Phase 8's GL auto-posting — see Expense.ts's identical field.
+    accountId: { type: Schema.Types.ObjectId, ref: 'ChartOfAccounts' },
   },
   { timestamps: true }
 );

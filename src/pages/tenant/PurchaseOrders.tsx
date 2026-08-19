@@ -18,7 +18,7 @@ import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
-const STATUS_FILTERS: ('All' | PurchaseOrderStatus)[] = ['All', 'Draft', 'Ordered', 'Received', 'Cancelled'];
+const STATUS_FILTERS: ('All' | PurchaseOrderStatus)[] = ['All', 'Draft', 'Ordered', 'Partially Received', 'Received', 'Cancelled'];
 
 interface DraftLine {
   partId: string;
@@ -50,6 +50,9 @@ export function PurchaseOrders() {
   const [payBankAccountId, setPayBankAccountId] = useState('');
   const [paying, setPaying] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [receiveTarget, setReceiveTarget] = useState<PurchaseOrder | null>(null);
+  const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({});
+  const [receiving, setReceiving] = useState(false);
 
   const loadOrders = () => {
     api
@@ -175,6 +178,40 @@ export function PurchaseOrders() {
     }
   };
 
+  const openReceive = (order: PurchaseOrder) => {
+    setReceiveTarget(order);
+    setReceiveQuantities(
+      Object.fromEntries(
+        order.items.filter((l) => l.receivedQuantity < l.quantity).map((l) => [l.partId, String(l.quantity - l.receivedQuantity)])
+      )
+    );
+  };
+
+  const submitReceive = async () => {
+    if (!receiveTarget) return;
+    const items = Object.entries(receiveQuantities)
+      .filter(([, v]) => v.trim() !== '' && Number(v) > 0)
+      .map(([partId, v]) => ({ partId, quantity: Number(v) }));
+    if (items.length === 0) {
+      toast.error('Enter a quantity for at least one line');
+      return;
+    }
+    setReceiving(true);
+    try {
+      const { purchaseOrder } = await api.patch<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${receiveTarget.id}`, {
+        action: 'receive',
+        items,
+      });
+      setOrders((prev) => prev.map((o) => (o.id === purchaseOrder.id ? purchaseOrder : o)));
+      toast.success(`${purchaseOrder.poNumber} — stock updated (${purchaseOrder.status})`);
+      setReceiveTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to receive purchase order');
+    } finally {
+      setReceiving(false);
+    }
+  };
+
   const openPay = (order: PurchaseOrder) => {
     setPayTarget(order);
     setPayAmount(String(order.balance));
@@ -263,15 +300,15 @@ export function PurchaseOrders() {
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{o.poNumber}</p>
                     <StatusBadge status={o.status} />
-                    {(o.status === 'Ordered' || o.status === 'Received') && <StatusBadge status={o.paymentStatus} />}
+                    {(o.status === 'Ordered' || o.status === 'Partially Received' || o.status === 'Received') && <StatusBadge status={o.paymentStatus} />}
                   </div>
                   <p className="mt-1 text-xs text-text-gray dark:text-slate-400">{o.supplier} · {o.items.length} item{o.items.length === 1 ? '' : 's'}</p>
                   <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
                     {formatDate(o.createdAt)}
                     {o.expectedDate && ` · Expected ${formatDate(o.expectedDate)}`}
-                    {o.receivedAt && ` · Received ${formatDate(o.receivedAt)}`}
+                    {o.receivedAt && ` · Last received ${formatDate(o.receivedAt)}`}
                   </p>
-                  {(o.status === 'Ordered' || o.status === 'Received') && o.paidAmount > 0 &&
+                  {(o.status === 'Ordered' || o.status === 'Partially Received' || o.status === 'Received') && o.paidAmount > 0 &&
               <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
                       Paid {formatCurrency(o.paidAmount)}{o.balance > 0 ? ` · Owed ${formatCurrency(o.balance)}` : ''}
                     </p>
@@ -279,7 +316,7 @@ export function PurchaseOrders() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="teal">{formatCurrency(o.total)}</Badge>
-                  {(o.status === 'Ordered' || o.status === 'Received') && o.balance > 0 &&
+                  {(o.status === 'Ordered' || o.status === 'Partially Received' || o.status === 'Received') && o.balance > 0 &&
               <Button size="sm" variant="secondary" onClick={() => openPay(o)}>Record payment</Button>
               }
                   {o.status === 'Draft' &&
@@ -291,12 +328,14 @@ export function PurchaseOrders() {
                       <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
                     </>
               }
-                  {o.status === 'Ordered' &&
+                  {(o.status === 'Ordered' || o.status === 'Partially Received') &&
               <>
-                      <Button size="sm" loading={actingId === o.id} onClick={() => runAction(o, 'receive', `${o.poNumber} received — stock updated`)}>
+                      <Button size="sm" onClick={() => openReceive(o)}>
                         <PackageCheckIcon className="h-3.5 w-3.5" /> Receive
                       </Button>
-                      <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
+                      {o.status === 'Ordered' &&
+                <Button size="sm" variant="ghost" loading={actingId === o.id} onClick={() => runAction(o, 'cancel', `${o.poNumber} cancelled`)}>Cancel</Button>
+                }
                     </>
               }
                 </div>
@@ -379,6 +418,39 @@ export function PurchaseOrders() {
           <Label htmlFor="po-notes">Notes</Label>
           <Textarea id="po-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+      </Modal>
+
+      <Modal
+        open={!!receiveTarget}
+        onClose={() => setReceiveTarget(null)}
+        title={receiveTarget ? `Receive — ${receiveTarget.poNumber}` : 'Receive'}
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setReceiveTarget(null)}>Cancel</Button>
+            <Button onClick={submitReceive} loading={receiving}>Confirm receipt</Button>
+          </>
+        }>
+        {receiveTarget &&
+        <div className="space-y-3">
+            <p className="text-xs text-text-gray dark:text-slate-400">Enter how much of each line actually arrived — leave a line at 0 to leave it outstanding for a later delivery.</p>
+            {receiveTarget.items.filter((l) => l.receivedQuantity < l.quantity).map((l) => (
+              <div key={l.partId} className="grid grid-cols-12 items-center gap-2">
+                <span className="col-span-7 text-sm text-navy dark:text-slate-200">
+                  {l.name}
+                  <span className="ml-1.5 text-xs text-text-gray dark:text-slate-400">({l.quantity - l.receivedQuantity} of {l.quantity} outstanding)</span>
+                </span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={l.quantity - l.receivedQuantity}
+                  className="col-span-5"
+                  value={receiveQuantities[l.partId] ?? ''}
+                  onChange={(e) => setReceiveQuantities((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
+
+              </div>
+            ))}
+          </div>
+        }
       </Modal>
 
       <Modal

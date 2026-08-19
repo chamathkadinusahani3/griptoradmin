@@ -5,7 +5,7 @@ import { CustomerInvoice } from '../../../models/CustomerInvoice.js';
 import { Customer, CustomerDoc } from '../../../models/Customer.js';
 import { requireTenantPermission } from '../../../auth.js';
 import { serializeCustomerInvoice } from '../../../serializers.js';
-import { computeTotals } from '../../../accounting.js';
+import { computeTotals, getTaxRatePct } from '../../../accounting.js';
 import { generateSequentialNumber } from '../../../numbering.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -37,11 +37,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // stored discountPct (not a fresh lookup of the customer's current
   // discount) so the invoice always matches what was actually quoted, even
   // if the customer's discount has since changed.
+  const taxRatePct = await getTaxRatePct(session.clientId);
   const { items, subtotal, discountPct, discountAmount, taxAmount, total } = computeTotals(
     quotation.items,
-    quotation.discountPct ?? 0
+    quotation.discountPct ?? 0,
+    taxRatePct
   );
-  const invoiceNumber = await generateSequentialNumber(CustomerInvoice, session.clientId, 'invoiceNumber', 'INV');
+  const invoiceNumber = await generateSequentialNumber(CustomerInvoice, session.clientId, 'invoiceNumber', 'invoice');
 
   const invoice = await CustomerInvoice.create({
     clientId: session.clientId,

@@ -35,6 +35,8 @@ export interface AuthUser {
   /** For tenant users: their garage's active modules/add-ons. */
   modules?: string[];
   addOns?: string[];
+  /** For tenant users: their garage's configured tax rate (percentage, e.g. 8 = 8%) — for live preview totals only, the server always recomputes authoritatively. */
+  taxRatePct?: number;
   /** For tenant users: their garage's color palette/logo/default theme. */
   branding?: Branding;
   /** For super-admin team members: 'Invited' until their first successful login. */
