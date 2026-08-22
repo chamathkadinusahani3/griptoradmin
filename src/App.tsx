@@ -205,7 +205,7 @@ function ModuleLayout() {
 function ModuleIndexRedirect() {
   const { moduleId } = useParams();
   const mod = moduleId ? MODULE_BY_ID[moduleId] : undefined;
-  const firstSlug = mod?.navGroup?.items[0]?.to;
+  const firstSlug = mod?.navGroup?.items?.[0]?.to ?? mod?.navGroup?.sections?.[0]?.items[0]?.to;
   if (!moduleId || !firstSlug) return <Navigate to="/app" replace />;
   return <Navigate to={`/app/${moduleId}/${firstSlug}`} replace />;
 }

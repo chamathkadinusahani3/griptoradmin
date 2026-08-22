@@ -4,11 +4,11 @@
 
 
 
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeftIcon, XIcon, SparklesIcon } from 'lucide-react';
-import { NavGroup } from './navConfig';
+import { ChevronLeftIcon, ChevronDownIcon, XIcon, SparklesIcon } from 'lucide-react';
+import { NavGroup, NavItem, NavSection } from './navConfig';
 import { Logo } from './Logo';
 import { cn } from '../../lib/utils';
 
@@ -21,6 +21,54 @@ interface SidebarProps {
   footerSlot?: React.ReactNode;
 }
 
+function NavItemLink({ item, collapsed, onNavigate }: {item: NavItem;collapsed: boolean;onNavigate?: () => void;}) {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/admin' || item.to === '/app'}
+      onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      className={({ isActive }) =>
+      cn(
+        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
+        collapsed && 'justify-center',
+        isActive ?
+        'bg-griptor-gradient text-white shadow-soft' :
+        'text-text-gray hover:bg-light-blue/60 hover:text-navy dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+      )
+      }>
+
+      <Icon className="h-5 w-5 shrink-0" />
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </NavLink>);
+
+}
+
+function NavSectionAccordion({ section, onNavigate }: {section: NavSection;onNavigate?: () => void;}) {
+  const location = useLocation();
+  const containsActive = section.items.some((item) => location.pathname.startsWith(item.to));
+  const [open, setOpen] = useState(containsActive);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-navy dark:text-slate-500 dark:hover:text-white">
+
+        <span>{section.label}</span>
+        <ChevronDownIcon className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open &&
+      <div className="space-y-1 pb-1 pt-1">
+          {section.items.map((item) => <NavItemLink key={item.to} item={item} collapsed={false} onNavigate={onNavigate} />)}
+        </div>
+      }
+    </div>);
+
+}
+
 function NavList({ groups, collapsed, onNavigate }: {groups: NavGroup[];collapsed: boolean;onNavigate?: () => void;}) {
   return (
     <nav className="scrollbar-thin flex-1 space-y-6 overflow-y-auto px-3 py-4">
@@ -31,32 +79,25 @@ function NavList({ groups, collapsed, onNavigate }: {groups: NavGroup[];collapse
               {group.heading}
             </p>
         }
-          <div className="space-y-1">
-            {group.items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/admin' || item.to === '/app'}
-                onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
-                className={({ isActive }) =>
-                cn(
-                  'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
-                  collapsed && 'justify-center',
-                  isActive ?
-                  'bg-griptor-gradient text-white shadow-soft' :
-                  'text-text-gray hover:bg-light-blue/60 hover:text-navy dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                )
-                }>
-                
-                  <Icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </NavLink>);
+          {group.sections ?
+        collapsed ?
+        // Icon-only rail mode: flatten sections into one plain list, same as a flat group.
+        <div className="space-y-1">
+              {group.sections.flatMap((section) => section.items).map((item) =>
+          <NavItemLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+          )}
+            </div> :
 
-          })}
+        <div className="space-y-1">
+              {group.sections.map((section) => <NavSectionAccordion key={section.label} section={section} onNavigate={onNavigate} />)}
+            </div> :
+
+        <div className="space-y-1">
+            {group.items?.map((item) =>
+          <NavItemLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+          )}
           </div>
+        }
         </div>
       )}
     </nav>);

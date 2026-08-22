@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ClockIcon, WalletIcon } from 'lucide-react';
+import { ClockIcon, WalletIcon, PrinterIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
@@ -35,7 +36,10 @@ export function ArAging() {
 
   return (
     <div>
-      <PageHeader title="Accounts Receivable Aging" description="Outstanding customer invoice balances, grouped by how overdue they are." />
+      <PageHeader
+        title="Accounts Receivable Aging"
+        description="Outstanding customer invoice balances, grouped by how overdue they are."
+        action={<Button variant="secondary" className="print:hidden" onClick={() => window.print()}><PrinterIcon className="h-4 w-4" /> Print</Button>} />
 
       {loading || !data ? (
         <div className="space-y-4">

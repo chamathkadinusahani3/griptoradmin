@@ -14,6 +14,12 @@ export interface NavItemDef {
   icon: string;
 }
 
+/** A collapsible main-topic group within a module's sidebar (e.g. "Sales", "Purchase") — each holds its own flat list of sub-items. */
+export interface NavSectionDef {
+  label: string;
+  items: NavItemDef[];
+}
+
 export interface ModuleDef {
   id: string;
   name: string;
@@ -21,8 +27,14 @@ export interface ModuleDef {
   tagline: string;
   core: string[];
   addOns: AddOn[];
-  /** sidebar nav this module unlocks for tenants — modules that unlock nothing new (e.g. Cloud Hosting) omit this */
-  navGroup?: { heading: string; items: NavItemDef[] };
+  /**
+   * Sidebar nav this module unlocks for tenants — modules that unlock nothing
+   * new (e.g. Cloud Hosting) omit this. Use `items` for a flat single-level
+   * list (most modules); use `sections` instead for a two-level sidebar of
+   * collapsible main-topic groups, each with its own sub-items (currently
+   * only the `erp` module, which has enough pages to need grouping).
+   */
+  navGroup?: { heading: string; items?: NavItemDef[]; sections?: NavSectionDef[] };
 }
 
 export const MODULES: ModuleDef[] = [
@@ -199,137 +211,88 @@ export const MODULES: ModuleDef[] = [
 {
   id: 'erp',
   name: 'ERP',
-  price: 39,
-  tagline: 'Purchase orders, inventory & core accounting',
-  core: ['Purchase Orders & GRN', 'Inventory & Stock Control', 'Expense Tracking', 'Chart of Accounts & General Ledger'],
+  price: 69,
+  tagline: 'One complete ERP: procurement, inventory, sales, accounting, payroll & claims',
+  core: ['Procurement: Requisitions → RFQ → PO → GRN → Invoices', 'Inventory & Warehouses', 'Chart of Accounts & General Ledger', 'Payroll, Salary Advances & Payslips', 'Warranty & Supplier Claims'],
   addOns: [],
   navGroup: {
     heading: 'ERP',
-    items: [
-    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
-    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
-    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
-    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
-    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
-    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
-    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
-    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
-    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
-    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
-    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
-    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
-    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
-    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
-    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
-    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
-    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
-    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
-    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
-    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
-    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
-    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
-    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
-    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
-    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
-    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
-    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
-    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+    sections: [
+    {
+      label: 'Sales',
+      items: [
+      { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
+      { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+      { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
+      { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+      { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' }]
 
-  }
-},
-{
-  id: 'erp-plus',
-  name: 'ERP+',
-  price: 69,
-  tagline: 'Everything in ERP, plus procurement workflow, payroll & claims tracking',
-  core: ['Everything in ERP', 'Purchase Requisitions → RFQ workflow', 'Payroll, Salary Advances & Payslips', 'Warranty & Supplier Claims'],
-  addOns: [],
-  navGroup: {
-    heading: 'ERP+',
-    items: [
-    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
-    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
-    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
-    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
-    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
-    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
-    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
-    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
-    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
-    { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
-    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
-    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
-    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
-    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
-    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
-    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
-    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
-    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
-    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
-    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
-    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
-    { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
-    { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
-    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
-    { label: 'Departments', to: 'departments', icon: 'BuildingIcon' },
-    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
-    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
-    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
-    { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
-    { label: 'Supplier Claims', to: 'supplier-claims', icon: 'FileWarningIcon' },
-    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
-    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
-    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
-    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
-    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+    },
+    {
+      label: 'Purchase',
+      items: [
+      { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
+      { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
+      { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
+      { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
+      { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' }]
 
-  }
-},
-{
-  id: 'erp-pro',
-  name: 'ERP Pro',
-  price: 109,
-  tagline: 'The full ERP+ feature set, with priority access as advanced Finance & multi-branch tools ship',
-  core: ['Everything in ERP+', 'Priority access to Fixed Assets, Multi-Company & Bank Reconciliation as they ship', 'Priority support'],
-  addOns: [],
-  navGroup: {
-    heading: 'ERP Pro',
-    items: [
-    { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
-    { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
-    { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
-    { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
-    { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' },
-    { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
-    { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
-    { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' },
-    { label: 'Purchase Requisitions', to: 'purchase-requisitions', icon: 'ClipboardCheckIcon' },
-    { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
-    { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
-    { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
-    { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
-    { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
-    { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
-    { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
-    { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' },
-    { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
-    { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
-    { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
-    { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
-    { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
-    { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
-    { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
-    { label: 'Departments', to: 'departments', icon: 'BuildingIcon' },
-    { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
-    { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
-    { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' },
-    { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
-    { label: 'Supplier Claims', to: 'supplier-claims', icon: 'FileWarningIcon' },
-    { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
-    { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
-    { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
-    { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
-    { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+    },
+    {
+      label: 'Stock',
+      items: [
+      { label: 'Inventory', to: 'inventory', icon: 'BoxesIcon' },
+      { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
+      { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
+      { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+      { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' }]
+
+    },
+    {
+      label: 'Claims',
+      items: [
+      { label: 'Warranty Claims', to: 'warranty-claims', icon: 'ShieldCheckIcon' },
+      { label: 'Supplier Claims', to: 'supplier-claims', icon: 'FileWarningIcon' }]
+
+    },
+    {
+      label: 'Accounts',
+      items: [
+      { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
+      { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
+      { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
+      { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
+      { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
+      { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' }]
+
+    },
+    {
+      label: 'Payroll',
+      items: [
+      { label: 'Payroll', to: 'payroll', icon: 'BanknoteIcon' },
+      { label: 'Salary Advances', to: 'salary-advances', icon: 'BanknoteIcon' },
+      { label: 'Payslips', to: 'payslips', icon: 'FileTextIcon' },
+      { label: 'Departments', to: 'departments', icon: 'BuildingIcon' }]
+
+    },
+    {
+      label: 'Parties',
+      items: [
+      { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
+      { label: 'Suppliers', to: 'suppliers', icon: 'TruckIcon' },
+      { label: 'Technicians', to: 'technicians', icon: 'WrenchIcon' }]
+
+    },
+    {
+      label: 'Reports',
+      items: [
+      { label: 'Inventory Report', to: 'inventory-report', icon: 'BarChart3Icon' },
+      { label: 'Purchase Report', to: 'purchase-report', icon: 'BarChart3Icon' },
+      { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
+      { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
+      { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+
+    }]
 
   }
 },

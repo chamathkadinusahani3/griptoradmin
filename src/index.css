@@ -37,3 +37,18 @@ body {
 .scrollbar-thin::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Printing always renders light, regardless of the active theme — dark
+   backgrounds would otherwise waste ink and print illegibly. */
+@media print {
+  html.dark body,
+  html.dark #root {
+    background: #fff !important;
+  }
+  html.dark * {
+    background-color: transparent !important;
+    color: #0f172a !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+}

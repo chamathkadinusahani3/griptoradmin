@@ -62,9 +62,18 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
+/** A collapsible main-topic group within a nav list (e.g. "Sales", "Purchase"), holding its own flat list of sub-items. */
+export interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
 export interface NavGroup {
   heading?: string;
-  items: NavItem[];
+  /** Flat single-level list — most modules. Mutually exclusive with `sections`. */
+  items?: NavItem[];
+  /** Two-level list of collapsible main-topic groups — used by modules with enough pages to need grouping (currently only ERP). Mutually exclusive with `items`. */
+  sections?: NavSection[];
 }
 
 /** Maps the icon-name strings stored in ModuleDef.navGroup to actual components. */
@@ -147,7 +156,19 @@ export function buildModuleNav(mod: ModuleDef): NavGroup[] {
   const groups: NavGroup[] = [
   { items: [{ label: 'All Modules', to: '/app', icon: LayoutGridIcon }] }];
 
-  if (mod.navGroup) {
+  if (mod.navGroup?.sections) {
+    groups.push({
+      heading: mod.navGroup.heading,
+      sections: mod.navGroup.sections.map((section) => ({
+        label: section.label,
+        items: section.items.map((item) => ({
+          label: item.label,
+          to: `/app/${mod.id}/${item.to}`,
+          icon: ICONS[item.icon] ?? LayoutDashboardIcon
+        }))
+      }))
+    });
+  } else if (mod.navGroup?.items) {
     groups.push({
       heading: mod.navGroup.heading,
       items: mod.navGroup.items.map((item) => ({

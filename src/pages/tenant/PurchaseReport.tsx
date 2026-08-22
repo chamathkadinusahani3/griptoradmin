@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ShoppingCartIcon, WalletIcon, TrendingUpIcon, ClockIcon } from 'lucide-react';
+import { ShoppingCartIcon, WalletIcon, TrendingUpIcon, ClockIcon, PrinterIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
@@ -48,9 +49,12 @@ export function PurchaseReport() {
 
   return (
     <div>
-      <PageHeader title="Purchase Report" description="What you're buying, from whom, and how much it costs." />
+      <PageHeader
+        title="Purchase Report"
+        description="What you're buying, from whom, and how much it costs."
+        action={<Button variant="secondary" className="print:hidden" onClick={() => window.print()}><PrinterIcon className="h-4 w-4" /> Print</Button>} />
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2 print:hidden">
         {RANGE_OPTIONS.map((r) => (
           <button
             key={r.key}

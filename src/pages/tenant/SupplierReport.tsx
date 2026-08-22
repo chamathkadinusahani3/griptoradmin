@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { TruckIcon, WalletIcon, AlertTriangleIcon, UsersIcon } from 'lucide-react';
+import { TruckIcon, WalletIcon, AlertTriangleIcon, UsersIcon, PrinterIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -47,9 +48,12 @@ export function SupplierReport() {
 
   return (
     <div>
-      <PageHeader title="Supplier Report" description="Spend and standing per supplier, ranked by how much you buy from them." />
+      <PageHeader
+        title="Supplier Report"
+        description="Spend and standing per supplier, ranked by how much you buy from them."
+        action={<Button variant="secondary" className="print:hidden" onClick={() => window.print()}><PrinterIcon className="h-4 w-4" /> Print</Button>} />
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2 print:hidden">
         {RANGE_OPTIONS.map((r) => (
           <button
             key={r.key}

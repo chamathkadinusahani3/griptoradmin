@@ -55,9 +55,7 @@ export const MODULE_CATALOG: ModuleCatalogEntry[] = [
   { id: 'workshop-management', name: 'Workshop Management', price: 45, addOns: [] },
   { id: 'accounting', name: 'Accounting', price: 49, addOns: [] },
   { id: 'reports-analytics', name: 'Reports & Analytics', price: 39, addOns: [] },
-  { id: 'erp', name: 'ERP', price: 39, addOns: [] },
-  { id: 'erp-plus', name: 'ERP+', price: 69, addOns: [] },
-  { id: 'erp-pro', name: 'ERP Pro', price: 109, addOns: [] },
+  { id: 'erp', name: 'ERP', price: 69, addOns: [] },
   { id: 'hrm', name: 'HRM', price: 55, addOns: [] },
 ];
 

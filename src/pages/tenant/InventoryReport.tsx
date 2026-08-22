@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { BoxesIcon, DollarSignIcon, AlertTriangleIcon, PackageIcon } from 'lucide-react';
+import { BoxesIcon, DollarSignIcon, AlertTriangleIcon, PackageIcon, PrinterIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -47,9 +48,12 @@ export function InventoryReport() {
 
   return (
     <div>
-      <PageHeader title="Inventory Report" description="Stock health and sales performance." />
+      <PageHeader
+        title="Inventory Report"
+        description="Stock health and sales performance."
+        action={<Button variant="secondary" className="print:hidden" onClick={() => window.print()}><PrinterIcon className="h-4 w-4" /> Print</Button>} />
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2 print:hidden">
         {RANGE_OPTIONS.map((r) => (
           <button
             key={r.key}
