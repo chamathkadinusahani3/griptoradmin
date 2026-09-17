@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon, LinkIcon } from 'lucide-react';
+import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon, LinkIcon, PencilIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/StatusBadge';
+import { SalesAttachmentsButton } from '../../components/SalesAttachments';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -38,6 +39,11 @@ export function CustomerInvoices() {
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState<LineItem[]>([{ ...emptyItem }]);
   const [saving, setSaving] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<CustomerInvoice | null>(null);
+  const [editForm, setEditForm] = useState({ vehicle: '', plate: '', dueDate: '', notes: '' });
+  const [editItems, setEditItems] = useState<LineItem[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
 
   const [payTarget, setPayTarget] = useState<CustomerInvoice | null>(null);
   const [payAmount, setPayAmount] = useState('');
@@ -101,7 +107,7 @@ export function CustomerInvoices() {
     }
     setSaving(true);
     try {
-      const { invoice } = await api.post<{ invoice: CustomerInvoice }>('/customer-invoices', {
+      const { invoice, creditWarning, discountWarning } = await api.post<{ invoice: CustomerInvoice; creditWarning?: string; discountWarning?: string }>('/customer-invoices', {
         ...form,
         jobCardId: form.jobCardId || undefined,
         dueDate: form.dueDate || undefined,
@@ -109,11 +115,57 @@ export function CustomerInvoices() {
       });
       setInvoices((prev) => [invoice, ...prev]);
       toast.success(`${invoice.invoiceNumber} created`);
+      if (creditWarning) toast.warning(creditWarning);
+      if (discountWarning) toast.warning(discountWarning);
       setModalOpen(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to create invoice');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const editableItems = (inv: CustomerInvoice) => inv.status === 'Draft' || inv.status === 'Issued';
+
+  const openEdit = (inv: CustomerInvoice) => {
+    setEditTarget(inv);
+    setEditForm({ vehicle: inv.vehicle, plate: inv.plate ?? '', dueDate: inv.dueDate ? inv.dueDate.slice(0, 10) : '', notes: inv.notes ?? '' });
+    setEditItems(inv.items.map((it) => ({ ...it })));
+  };
+
+  const updateEditItem = (i: number, patch: Partial<LineItem>) => {
+    setEditItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  };
+  const addEditItem = () => setEditItems((prev) => [...prev, { ...emptyItem }]);
+  const removeEditItem = (i: number) => setEditItems((prev) => prev.filter((_, idx) => idx !== i));
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    if (!editForm.vehicle.trim()) {
+      toast.error('Vehicle is required');
+      return;
+    }
+    const itemsEditable = editableItems(editTarget);
+    if (itemsEditable && editItems.every((it) => !it.description.trim())) {
+      toast.error('At least one line item is required');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { invoice } = await api.patch<{ invoice: CustomerInvoice }>(`/customer-invoices/${editTarget.id}`, {
+        vehicle: editForm.vehicle.trim(),
+        plate: editForm.plate.trim() || undefined,
+        dueDate: editForm.dueDate || undefined,
+        notes: editForm.notes,
+        ...(itemsEditable ? { items: editItems.filter((it) => it.description.trim()) } : {}),
+      });
+      setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? invoice : x)));
+      toast.success('Invoice updated');
+      setEditTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update invoice');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -254,7 +306,15 @@ export function CustomerInvoices() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="teal">{formatCurrency(inv.total)}</Badge>
                   {inv.balance > 0 && <Badge tone="amber">{formatCurrency(inv.balance)} due</Badge>}
+                  <SalesAttachmentsButton
+                    docType="customer-invoices"
+                    basePath={`/customer-invoices/${inv.id}/attachments`}
+                    attachments={inv.attachments}
+                    onChange={(next) => setInvoices((prev) => prev.map((x) => (x.id === inv.id ? { ...x, attachments: next } : x)))} />
                   <Button size="sm" variant="ghost" onClick={() => downloadPdf(inv)}><DownloadIcon className="h-3.5 w-3.5" /> PDF</Button>
+                  {inv.status !== 'Void' &&
+              <Button size="sm" variant="ghost" onClick={() => openEdit(inv)}><PencilIcon className="h-3.5 w-3.5" /> Edit</Button>
+              }
                   {inv.status !== 'Void' && inv.balance > 0 &&
               <Button size="sm" variant="secondary" onClick={() => openPay(inv)}>Record payment</Button>
               }
@@ -341,6 +401,70 @@ export function CustomerInvoices() {
           <Label htmlFor="inv-notes">Notes</Label>
           <Textarea id="inv-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
+      </Modal>
+
+      <Modal
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title={editTarget ? `Edit invoice — ${editTarget.invoiceNumber}` : 'Edit invoice'}
+        size="xl"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button onClick={saveEdit} loading={editSaving}>Save changes</Button>
+          </>
+        }>
+
+        {editTarget &&
+        <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="edit-vehicle">Vehicle</Label>
+                <Input id="edit-vehicle" value={editForm.vehicle} onChange={(e) => setEditForm((f) => ({ ...f, vehicle: e.target.value }))} />
+              </div>
+              <div>
+                <Label htmlFor="edit-plate">License plate</Label>
+                <Input id="edit-plate" value={editForm.plate} onChange={(e) => setEditForm((f) => ({ ...f, plate: e.target.value }))} />
+              </div>
+              <div>
+                <Label htmlFor="edit-due">Due date</Label>
+                <Input id="edit-due" type="date" value={editForm.dueDate} onChange={(e) => setEditForm((f) => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <Label>Line items</Label>
+              {editableItems(editTarget) ?
+            <>
+                  <div className="space-y-2">
+                    {editItems.map((it, i) =>
+                <div key={i} className="grid grid-cols-12 gap-2">
+                        <Input className="col-span-6" placeholder="Description" value={it.description} onChange={(e) => updateEditItem(i, { description: e.target.value })} />
+                        <Input className="col-span-2" type="number" placeholder="Qty" value={it.quantity} onChange={(e) => updateEditItem(i, { quantity: Number(e.target.value) })} />
+                        <Input className="col-span-3" type="number" placeholder="Unit price" value={it.unitPrice} onChange={(e) => updateEditItem(i, { unitPrice: Number(e.target.value) })} />
+                        <button type="button" onClick={() => removeEditItem(i)} className="col-span-1 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40">
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                )}
+                  </div>
+                  <button type="button" onClick={addEditItem} className="mt-2 flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+                    <PlusIcon className="h-3.5 w-3.5" /> Add line
+                  </button>
+                </> :
+
+            <p className="rounded-lg border border-border-soft bg-soft-gray px-3 py-2 text-sm text-text-gray dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                  Items are locked once an invoice is {editTarget.status} — only vehicle, plate, due date, and notes can be edited here.
+                </p>
+            }
+            </div>
+
+            <div className="mt-4">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea id="edit-notes" value={editForm.notes} onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </>
+        }
       </Modal>
 
       <Modal

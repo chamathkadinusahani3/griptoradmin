@@ -13,11 +13,11 @@ import { Part } from '../../types/part';
 import { Supplier } from '../../types/supplier';
 import { Branch } from '../../types/branch';
 import { Warehouse } from '../../types/warehouse';
-import { formatCurrency, cn } from '../../lib/utils';
+import { formatCurrency, formatDate, cn } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { downloadStockLabelsPdf } from '../../lib/stockLabels';
 
-const emptyForm = { name: '', sku: '', barcode: '', category: '', stock: '0', reorderAt: '0', price: '0', supplierId: '', branchId: '', warehouseId: '' };
+const emptyForm = { name: '', sku: '', barcode: '', category: '', stock: '0', reorderAt: '0', price: '0', cost: '0', minSellingPrice: '', batchNumber: '', serialNumber: '', expiryDate: '', unitVolume: '', supplierId: '', branchId: '', warehouseId: '' };
 
 export function Inventory() {
   const [parts, setParts] = useState<Part[]>([]);
@@ -85,6 +85,12 @@ export function Inventory() {
         stock: Number(form.stock) || 0,
         reorderAt: Number(form.reorderAt) || 0,
         price: Number(form.price) || 0,
+        cost: Number(form.cost) || 0,
+        minSellingPrice: form.minSellingPrice ? Number(form.minSellingPrice) : undefined,
+        batchNumber: form.batchNumber || undefined,
+        serialNumber: form.serialNumber || undefined,
+        expiryDate: form.expiryDate || undefined,
+        unitVolume: form.unitVolume ? Number(form.unitVolume) : undefined,
         supplierId: form.supplierId || undefined,
         branchId: form.branchId || undefined,
         warehouseId: form.warehouseId || undefined,
@@ -194,6 +200,7 @@ export function Inventory() {
                   <th className="px-5 py-3 font-bold">Supplier</th>
                   {warehouses.length > 0 && <th className="px-5 py-3 font-bold">Warehouse</th>}
                   <th className="px-5 py-3 text-center font-bold">Stock</th>
+                  <th className="px-5 py-3 text-center font-bold">Available</th>
                   <th className="px-5 py-3 text-right font-bold">Price</th>
                 </tr>
               </thead>
@@ -205,6 +212,11 @@ export function Inventory() {
                       <td className="px-5 py-3">
                         <p className="font-bold text-navy dark:text-slate-100">{p.name}</p>
                         <p className="text-xs text-text-gray dark:text-slate-400">{p.sku}</p>
+                        {(p.batchNumber || p.serialNumber || p.expiryDate) &&
+                        <p className="mt-0.5 text-xs text-text-gray dark:text-slate-500">
+                            {[p.batchNumber && `Batch ${p.batchNumber}`, p.serialNumber && `SN ${p.serialNumber}`, p.expiryDate && `Exp ${formatDate(p.expiryDate)}`].filter(Boolean).join(' · ')}
+                          </p>
+                        }
                       </td>
                       <td className="px-5 py-3">
                         <span className="flex items-center gap-1.5 font-mono text-xs text-text-gray dark:text-slate-400">
@@ -222,6 +234,15 @@ export function Inventory() {
                         <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold', low ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300')}>
                           {low && <AlertTriangleIcon className="h-3 w-3" />} {p.stock}
                         </span>
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        {(p.reservedQty ?? 0) > 0 ?
+                        <span title={`${p.reservedQty} reserved for open sales orders`} className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                            {p.availableQty}
+                          </span> :
+
+                        <span className="text-sm text-text-gray dark:text-slate-400">{p.availableQty ?? p.stock}</span>
+                        }
                       </td>
                       <td className="px-5 py-3 text-right font-semibold text-navy dark:text-slate-100">{formatCurrency(p.price)}</td>
                     </tr>);
@@ -272,6 +293,30 @@ export function Inventory() {
           <div>
             <Label htmlFor="p-price">Price ($)</Label>
             <Input id="p-price" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="p-cost">Cost ($, optional)</Label>
+            <Input id="p-cost" type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="p-min-price">Min selling price ($, optional)</Label>
+            <Input id="p-min-price" type="number" min={0} value={form.minSellingPrice} onChange={(e) => setForm({ ...form, minSellingPrice: e.target.value })} placeholder="No floor" />
+          </div>
+          <div>
+            <Label htmlFor="p-batch">Batch/lot number (optional)</Label>
+            <Input id="p-batch" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="p-serial">Serial number (optional)</Label>
+            <Input id="p-serial" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="p-expiry">Expiry date (optional)</Label>
+            <Input id="p-expiry" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+          </div>
+          <div>
+            <Label htmlFor="p-volume">Unit volume (cubic ft, optional)</Label>
+            <Input id="p-volume" type="number" min={0} step="0.01" value={form.unitVolume} onChange={(e) => setForm({ ...form, unitVolume: e.target.value })} />
           </div>
           <div>
             <Label htmlFor="p-supplier">Supplier</Label>

@@ -10,6 +10,35 @@ const PartSchema = new Schema(
     stock: { type: Number, default: 0 },
     reorderAt: { type: Number, default: 0 },
     price: { type: Number, default: 0 },
+    // Cost basis (what the garage paid), separate from `price` (what it
+    // sells for) — used for per-line margin visibility on documents like
+    // Sales Orders. Defaults to 0 so every part created before this field
+    // existed just shows zero cost rather than breaking anything.
+    cost: { type: Number, default: 0 },
+    // Sales Module Phase 7 — an optional price floor enforced at Sales Order
+    // creation (the only document with real Part references — see
+    // discountGovernance.ts). Unset (the default) means no floor, zero
+    // behavior change for every part that predates this field.
+    minSellingPrice: { type: Number },
+    // Sales Module Phase 15 — optional, most relevant for batteries/parts
+    // with a real batch/lot or serial identity and a shelf life. A Part
+    // document already represents one independently-stocked line (see
+    // branchId/warehouseId's own "different identity = different document"
+    // convention above) — a business tracking distinct batches of the same
+    // SKU is expected to create a separate Part per batch, the same way
+    // they already would per branch/warehouse, rather than this app
+    // maintaining a second per-batch stock ledger underneath one Part.
+    // Snapshotted onto Sale/SalesOrder/GoodsReceivedNote line items at
+    // transaction time (see those models' own comments) so the historical
+    // record survives even if this Part's fields are later changed.
+    batchNumber: { type: String },
+    serialNumber: { type: String },
+    expiryDate: { type: Date },
+    // Cubic feet per unit — used by Sales Force Management's delivery load
+    // calculation (Σ unitVolume × quantity per delivery). Defaults to 0 so
+    // every part created before this field existed just contributes zero
+    // volume rather than breaking the calculation.
+    unitVolume: { type: Number, default: 0 },
     supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier' },
     // The real fix for Anura's inventory gap: their reference has ONE
     // global quantity company-wide with `location` just a shelf-label

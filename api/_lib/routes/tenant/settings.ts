@@ -40,8 +40,28 @@ interface UpdateSettingsBody {
     salaryAdvance?: string;
     warrantyClaim?: string;
     supplierClaim?: string;
+    creditNote?: string;
+    debitNote?: string;
+    receipt?: string;
+    advancePayment?: string;
+    stockIssue?: string;
+    cashHandover?: string;
+    utilization?: string;
+    customerDebitNote?: string;
   };
+  deliveryLoadRules?: { maxVolume: number; vehicleType: string }[];
+  fuelPricePerLiter?: number;
+  requireSalesOrderApproval?: boolean;
+  requireDeliveryConfirm?: boolean;
+  customerCreditLimitPolicy?: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  priceListsEnabled?: boolean;
+  maxDiscountPctBeforeApproval?: number;
+  invoiceApprovalThresholdAmount?: number;
+  requireReturnApproval?: boolean;
+  requireRefundApproval?: boolean;
 }
+
+const CUSTOMER_CREDIT_LIMIT_POLICIES = ['Off', 'Block', 'Warn', 'RequireApproval'] as const;
 
 const NUMBERING_KEYS = [
   'invoice',
@@ -60,6 +80,14 @@ const NUMBERING_KEYS = [
   'salaryAdvance',
   'warrantyClaim',
   'supplierClaim',
+  'creditNote',
+  'debitNote',
+  'receipt',
+  'advancePayment',
+  'stockIssue',
+  'cashHandover',
+  'utilization',
+  'customerDebitNote',
 ] as const;
 // A document number is embedded in a URL-safe-ish reference string
 // everywhere it's shown (invoice PDFs, PO printouts) — same conservative
@@ -82,8 +110,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'settings:edit');
   if (!session) return;
 
-  const { name, contact, email, branding, address, phone, taxId, website, taxRatePct, fiscalYearStartMonth, numberingPrefixes } =
-    (req.body ?? {}) as UpdateSettingsBody;
+  const {
+    name, contact, email, branding, address, phone, taxId, website, taxRatePct, fiscalYearStartMonth, numberingPrefixes,
+    deliveryLoadRules, fuelPricePerLiter, requireSalesOrderApproval, requireDeliveryConfirm, customerCreditLimitPolicy, priceListsEnabled,
+    maxDiscountPctBeforeApproval, invoiceApprovalThresholdAmount, requireReturnApproval, requireRefundApproval,
+  } = (req.body ?? {}) as UpdateSettingsBody;
 
   if (name !== undefined && !name.trim()) {
     return res.status(400).json({ error: 'Garage name cannot be empty' });
@@ -110,6 +141,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: `Numbering prefix for ${key} must be 1-6 uppercase letters/digits` });
       }
     }
+  }
+  if (deliveryLoadRules !== undefined) {
+    for (const rule of deliveryLoadRules) {
+      if (typeof rule.maxVolume !== 'number' || rule.maxVolume <= 0 || !rule.vehicleType?.trim()) {
+        return res.status(400).json({ error: 'Each delivery load rule needs a positive maxVolume and a vehicleType' });
+      }
+    }
+  }
+  if (fuelPricePerLiter !== undefined && (typeof fuelPricePerLiter !== 'number' || fuelPricePerLiter < 0)) {
+    return res.status(400).json({ error: 'Fuel price must be a non-negative number' });
+  }
+  if (requireSalesOrderApproval !== undefined && typeof requireSalesOrderApproval !== 'boolean') {
+    return res.status(400).json({ error: 'requireSalesOrderApproval must be a boolean' });
+  }
+  if (requireDeliveryConfirm !== undefined && typeof requireDeliveryConfirm !== 'boolean') {
+    return res.status(400).json({ error: 'requireDeliveryConfirm must be a boolean' });
+  }
+  if (customerCreditLimitPolicy !== undefined && !CUSTOMER_CREDIT_LIMIT_POLICIES.includes(customerCreditLimitPolicy)) {
+    return res.status(400).json({ error: `customerCreditLimitPolicy must be one of: ${CUSTOMER_CREDIT_LIMIT_POLICIES.join(', ')}` });
+  }
+  if (priceListsEnabled !== undefined && typeof priceListsEnabled !== 'boolean') {
+    return res.status(400).json({ error: 'priceListsEnabled must be a boolean' });
+  }
+  if (maxDiscountPctBeforeApproval !== undefined && (typeof maxDiscountPctBeforeApproval !== 'number' || maxDiscountPctBeforeApproval < 0 || maxDiscountPctBeforeApproval > 100)) {
+    return res.status(400).json({ error: 'maxDiscountPctBeforeApproval must be a number between 0 and 100' });
+  }
+  if (invoiceApprovalThresholdAmount !== undefined && (typeof invoiceApprovalThresholdAmount !== 'number' || invoiceApprovalThresholdAmount < 0)) {
+    return res.status(400).json({ error: 'invoiceApprovalThresholdAmount must be a non-negative number' });
+  }
+  if (requireReturnApproval !== undefined && typeof requireReturnApproval !== 'boolean') {
+    return res.status(400).json({ error: 'requireReturnApproval must be a boolean' });
+  }
+  if (requireRefundApproval !== undefined && typeof requireRefundApproval !== 'boolean') {
+    return res.status(400).json({ error: 'requireRefundApproval must be a boolean' });
   }
 
   await connectToDatabase();
@@ -146,6 +211,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...Object.fromEntries(NUMBERING_KEYS.map((key) => [key, numberingPrefixes[key]?.trim() || undefined])),
     };
   }
+  if (deliveryLoadRules !== undefined) {
+    update.deliveryLoadRules = deliveryLoadRules
+      .map((r) => ({ maxVolume: r.maxVolume, vehicleType: r.vehicleType.trim() }))
+      .sort((a, b) => a.maxVolume - b.maxVolume);
+  }
+  if (fuelPricePerLiter !== undefined) update.fuelPricePerLiter = fuelPricePerLiter;
+  if (requireSalesOrderApproval !== undefined) update.requireSalesOrderApproval = requireSalesOrderApproval;
+  if (requireDeliveryConfirm !== undefined) update.requireDeliveryConfirm = requireDeliveryConfirm;
+  if (customerCreditLimitPolicy !== undefined) update.customerCreditLimitPolicy = customerCreditLimitPolicy;
+  if (priceListsEnabled !== undefined) update.priceListsEnabled = priceListsEnabled;
+  if (maxDiscountPctBeforeApproval !== undefined) update.maxDiscountPctBeforeApproval = maxDiscountPctBeforeApproval;
+  if (invoiceApprovalThresholdAmount !== undefined) update.invoiceApprovalThresholdAmount = invoiceApprovalThresholdAmount;
+  if (requireReturnApproval !== undefined) update.requireReturnApproval = requireReturnApproval;
+  if (requireRefundApproval !== undefined) update.requireRefundApproval = requireRefundApproval;
 
   const client = (await Client.findOneAndUpdate(
     { _id: session.clientId },

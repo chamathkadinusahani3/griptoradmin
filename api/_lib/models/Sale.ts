@@ -6,6 +6,13 @@ const SaleLineSchema = new Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true },
     qty: { type: Number, required: true },
+    // Sales Module Phase 15 — snapshotted from Part.batchNumber/
+    // serialNumber/expiryDate at checkout time (see Part.ts's own
+    // comment), same "carries a stable historical copy" reasoning as
+    // name/price above. Unset when the part being sold has none set.
+    batchNumber: { type: String },
+    serialNumber: { type: String },
+    expiryDate: { type: Date },
   },
   { _id: false }
 );

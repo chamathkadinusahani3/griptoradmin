@@ -1,4 +1,5 @@
 import { PurchaseOrder, PurchaseOrderDoc } from './models/PurchaseOrder.js';
+import { Cheque } from './models/Cheque.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
 
 export interface RecordSupplierPaymentInput {
@@ -8,6 +9,14 @@ export interface RecordSupplierPaymentInput {
   notes?: string;
   chequeNumber?: string;
   bankAccountId?: string;
+  // ERP-Phase 6 "Settlement Discount" — a discount the supplier offered on
+  // THIS settlement (e.g. early-payment terms). Counts toward closing the
+  // PO's balance the same as cash does, but posts no GL entry of its own —
+  // no cash moved, and this app's GL is already a simplified cash-basis
+  // approximation (recognizes COGS at payment time, no Accounts Payable
+  // account exists to net a "purchase discount" against). The discount is
+  // fully visible at the document level via settlementDiscountTotal/balance.
+  discountAmount?: number;
 }
 
 /**
@@ -28,16 +37,18 @@ export async function recordPurchaseOrderPayment(
   const existing = (await PurchaseOrder.findOne({ _id: poId, clientId }).lean()) as PurchaseOrderDoc | null;
   if (!existing || (existing.status !== 'Ordered' && existing.status !== 'Partially Received' && existing.status !== 'Received')) return null;
 
+  const discountAmount = input.discountAmount && input.discountAmount > 0 ? Math.round(input.discountAmount * 100) / 100 : 0;
   const paidAmount = Math.round((existing.paidAmount + input.amount) * 100) / 100;
-  const balance = Math.round((existing.total - paidAmount) * 100) / 100;
-  const paymentStatus = balance <= 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid';
+  const settlementDiscountTotal = Math.round(((existing.settlementDiscountTotal ?? 0) + discountAmount) * 100) / 100;
+  const balance = Math.round((existing.total - paidAmount - settlementDiscountTotal) * 100) / 100;
+  const paymentStatus = balance <= 0 ? 'Paid' : paidAmount + settlementDiscountTotal > 0 ? 'Partial' : 'Unpaid';
 
   // Same $push + $set split as recordCustomerInvoicePayment — Mongo rejects
   // mixing a top-level $push with plain fields in one update object.
   const order = (await PurchaseOrder.findOneAndUpdate(
     { _id: poId, clientId },
     {
-      $set: { paidAmount, balance, paymentStatus },
+      $set: { paidAmount, settlementDiscountTotal, balance, paymentStatus },
       $push: {
         paymentHistory: {
           amount: input.amount,
@@ -46,6 +57,7 @@ export async function recordPurchaseOrderPayment(
           notes: input.notes,
           chequeNumber: input.chequeNumber,
           bankAccountId: input.bankAccountId,
+          discountAmount: discountAmount > 0 ? discountAmount : undefined,
         },
       },
     },
@@ -72,6 +84,29 @@ export async function recordPurchaseOrderPayment(
     }
   } catch (err) {
     console.error('Journal posting failed for supplier payment', poId, err);
+  }
+
+  // ERP-Phase 3 — same Cheque-lifecycle side effect as
+  // customerInvoicePayments.ts's identical block, the other direction of
+  // money (we're paying the supplier, so 'outgoing').
+  if (input.method === 'Cheque' && input.chequeNumber) {
+    try {
+      const newRecord = order.paymentHistory[order.paymentHistory.length - 1];
+      await Cheque.create({
+        clientId,
+        chequeNumber: input.chequeNumber,
+        direction: 'outgoing',
+        amount: input.amount,
+        bankAccountId: input.bankAccountId || undefined,
+        dueDate: input.date ?? new Date(),
+        sourceType: 'purchase-order-payment',
+        sourceId: poId,
+        paymentRecordId: newRecord._id,
+        supplierId: order.supplierId,
+      });
+    } catch (err) {
+      console.error('Cheque record creation failed for supplier payment', poId, err);
+    }
   }
 
   return order;

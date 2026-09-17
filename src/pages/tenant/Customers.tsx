@@ -12,12 +12,15 @@ import { Modal } from '../../components/ui/Modal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import { StatCard } from '../../components/ui/StatCard';
-import { Customer } from '../../types/customer';
+import { Customer, CustomerType, CustomerStatus, CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../types/customer';
 import { MODULES } from '../../data/modules';
 import { Vehicle } from '../../types/vehicle';
 import { CustomerStatement } from '../../types/statement';
 import { CustomerHistory, TimelineEvent } from '../../types/customerHistory';
 import { LoyaltyReward } from '../../types/loyaltyReward';
+import { Salesperson } from '../../types/salesperson';
+import { SalespersonAssignment } from '../../types/salespersonAssignment';
+import { PriceList } from '../../types/priceList';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -30,11 +33,25 @@ const TAG_TONE: Record<string, 'purple' | 'teal' | 'blue' | 'amber' | 'gray' | '
   'At Risk': 'red'
 };
 
+const CUSTOMER_TYPE_LABEL: Record<CustomerType, string> = {
+  individual: 'Individual',
+  retail: 'Retail',
+  corporate: 'Corporate',
+  wholesale: 'Wholesale',
+  dealer: 'Dealer',
+};
+
 const emptyForm = {
   name: '', email: '', phone: '', vehicle: '',
-  type: 'individual' as 'individual' | 'corporate',
-  contactPerson: '', creditLimit: '', discountPct: '', creditPeriodDays: ''
+  type: 'individual' as CustomerType,
+  contactPerson: '', creditLimit: '', discountPct: '', creditPeriodDays: '',
+  billingAddress: '', shippingAddress: '', taxNumber: '', status: 'Active' as CustomerStatus,
+  defaultPriceListId: '',
 };
+
+function isCreditEligible(type: CustomerType): boolean {
+  return CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(type);
+}
 
 function exportStatementCsv(customer: Customer, statement: CustomerStatement) {
   const rows = [
@@ -78,6 +95,11 @@ export function Customers() {
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [redeemRewardId, setRedeemRewardId] = useState('');
   const [redeeming, setRedeeming] = useState(false);
+  const [salespersons, setSalespersons] = useState<Salesperson[]>([]);
+  const [assignment, setAssignment] = useState<SalespersonAssignment | null>(null);
+  const [assignSalespersonId, setAssignSalespersonId] = useState('');
+  const [savingAssignment, setSavingAssignment] = useState(false);
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
 
   const loadCustomers = () => {
     setLoading(true);
@@ -89,6 +111,12 @@ export function Customers() {
   };
 
   useEffect(loadCustomers, []);
+  useEffect(() => {
+    api.get<{ salespersons: Salesperson[] }>('/salespersons').then(({ salespersons }) => setSalespersons(salespersons)).catch(() => setSalespersons([]));
+    // Empty when Price Lists are disabled or none exist yet — the selector
+    // below only renders once there's something to pick.
+    api.get<{ priceLists: PriceList[] }>('/price-lists').then(({ priceLists }) => setPriceLists(priceLists)).catch(() => setPriceLists([]));
+  }, []);
 
   // Deep-link support (e.g. from the Corporate Accounts overview page): once
   // customers are loaded, open the matching one's detail modal if ?customer=
@@ -155,6 +183,11 @@ export function Customers() {
       creditLimit: customer.creditLimit ? String(customer.creditLimit) : '',
       discountPct: customer.discountPct ? String(customer.discountPct) : '',
       creditPeriodDays: customer.creditPeriodDays ? String(customer.creditPeriodDays) : '',
+      billingAddress: customer.billingAddress || '',
+      shippingAddress: customer.shippingAddress || '',
+      taxNumber: customer.taxNumber || '',
+      status: customer.status,
+      defaultPriceListId: customer.defaultPriceListId || '',
     });
     setEditingCustomerId(customer.id);
     setSelected(null);
@@ -170,15 +203,21 @@ export function Customers() {
     e.preventDefault();
     setSaving(true);
     try {
+      const creditEligible = isCreditEligible(form.type);
       if (editingCustomerId) {
         const { customer } = await api.patch<{ customer: Customer }>(`/customers/${editingCustomerId}`, {
           name: form.name,
           phone: form.phone,
           type: form.type,
-          contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
-          creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
-          discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
-          creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
+          contactPerson: creditEligible ? form.contactPerson : undefined,
+          creditLimit: creditEligible ? Number(form.creditLimit) || 0 : 0,
+          discountPct: creditEligible ? Number(form.discountPct) || 0 : 0,
+          creditPeriodDays: creditEligible ? Number(form.creditPeriodDays) || 30 : undefined,
+          billingAddress: form.billingAddress || undefined,
+          shippingAddress: form.shippingAddress || undefined,
+          taxNumber: form.taxNumber || undefined,
+          status: form.status,
+          defaultPriceListId: form.defaultPriceListId || null,
         });
         setCustomers((prev) => prev.map((c) => (c.id === customer.id ? customer : c)));
         toast.success('Customer updated');
@@ -188,10 +227,14 @@ export function Customers() {
           email: form.email,
           phone: form.phone,
           type: form.type,
-          contactPerson: form.type === 'corporate' ? form.contactPerson : undefined,
-          creditLimit: form.type === 'corporate' ? Number(form.creditLimit) || 0 : 0,
-          discountPct: form.type === 'corporate' ? Number(form.discountPct) || 0 : 0,
-          creditPeriodDays: form.type === 'corporate' ? Number(form.creditPeriodDays) || 30 : undefined,
+          contactPerson: creditEligible ? form.contactPerson : undefined,
+          creditLimit: creditEligible ? Number(form.creditLimit) || 0 : 0,
+          discountPct: creditEligible ? Number(form.discountPct) || 0 : 0,
+          creditPeriodDays: creditEligible ? Number(form.creditPeriodDays) || 30 : undefined,
+          billingAddress: form.billingAddress || undefined,
+          shippingAddress: form.shippingAddress || undefined,
+          taxNumber: form.taxNumber || undefined,
+          defaultPriceListId: form.defaultPriceListId || undefined,
           sourceModule: moduleId,
         });
         // First vehicle (if given) becomes a real Vehicle document instead of
@@ -216,8 +259,18 @@ export function Customers() {
       setVehicles([]);
       setStatement(null);
       setHistory(null);
+      setAssignment(null);
       return;
     }
+
+    api
+      .get<{ assignments: SalespersonAssignment[] }>(`/salesperson-assignments?customerId=${selected.id}`)
+      .then(({ assignments }) => {
+        const active = assignments.find((a) => a.active) ?? assignments[0] ?? null;
+        setAssignment(active);
+        setAssignSalespersonId(active?.salespersonId ?? '');
+      })
+      .catch(() => setAssignment(null));
     setVehiclesLoading(true);
     api
       .get<{ vehicles: Vehicle[] }>(`/customers/${selected.id}/vehicles`)
@@ -225,7 +278,7 @@ export function Customers() {
       .catch(() => setVehicles([]))
       .finally(() => setVehiclesLoading(false));
 
-    if (selected.type === 'corporate') {
+    if (isCreditEligible(selected.type)) {
       api
         .get<CustomerStatement>(`/customers/${selected.id}/statement`)
         .then(setStatement)
@@ -297,6 +350,24 @@ export function Customers() {
       toast.error(err instanceof ApiError ? err.message : 'Failed to enable portal access');
     } finally {
       setActivatingPortal(false);
+    }
+  };
+
+  const saveAssignment = async () => {
+    if (!selected || !assignSalespersonId || assignSalespersonId === assignment?.salespersonId) return;
+    setSavingAssignment(true);
+    try {
+      if (assignment) await api.delete(`/salesperson-assignments/${assignment.id}`);
+      const { assignment: created } = await api.post<{ assignment: SalespersonAssignment }>('/salesperson-assignments', {
+        salespersonId: assignSalespersonId,
+        customerId: selected.id,
+      });
+      setAssignment(created);
+      toast.success('Salesperson assigned');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to assign salesperson');
+    } finally {
+      setSavingAssignment(false);
     }
   };
 
@@ -388,11 +459,13 @@ export function Customers() {
                 <div>
                   <p className="flex items-center gap-1.5 font-bold text-navy dark:text-slate-100">
                     {selected.name}
-                    {selected.type === 'corporate' && <Badge tone="purple"><BuildingIcon className="mr-1 inline h-3 w-3" />Corporate</Badge>}
+                    {isCreditEligible(selected.type) && <Badge tone="purple"><BuildingIcon className="mr-1 inline h-3 w-3" />{CUSTOMER_TYPE_LABEL[selected.type]}</Badge>}
+                    {selected.status !== 'Active' && <Badge tone={selected.status === 'Blocked' ? 'red' : 'gray'}>{selected.status}</Badge>}
                   </p>
                   <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><MailIcon className="h-3.5 w-3.5" /> {selected.email}</p>
                   {selected.phone && <p className="flex items-center gap-1 text-sm text-text-gray dark:text-slate-400"><PhoneIcon className="h-3.5 w-3.5" /> {selected.phone}</p>}
-                  {selected.type === 'corporate' && selected.contactPerson && <p className="text-sm text-text-gray dark:text-slate-400">Contact: {selected.contactPerson}</p>}
+                  {isCreditEligible(selected.type) && selected.contactPerson && <p className="text-sm text-text-gray dark:text-slate-400">Contact: {selected.contactPerson}</p>}
+                  {selected.taxNumber && <p className="text-sm text-text-gray dark:text-slate-400">Tax No: {selected.taxNumber}</p>}
                 </div>
               </div>
               <button type="button" onClick={() => openEdit(selected)} aria-label={`Edit ${selected.name}`} className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-soft-gray hover:text-navy dark:hover:bg-slate-800 dark:hover:text-slate-100">
@@ -400,9 +473,32 @@ export function Customers() {
               </button>
             </div>
 
+            {selected.status === 'Blocked' &&
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                This customer is blocked — new quotations, sales orders, and invoices cannot be created for them.
+              </div>
+          }
+
+            {(selected.billingAddress || selected.shippingAddress) &&
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {selected.billingAddress &&
+            <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Billing address</p>
+                    <p className="text-sm text-text-gray dark:text-slate-400">{selected.billingAddress}</p>
+                  </div>
+            }
+                {selected.shippingAddress &&
+            <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Shipping address</p>
+                    <p className="text-sm text-text-gray dark:text-slate-400">{selected.shippingAddress}</p>
+                  </div>
+            }
+              </div>
+          }
+
             <div className="mt-4 flex flex-wrap gap-2">
               {selected.tags.map((t) => <Badge key={t} tone={TAG_TONE[t] || 'gray'}>{t}</Badge>)}
-              {selected.type === 'corporate' && selected.discountPct > 0 && <Badge tone="green">{selected.discountPct}% discount</Badge>}
+              {isCreditEligible(selected.type) && selected.discountPct > 0 && <Badge tone="green">{selected.discountPct}% discount</Badge>}
             </div>
 
             <div className="mt-4 flex items-center justify-between rounded-xl border border-border-soft px-3 py-2.5 dark:border-slate-800">
@@ -416,6 +512,32 @@ export function Customers() {
                 {selected.hasPortalAccount ? 'Reset password' : 'Enable access'}
               </Button>
             </div>
+
+            {salespersons.length > 0 &&
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border-soft px-3 py-2.5 dark:border-slate-800">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-navy dark:text-slate-100">Assigned salesperson</p>
+                  <p className="truncate text-xs text-text-gray dark:text-slate-400">
+                    {assignment ? `${assignment.salespersonName ?? ''}${assignment.salespersonCode ? ` (${assignment.salespersonCode})` : ''}` : 'No salesperson assigned'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Select value={assignSalespersonId} onChange={(e) => setAssignSalespersonId(e.target.value)} className="w-40">
+                    <option value="">— none —</option>
+                    {salespersons.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+                  </Select>
+                  <Button
+                variant="secondary"
+                size="sm"
+                loading={savingAssignment}
+                disabled={!assignSalespersonId || assignSalespersonId === assignment?.salespersonId}
+                onClick={saveAssignment}>
+
+                    Save
+                  </Button>
+                </div>
+              </div>
+          }
 
             <div className="mt-4 grid grid-cols-3 gap-3 text-center">
               <div className="rounded-xl bg-soft-gray p-3 dark:bg-slate-800/60">
@@ -559,37 +681,73 @@ export function Customers() {
           </div>
           }
 
-          {fleetEnabled &&
+          <div>
+            <Label htmlFor="cust-type">Account type</Label>
+            <Select id="cust-type" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CustomerType }))}>
+              <option value="individual">Individual</option>
+              <option value="retail">Retail</option>
+              {fleetEnabled &&
+              <>
+                  <option value="corporate">Corporate</option>
+                  <option value="wholesale">Wholesale</option>
+                  <option value="dealer">Dealer</option>
+                </>
+              }
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="cust-tax">Tax / VAT number</Label>
+            <Input id="cust-tax" value={form.taxNumber} onChange={(e) => setForm((f) => ({ ...f, taxNumber: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="cust-billing-address">Billing address</Label>
+            <Input id="cust-billing-address" value={form.billingAddress} onChange={(e) => setForm((f) => ({ ...f, billingAddress: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="cust-shipping-address">Shipping address</Label>
+            <Input id="cust-shipping-address" value={form.shippingAddress} onChange={(e) => setForm((f) => ({ ...f, shippingAddress: e.target.value }))} placeholder="Defaults to the billing address" />
+          </div>
+          {priceLists.length > 0 &&
+          <div>
+            <Label htmlFor="cust-price-list">Default price list</Label>
+            <Select id="cust-price-list" value={form.defaultPriceListId} onChange={(e) => setForm((f) => ({ ...f, defaultPriceListId: e.target.value }))}>
+              <option value="">— none (catalog price) —</option>
+              {priceLists.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+            </Select>
+          </div>
+          }
+          {editingCustomerId &&
+          <div>
+            <Label htmlFor="cust-status">Status</Label>
+            <Select id="cust-status" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as CustomerStatus }))}>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Blocked">Blocked</option>
+            </Select>
+          </div>
+          }
+
+          {isCreditEligible(form.type) &&
           <>
               <div>
-                <Label htmlFor="cust-type">Account type</Label>
-                <Select id="cust-type" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as 'individual' | 'corporate' }))}>
-                  <option value="individual">Individual</option>
-                  <option value="corporate">Corporate</option>
-                </Select>
+                <Label htmlFor="cust-contact">Contact person</Label>
+                <Input id="cust-contact" value={form.contactPerson} onChange={(e) => setForm((f) => ({ ...f, contactPerson: e.target.value }))} />
               </div>
-              {form.type === 'corporate' &&
-            <>
-                  <div>
-                    <Label htmlFor="cust-contact">Contact person</Label>
-                    <Input id="cust-contact" value={form.contactPerson} onChange={(e) => setForm((f) => ({ ...f, contactPerson: e.target.value }))} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="cust-credit">Credit limit</Label>
-                      <Input id="cust-credit" type="number" min={0} value={form.creditLimit} onChange={(e) => setForm((f) => ({ ...f, creditLimit: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label htmlFor="cust-discount">Discount %</Label>
-                      <Input id="cust-discount" type="number" min={0} max={100} value={form.discountPct} onChange={(e) => setForm((f) => ({ ...f, discountPct: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="cust-credit-period">Credit period (days)</Label>
-                    <Input id="cust-credit-period" type="number" min={1} placeholder="30" value={form.creditPeriodDays} onChange={(e) => setForm((f) => ({ ...f, creditPeriodDays: e.target.value }))} />
-                  </div>
-                </>
-            }
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="cust-credit">Credit limit</Label>
+                  <Input id="cust-credit" type="number" min={0} value={form.creditLimit} onChange={(e) => setForm((f) => ({ ...f, creditLimit: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="cust-discount">Discount %</Label>
+                  <Input id="cust-discount" type="number" min={0} max={100} value={form.discountPct} onChange={(e) => setForm((f) => ({ ...f, discountPct: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="cust-credit-period">Credit period (days)</Label>
+                <Input id="cust-credit-period" type="number" min={1} placeholder="30" value={form.creditPeriodDays} onChange={(e) => setForm((f) => ({ ...f, creditPeriodDays: e.target.value }))} />
+              </div>
             </>
           }
         </form>

@@ -6,6 +6,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { StatusBadge } from '../../components/StatusBadge';
+import { SalesAttachmentsButton } from '../../components/SalesAttachments';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -79,7 +80,7 @@ export function Quotations() {
     }
     setSaving(true);
     try {
-      const { quotation } = await api.post<{ quotation: Quotation }>('/quotations', {
+      const { quotation, creditWarning } = await api.post<{ quotation: Quotation; creditWarning?: string }>('/quotations', {
         ...form,
         jobCardId: form.jobCardId || undefined,
         validUntil: form.validUntil || undefined,
@@ -87,6 +88,7 @@ export function Quotations() {
       });
       setQuotations((prev) => [quotation, ...prev]);
       toast.success(`${quotation.quoteNumber} created`);
+      if (creditWarning) toast.warning(creditWarning);
       setModalOpen(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to create quotation');
@@ -205,6 +207,11 @@ export function Quotations() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="teal">{formatCurrency(q.total)}</Badge>
+                  <SalesAttachmentsButton
+                    docType="quotations"
+                    basePath={`/quotations/${q.id}/attachments`}
+                    attachments={q.attachments}
+                    onChange={(next) => setQuotations((prev) => prev.map((x) => (x.id === q.id ? { ...x, attachments: next } : x)))} />
                   <Button size="sm" variant="ghost" onClick={() => downloadPdf(q)}><DownloadIcon className="h-3.5 w-3.5" /> PDF</Button>
                   {q.status === 'Draft' && <Button size="sm" variant="secondary" onClick={() => setStatus(q, 'Pending')}>Send</Button>}
                   {q.status === 'Pending' &&

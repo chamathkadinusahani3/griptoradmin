@@ -48,10 +48,14 @@ export function PurchaseOrders() {
   const [payMethod, setPayMethod] = useState<SupplierPaymentMethod>('Cash');
   const [payChequeNumber, setPayChequeNumber] = useState('');
   const [payBankAccountId, setPayBankAccountId] = useState('');
+  const [payDiscountAmount, setPayDiscountAmount] = useState('');
   const [paying, setPaying] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [receiveTarget, setReceiveTarget] = useState<PurchaseOrder | null>(null);
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({});
+  const [receiveBatchNumbers, setReceiveBatchNumbers] = useState<Record<string, string>>({});
+  const [receiveSerialNumbers, setReceiveSerialNumbers] = useState<Record<string, string>>({});
+  const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({});
   const [receiving, setReceiving] = useState(false);
 
   const loadOrders = () => {
@@ -185,13 +189,22 @@ export function PurchaseOrders() {
         order.items.filter((l) => l.receivedQuantity < l.quantity).map((l) => [l.partId, String(l.quantity - l.receivedQuantity)])
       )
     );
+    setReceiveBatchNumbers({});
+    setReceiveSerialNumbers({});
+    setReceiveExpiryDates({});
   };
 
   const submitReceive = async () => {
     if (!receiveTarget) return;
     const items = Object.entries(receiveQuantities)
       .filter(([, v]) => v.trim() !== '' && Number(v) > 0)
-      .map(([partId, v]) => ({ partId, quantity: Number(v) }));
+      .map(([partId, v]) => ({
+        partId,
+        quantity: Number(v),
+        batchNumber: receiveBatchNumbers[partId]?.trim() || undefined,
+        serialNumber: receiveSerialNumbers[partId]?.trim() || undefined,
+        expiryDate: receiveExpiryDates[partId] || undefined,
+      }));
     if (items.length === 0) {
       toast.error('Enter a quantity for at least one line');
       return;
@@ -218,6 +231,7 @@ export function PurchaseOrders() {
     setPayMethod('Cash');
     setPayChequeNumber('');
     setPayBankAccountId('');
+    setPayDiscountAmount('');
   };
 
   const recordPayment = async () => {
@@ -231,6 +245,11 @@ export function PurchaseOrders() {
       toast.error('Enter the cheque number');
       return;
     }
+    const discountAmount = payDiscountAmount ? Number(payDiscountAmount) : undefined;
+    if (discountAmount !== undefined && (Number.isNaN(discountAmount) || discountAmount < 0)) {
+      toast.error('Enter a valid settlement discount');
+      return;
+    }
     setPaying(true);
     try {
       const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${payTarget.id}/payment`, {
@@ -238,6 +257,7 @@ export function PurchaseOrders() {
         method: payMethod,
         chequeNumber: payMethod === 'Cheque' ? payChequeNumber.trim() : undefined,
         bankAccountId: payBankAccountId || undefined,
+        discountAmount,
       });
       setOrders((prev) => prev.map((o) => (o.id === purchaseOrder.id ? purchaseOrder : o)));
       toast.success('Payment recorded');
@@ -310,7 +330,9 @@ export function PurchaseOrders() {
                   </p>
                   {(o.status === 'Ordered' || o.status === 'Partially Received' || o.status === 'Received') && o.paidAmount > 0 &&
               <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
-                      Paid {formatCurrency(o.paidAmount)}{o.balance > 0 ? ` · Owed ${formatCurrency(o.balance)}` : ''}
+                      Paid {formatCurrency(o.paidAmount)}
+                      {o.settlementDiscountTotal > 0 ? ` · Discount ${formatCurrency(o.settlementDiscountTotal)}` : ''}
+                      {o.balance > 0 ? ` · Owed ${formatCurrency(o.balance)}` : ''}
                     </p>
               }
                 </div>
@@ -434,19 +456,38 @@ export function PurchaseOrders() {
         <div className="space-y-3">
             <p className="text-xs text-text-gray dark:text-slate-400">Enter how much of each line actually arrived — leave a line at 0 to leave it outstanding for a later delivery.</p>
             {receiveTarget.items.filter((l) => l.receivedQuantity < l.quantity).map((l) => (
-              <div key={l.partId} className="grid grid-cols-12 items-center gap-2">
-                <span className="col-span-7 text-sm text-navy dark:text-slate-200">
-                  {l.name}
-                  <span className="ml-1.5 text-xs text-text-gray dark:text-slate-400">({l.quantity - l.receivedQuantity} of {l.quantity} outstanding)</span>
-                </span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={l.quantity - l.receivedQuantity}
-                  className="col-span-5"
-                  value={receiveQuantities[l.partId] ?? ''}
-                  onChange={(e) => setReceiveQuantities((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
-
+              <div key={l.partId} className="space-y-1.5 rounded-xl border border-border-soft p-2.5 dark:border-slate-800">
+                <div className="grid grid-cols-12 items-center gap-2">
+                  <span className="col-span-7 text-sm text-navy dark:text-slate-200">
+                    {l.name}
+                    <span className="ml-1.5 text-xs text-text-gray dark:text-slate-400">({l.quantity - l.receivedQuantity} of {l.quantity} outstanding)</span>
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={l.quantity - l.receivedQuantity}
+                    className="col-span-5"
+                    value={receiveQuantities[l.partId] ?? ''}
+                    onChange={(e) => setReceiveQuantities((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Input
+                    placeholder="Batch/lot (optional)"
+                    className="text-xs"
+                    value={receiveBatchNumbers[l.partId] ?? ''}
+                    onChange={(e) => setReceiveBatchNumbers((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
+                  <Input
+                    placeholder="Serial # (optional)"
+                    className="text-xs"
+                    value={receiveSerialNumbers[l.partId] ?? ''}
+                    onChange={(e) => setReceiveSerialNumbers((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
+                  <Input
+                    type="date"
+                    title="Expiry date (optional)"
+                    className="text-xs"
+                    value={receiveExpiryDates[l.partId] ?? ''}
+                    onChange={(e) => setReceiveExpiryDates((prev) => ({ ...prev, [l.partId]: e.target.value }))} />
+                </div>
               </div>
             ))}
           </div>
@@ -469,6 +510,10 @@ export function PurchaseOrders() {
             <Label htmlFor="pay-amount">Amount</Label>
             <Input id="pay-amount" type="number" min={0} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
             {payTarget && <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Owed: {formatCurrency(payTarget.balance)}</p>}
+          </div>
+          <div>
+            <Label htmlFor="pay-discount">Settlement discount (optional)</Label>
+            <Input id="pay-discount" type="number" min={0} value={payDiscountAmount} onChange={(e) => setPayDiscountAmount(e.target.value)} placeholder="e.g. an early-payment discount the supplier offered" />
           </div>
           <div>
             <Label htmlFor="pay-method">Method</Label>

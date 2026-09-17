@@ -14,6 +14,11 @@ interface UpdateLine {
   partId?: string;
   quantity?: number;
   unitCost?: number;
+  // Only meaningful for the 'receive' action (Sales Module Phase 15) —
+  // staff-entered at the moment this information is actually known.
+  batchNumber?: string;
+  serialNumber?: string;
+  expiryDate?: string;
 }
 
 interface UpdatePurchaseOrderBody {
@@ -150,21 +155,31 @@ async function handleReceive(
     return res.status(400).json({ error: 'Only an Ordered or Partially Received purchase order can be received' });
   }
 
-  const requestedByPart = new Map((requestedItems ?? []).filter((l) => l.partId).map((l) => [l.partId!, l.quantity]));
+  const requestedByPart = new Map((requestedItems ?? []).filter((l) => l.partId).map((l) => [l.partId!, l]));
 
-  const receiveLines: { partId: string; name: string; quantityReceived: number }[] = [];
+  const receiveLines: { partId: string; name: string; quantityReceived: number; batchNumber?: string; serialNumber?: string; expiryDate?: Date }[] = [];
   for (const line of existing.items) {
     const alreadyReceived = effectiveReceivedQuantity(line, existing.status);
     const remaining = line.quantity - alreadyReceived;
     if (remaining <= 0) continue;
+    const requestedLine = requestedByPart.get(line.partId.toString());
     // Omitted from the request body ⇒ receive everything still outstanding
     // on this line (today's one-click "Receive" behavior, unchanged).
-    const requested = requestedByPart.has(line.partId.toString()) ? requestedByPart.get(line.partId.toString()) : remaining;
+    const requested = requestedLine ? requestedLine.quantity : remaining;
     if (!requested || requested <= 0) continue;
     if (requested > remaining) {
       return res.status(400).json({ error: `Cannot receive ${requested} of "${line.name}" — only ${remaining} still outstanding` });
     }
-    receiveLines.push({ partId: line.partId.toString(), name: line.name, quantityReceived: requested });
+    receiveLines.push({
+      partId: line.partId.toString(),
+      name: line.name,
+      quantityReceived: requested,
+      // Sales Module Phase 15 — optional, entered per line at receiving
+      // time (e.g. from the supplier's packing slip).
+      batchNumber: requestedLine?.batchNumber?.trim() || undefined,
+      serialNumber: requestedLine?.serialNumber?.trim() || undefined,
+      expiryDate: requestedLine?.expiryDate ? new Date(requestedLine.expiryDate) : undefined,
+    });
   }
   if (receiveLines.length === 0) {
     return res.status(400).json({ error: 'Nothing to receive — specify a quantity for at least one outstanding line' });
@@ -176,7 +191,16 @@ async function handleReceive(
     await dbSession.withTransaction(async () => {
       const receivedByPart = new Map(receiveLines.map((l) => [l.partId, l.quantityReceived]));
       for (const line of receiveLines) {
-        await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: line.quantityReceived } }, { session: dbSession });
+        const partUpdate: Record<string, unknown> = { $inc: { stock: line.quantityReceived } };
+        // Back-written onto the Part only when actually provided at
+        // receiving time — never clears an existing value just because this
+        // particular delivery didn't restate it.
+        const set: Record<string, unknown> = {};
+        if (line.batchNumber) set.batchNumber = line.batchNumber;
+        if (line.serialNumber) set.serialNumber = line.serialNumber;
+        if (line.expiryDate) set.expiryDate = line.expiryDate;
+        if (Object.keys(set).length > 0) partUpdate.$set = set;
+        await Part.updateOne({ _id: line.partId, clientId }, partUpdate, { session: dbSession });
       }
 
       const newItems = existing.items.map((line) => {

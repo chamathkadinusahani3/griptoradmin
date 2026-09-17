@@ -1,6 +1,16 @@
 import { CustomerInvoice } from './models/CustomerInvoice.js';
 import { CustomerDoc } from './models/Customer.js';
 
+// Sales Module Phase 1 — Wholesale/Dealer are new B2B customer types that
+// carry the same credit-relationship implications 'corporate' already did
+// (gms-fleet-gated creditLimit/discountPct/creditPeriodDays). Every place
+// that used to check `type === 'corporate'` for credit-discipline/exposure
+// purposes now checks this array instead, so widening the `type` enum
+// doesn't silently leave Wholesale/Dealer customers outside the credit
+// checks their fields imply they should have. 'individual'/'retail' stay
+// excluded — both are walk-in/end-consumer classifications.
+export const CREDIT_ELIGIBLE_CUSTOMER_TYPES = ['corporate', 'wholesale', 'dealer'] as const;
+
 /**
  * A corporate (dealer) customer is "in violation" if it has at least one
  * non-Void invoice with an unpaid balance older than its own
@@ -37,7 +47,7 @@ export async function isCustomerInViolation(
  */
 export async function getEffectiveDiscountPct(customer: CustomerDoc, clientId: string): Promise<number> {
   const stored = customer.discountPct ?? 0;
-  if (stored <= 0 || customer.type !== 'corporate') return stored;
+  if (stored <= 0 || !CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])) return stored;
   const violating = await isCustomerInViolation(clientId, customer._id.toString(), customer.creditPeriodDays ?? 30);
   return violating ? 0 : stored;
 }

@@ -46,5 +46,23 @@ export interface Client {
     salaryAdvance?: string;
     warrantyClaim?: string;
     supplierClaim?: string;
+    creditNote?: string;
+    debitNote?: string;
+    receipt?: string;
+    advancePayment?: string;
+    stockIssue?: string;
+    cashHandover?: string;
+    utilization?: string;
+    customerDebitNote?: string;
   };
+  deliveryLoadRules: { maxVolume: number; vehicleType: string }[];
+  fuelPricePerLiter: number;
+  requireSalesOrderApproval: boolean;
+  requireDeliveryConfirm: boolean;
+  customerCreditLimitPolicy: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  priceListsEnabled: boolean;
+  maxDiscountPctBeforeApproval: number;
+  invoiceApprovalThresholdAmount: number;
+  requireReturnApproval: boolean;
+  requireRefundApproval: boolean;
 }

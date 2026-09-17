@@ -1,3 +1,5 @@
+import { Attachment } from './attachment';
+
 export type QuotationStatus = 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Invoiced';
 
 export interface LineItem {
@@ -24,5 +26,6 @@ export interface Quotation {
   status: QuotationStatus;
   validUntil?: string;
   notes?: string;
+  attachments: Attachment[];
   createdAt: string;
 }

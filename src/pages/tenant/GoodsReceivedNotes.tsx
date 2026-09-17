@@ -48,7 +48,18 @@ export function GoodsReceivedNotes() {
                     <td className="px-5 py-3 font-bold text-navy dark:text-slate-100">{g.grnNumber}</td>
                     <td className="px-5 py-3 text-text-gray dark:text-slate-300">{g.poNumber ?? '—'}</td>
                     <td className="px-5 py-3 text-text-gray dark:text-slate-300">{g.supplierName ?? '—'}</td>
-                    <td className="px-5 py-3 text-text-gray dark:text-slate-400">{g.items.map((i) => `${i.name} × ${i.quantityReceived}`).join(', ')}</td>
+                    <td className="px-5 py-3 text-text-gray dark:text-slate-400">
+                      {g.items.map((i, idx) => (
+                        <p key={idx}>
+                          {i.name} × {i.quantityReceived}
+                          {(i.batchNumber || i.serialNumber || i.expiryDate) &&
+                          <span className="ml-1.5 text-xs text-text-gray dark:text-slate-500">
+                              ({[i.batchNumber && `Batch ${i.batchNumber}`, i.serialNumber && `SN ${i.serialNumber}`, i.expiryDate && `Exp ${formatDate(i.expiryDate)}`].filter(Boolean).join(' · ')})
+                            </span>
+                          }
+                        </p>
+                      ))}
+                    </td>
                     <td className="px-5 py-3 text-text-gray dark:text-slate-400">{formatDate(g.createdAt)}</td>
                   </tr>
               )}

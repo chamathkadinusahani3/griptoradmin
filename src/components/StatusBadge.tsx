@@ -45,14 +45,22 @@ const map: Record<string, 'gray' | 'green' | 'blue' | 'teal' | 'amber' | 'red' |
   'On Break': 'blue',
   'Off Duty': 'gray',
   Invited: 'amber',
+  // sales orders
+  'Pending Approval': 'amber',
   // purchase orders / payroll runs
   Ordered: 'blue',
   'Partially Received': 'amber',
   Received: 'green',
   Cancelled: 'red',
+  // delivery notes
+  Picked: 'blue',
+  Packed: 'teal',
   Finalized: 'blue',
   // complaints
-  Closed: 'gray'
+  Closed: 'gray',
+  // returns
+  Inspected: 'blue',
+  Rejected: 'red'
 };
 
 export function StatusBadge({ status, dot = true }: {status: string;dot?: boolean;}) {

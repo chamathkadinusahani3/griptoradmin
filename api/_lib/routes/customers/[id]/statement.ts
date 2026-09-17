@@ -5,6 +5,7 @@ import { CustomerInvoice, CustomerInvoiceDoc } from '../../../models/CustomerInv
 import { requireTenantPermission } from '../../../auth.js';
 import { serializeCustomerInvoice } from '../../../serializers.js';
 import { computeDealerMetrics } from '../../../dealerMetrics.js';
+import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../../creditDiscipline.js';
 
 // Everything here is computed live from real CustomerInvoice documents on
 // every call — never stored redundantly. This is the direct fix for the
@@ -54,10 +55,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const creditLimit = customer.creditLimit ?? 0;
   const roundedOutstanding = Math.round(totalOutstanding * 100) / 100;
 
-  const dealerMetrics =
-    customer.type === 'corporate'
-      ? computeDealerMetrics(invoices, creditLimit, roundedOutstanding, customer.creditPeriodDays ?? 30)
-      : null;
+  const dealerMetrics = CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])
+    ? computeDealerMetrics(invoices, creditLimit, roundedOutstanding, customer.creditPeriodDays ?? 30)
+    : null;
 
   return res.status(200).json({
     creditLimit,

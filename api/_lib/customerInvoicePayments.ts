@@ -1,4 +1,5 @@
 import { CustomerInvoice, CustomerInvoiceDoc } from './models/CustomerInvoice.js';
+import { Cheque } from './models/Cheque.js';
 import { hasAddOn } from './entitlements.js';
 import { awardPoints } from './loyalty.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
@@ -83,6 +84,31 @@ export async function recordCustomerInvoicePayment(
     }
   } catch (err) {
     console.error('Journal posting failed for customer payment', invoiceId, err);
+  }
+
+  // ERP-Phase 3: a Cheque-method payment gets a real lifecycle record, not
+  // just the plain paymentHistory.chequeNumber string. Best-effort, same
+  // non-blocking reasoning as the journal posting above — a garage's
+  // payment record is the fact of record; Cheque tracking is a convenience
+  // layered on top of it, never allowed to block it.
+  if (input.method === 'Cheque' && input.chequeNumber) {
+    try {
+      const newRecord = invoice.paymentHistory[invoice.paymentHistory.length - 1];
+      await Cheque.create({
+        clientId,
+        chequeNumber: input.chequeNumber,
+        direction: 'incoming',
+        amount: input.amount,
+        bankAccountId: input.bankAccountId || undefined,
+        dueDate: input.date ?? new Date(),
+        sourceType: 'customer-invoice-payment',
+        sourceId: invoiceId,
+        paymentRecordId: newRecord._id,
+        customerId: invoice.customerId,
+      });
+    } catch (err) {
+      console.error('Cheque record creation failed for customer payment', invoiceId, err);
+    }
   }
 
   // Award loyalty points exactly once — only on the transition INTO 'Paid',

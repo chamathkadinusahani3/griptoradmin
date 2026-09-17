@@ -1,4 +1,5 @@
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
+import { AttachmentSchema } from './attachmentSchema.js';
 
 const LineItemSchema = new Schema(
   {
@@ -32,6 +33,8 @@ const QuotationSchema = new Schema(
     status: { type: String, enum: ['Draft', 'Pending', 'Approved', 'Rejected', 'Invoiced'], default: 'Draft' },
     validUntil: { type: Date },
     notes: { type: String },
+    // Sales Module Phase 16 — see attachmentSchema.ts's own comment.
+    attachments: { type: [AttachmentSchema], default: [] },
   },
   { timestamps: true }
 );

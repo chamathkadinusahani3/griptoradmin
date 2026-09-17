@@ -20,6 +20,7 @@ export interface SupplierPaymentRecord {
   bankAccountId?: string;
   reconciled?: boolean;
   reconciledAt?: string;
+  discountAmount?: number;
 }
 
 export interface PurchaseOrder {
@@ -36,6 +37,7 @@ export interface PurchaseOrder {
   receivedAt?: string;
   notes?: string;
   paidAmount: number;
+  settlementDiscountTotal: number;
   balance: number;
   paymentStatus: SupplierPaymentStatus;
   paymentHistory: SupplierPaymentRecord[];

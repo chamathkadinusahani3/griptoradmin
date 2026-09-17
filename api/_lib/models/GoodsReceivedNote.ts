@@ -5,6 +5,14 @@ const GRNLineSchema = new Schema(
     partId: { type: Schema.Types.ObjectId, ref: 'Part', required: true },
     name: { type: String, required: true },
     quantityReceived: { type: Number, required: true },
+    // Sales Module Phase 15 — optional, staff-entered at receiving time
+    // (the moment this information is actually known, e.g. from the
+    // supplier's packing slip) via purchase-orders/[id].ts's handleReceive.
+    // When provided, also written back onto the corresponding Part (see
+    // that handler) so the catalog reflects the latest received batch.
+    batchNumber: { type: String },
+    serialNumber: { type: String },
+    expiryDate: { type: Date },
   },
   { _id: false }
 );

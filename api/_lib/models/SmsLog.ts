@@ -11,7 +11,7 @@ const SmsLogSchema = new Schema(
     error: { type: String },
     // Which flow wrote this log — defaults to 'manual' so every existing
     // write (sms/send.ts) is unaffected by this addition.
-    source: { type: String, enum: ['manual', 'low-stock-alert', 'dealer-outstanding-report', 'late-alert'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'low-stock-alert', 'dealer-outstanding-report', 'late-alert', 'overdue-visit-alert'], default: 'manual' },
     // Only set for source: 'low-stock-alert'.
     partId: { type: Schema.Types.ObjectId, ref: 'Part' },
   },

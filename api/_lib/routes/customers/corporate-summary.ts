@@ -6,6 +6,7 @@ import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomer } from '../../serializers.js';
 import { hasAddOn } from '../../entitlements.js';
 import { computeDealerMetrics } from '../../dealerMetrics.js';
+import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../creditDiscipline.js';
 
 // Bulk equivalent of api/customers/[id]/statement.ts — same live
 // CustomerInvoice aggregation, computed live on every call, but grouped
@@ -31,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ accounts: [] });
   }
 
-  const customers = (await Customer.find({ clientId: session.clientId, type: 'corporate' })
+  const customers = (await Customer.find({ clientId: session.clientId, type: { $in: CREDIT_ELIGIBLE_CUSTOMER_TYPES } })
     .sort({ name: 1 })
     .lean()) as CustomerDoc[];
 

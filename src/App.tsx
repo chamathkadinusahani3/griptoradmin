@@ -78,6 +78,12 @@ import { HrReport } from './pages/tenant/HrReport';
 import { PurchaseReport } from './pages/tenant/PurchaseReport';
 import { SupplierReport } from './pages/tenant/SupplierReport';
 import { ArAging } from './pages/tenant/ArAging';
+import { SalesReport } from './pages/tenant/SalesReport';
+import { SalesByReport } from './pages/tenant/SalesByReport';
+import { GrossProfitReport } from './pages/tenant/GrossProfitReport';
+import { SalesReturnReport } from './pages/tenant/SalesReturnReport';
+import { TopCustomersReport } from './pages/tenant/TopCustomersReport';
+import { SlowMovingProductsReport } from './pages/tenant/SlowMovingProductsReport';
 import { ApAging } from './pages/tenant/ApAging';
 import { Employees } from './pages/tenant/Employees';
 import { LeaveRequests } from './pages/tenant/LeaveRequests';
@@ -88,6 +94,7 @@ import { Departments } from './pages/tenant/Departments';
 import { Warehouses } from './pages/tenant/Warehouses';
 import { StockTransfers } from './pages/tenant/StockTransfers';
 import { StockAdjustments } from './pages/tenant/StockAdjustments';
+import { StockIssues } from './pages/tenant/StockIssues';
 import { StockCounts } from './pages/tenant/StockCounts';
 import { PurchaseRequisitions } from './pages/tenant/PurchaseRequisitions';
 import { RFQs } from './pages/tenant/RFQs';
@@ -105,6 +112,36 @@ import { Prospects } from './pages/tenant/Prospects';
 import { Followups } from './pages/tenant/Followups';
 import { WarrantyClaims } from './pages/tenant/WarrantyClaims';
 import { SupplierClaims } from './pages/tenant/SupplierClaims';
+import { SalesForceDashboard } from './pages/tenant/SalesForceDashboard';
+import { SalesDashboard } from './pages/tenant/SalesDashboard';
+import { Salespersons } from './pages/tenant/Salespersons';
+import { Routes as SfRoutes } from './pages/tenant/Routes';
+import { FleetVehicles } from './pages/tenant/FleetVehicles';
+import { SalesVisits } from './pages/tenant/SalesVisits';
+import { SalesTargets } from './pages/tenant/SalesTargets';
+import { Collections } from './pages/tenant/Collections';
+import { PendingDeliveries } from './pages/tenant/PendingDeliveries';
+import { SfSalespersonReport } from './pages/tenant/SfSalespersonReport';
+import { SfTargetReport } from './pages/tenant/SfTargetReport';
+import { SfVisitReport } from './pages/tenant/SfVisitReport';
+import { SfGeoVisitReport } from './pages/tenant/SfGeoVisitReport';
+import { SfCollectionReport } from './pages/tenant/SfCollectionReport';
+import { SfPendingDeliveryReport } from './pages/tenant/SfPendingDeliveryReport';
+import { SfRouteReport } from './pages/tenant/SfRouteReport';
+import { SfVehicleReport } from './pages/tenant/SfVehicleReport';
+import { SfTripReport } from './pages/tenant/SfTripReport';
+import { SfActivityReport } from './pages/tenant/SfActivityReport';
+import { Cheques } from './pages/tenant/Cheques';
+import { CreditNotes } from './pages/tenant/CreditNotes';
+import { DebitNotes } from './pages/tenant/DebitNotes';
+import { CustomerDebitNotes } from './pages/tenant/CustomerDebitNotes';
+import { Receipts } from './pages/tenant/Receipts';
+import { AdvancePayments } from './pages/tenant/AdvancePayments';
+import { CollectionTasks } from './pages/tenant/CollectionTasks';
+import { PriceLists } from './pages/tenant/PriceLists';
+import { Promotions } from './pages/tenant/Promotions';
+import { CashHandovers } from './pages/tenant/CashHandovers';
+import { Utilizations } from './pages/tenant/Utilizations';
 
 function RequireRole({ role }: {role: Role;}) {
   const { user, bootstrapping } = useAuth();
@@ -284,12 +321,24 @@ export function App() {
                 <Route path="settings" element={<Settings />} />
                 <Route path="purchase-orders" element={<PurchaseOrders />} />
                 <Route path="bank-accounts" element={<BankAccounts />} />
+                <Route path="cheques" element={<Cheques />} />
+                <Route path="credit-notes" element={<CreditNotes />} />
+                <Route path="debit-notes" element={<DebitNotes />} />
+                <Route path="customer-debit-notes" element={<CustomerDebitNotes />} />
+                <Route path="receipts" element={<Receipts />} />
+                <Route path="advance-payments" element={<AdvancePayments />} />
+                <Route path="collection-tasks" element={<CollectionTasks />} />
+                <Route path="price-lists" element={<PriceLists />} />
+                <Route path="promotions" element={<Promotions />} />
+                <Route path="cash-handovers" element={<CashHandovers />} />
+                <Route path="utilizations" element={<Utilizations />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="returns" element={<Returns />} />
                 <Route path="complaints" element={<Complaints />} />
                 <Route path="financial-overview" element={<FinancialOverview />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="payroll" element={<Payroll />} />
+                <Route path="sales-dashboard" element={<SalesDashboard />} />
                 <Route path="sales" element={<Sales />} />
                 <Route path="employees" element={<Employees />} />
                 <Route path="leave-requests" element={<LeaveRequests />} />
@@ -300,11 +349,18 @@ export function App() {
                 <Route path="purchase-report" element={<PurchaseReport />} />
                 <Route path="supplier-report" element={<SupplierReport />} />
                 <Route path="ar-aging" element={<ArAging />} />
+                <Route path="sales-report" element={<SalesReport />} />
+                <Route path="sales-by-report" element={<SalesByReport />} />
+                <Route path="gross-profit-report" element={<GrossProfitReport />} />
+                <Route path="sales-return-report" element={<SalesReturnReport />} />
+                <Route path="top-customers-report" element={<TopCustomersReport />} />
+                <Route path="slow-moving-products-report" element={<SlowMovingProductsReport />} />
                 <Route path="ap-aging" element={<ApAging />} />
                 <Route path="departments" element={<Departments />} />
                 <Route path="warehouses" element={<Warehouses />} />
                 <Route path="stock-transfers" element={<StockTransfers />} />
                 <Route path="stock-adjustments" element={<StockAdjustments />} />
+                <Route path="stock-issues" element={<StockIssues />} />
                 <Route path="stock-counts" element={<StockCounts />} />
                 <Route path="purchase-requisitions" element={<PurchaseRequisitions />} />
                 <Route path="rfqs" element={<RFQs />} />
@@ -322,6 +378,24 @@ export function App() {
                 <Route path="followups" element={<Followups />} />
                 <Route path="warranty-claims" element={<WarrantyClaims />} />
                 <Route path="supplier-claims" element={<SupplierClaims />} />
+                <Route path="sf-dashboard" element={<SalesForceDashboard />} />
+                <Route path="salespersons" element={<Salespersons />} />
+                <Route path="sf-routes" element={<SfRoutes />} />
+                <Route path="sf-vehicles" element={<FleetVehicles />} />
+                <Route path="sales-visits" element={<SalesVisits />} />
+                <Route path="sales-targets" element={<SalesTargets />} />
+                <Route path="collections" element={<Collections />} />
+                <Route path="pending-deliveries" element={<PendingDeliveries />} />
+                <Route path="sf-salesperson-report" element={<SfSalespersonReport />} />
+                <Route path="sf-target-report" element={<SfTargetReport />} />
+                <Route path="sf-visit-report" element={<SfVisitReport />} />
+                <Route path="sf-geo-visit-report" element={<SfGeoVisitReport />} />
+                <Route path="sf-collection-report" element={<SfCollectionReport />} />
+                <Route path="sf-pending-delivery-report" element={<SfPendingDeliveryReport />} />
+                <Route path="sf-route-report" element={<SfRouteReport />} />
+                <Route path="sf-vehicle-report" element={<SfVehicleReport />} />
+                <Route path="sf-trip-report" element={<SfTripReport />} />
+                <Route path="sf-activity-report" element={<SfActivityReport />} />
               </Route>
             </Route>
 

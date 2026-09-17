@@ -33,6 +33,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!existing) return res.status(404).json({ error: 'Invoice not found' });
 
   const body = (req.body ?? {}) as UpdateInvoiceBody;
+
+  // A Void invoice is a closed record — nothing about it (not even notes)
+  // gets edited through this route again. Items/total specifically also
+  // lock once a payment has actually been recorded (Paid): recalculating
+  // the total against an already-fixed paidAmount would silently desync
+  // balance from reality. Non-financial fields (vehicle/plate/notes/dueDate)
+  // stay editable on a Paid invoice — only the money-affecting part locks.
+  const isEditingAnything = ([body.vehicle, body.plate, body.notes, body.dueDate, body.status, body.items] as const).some((v) => v !== undefined);
+  if (existing.status === 'Void' && isEditingAnything) {
+    return res.status(400).json({ error: 'Cannot edit a Void invoice' });
+  }
+  if (body.items !== undefined && existing.status !== 'Draft' && existing.status !== 'Issued') {
+    return res.status(400).json({ error: 'Items can only be edited while the invoice is Draft or Issued' });
+  }
+
   const update: Record<string, unknown> = {};
   for (const key of ['vehicle', 'plate', 'status', 'notes'] as const) {
     if (body[key] !== undefined) update[key] = body[key];

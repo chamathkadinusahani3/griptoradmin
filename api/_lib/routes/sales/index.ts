@@ -8,6 +8,7 @@ import { resolveBranchFilter } from '../../branch.js';
 import { serializeSale } from '../../serializers.js';
 import { getTaxRatePct } from '../../accounting.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
+import { getActivePromotions, resolveBestPromotion } from '../../promotionResolver.js';
 
 interface CheckoutBody {
   items?: { partId?: string; qty?: number }[];
@@ -59,6 +60,12 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
   // trigger) don't need transactional consistency with the stock/sale
   // writes below, only the actual JournalEntry insert does.
   const accountIds = await getAccountIdsByNames(session.clientId, [cashOrBankAccountName(paymentMethod || 'Cash'), 'Sales Revenue', 'Sales Tax Payable']);
+  // Sales Promotions (Sales Module Phase 8) — POS checkout has no customer
+  // identity at all (see Sale.ts's own comment), so `customerType` is always
+  // undefined here: a promotion scoped to specific customerTypes simply
+  // never matches a POS line, while a promotion with no such restriction
+  // (the common case) applies exactly as it would on a Sales Order.
+  const activePromotions = await getActivePromotions(session.clientId);
 
   const dbSession = await mongoose.startSession();
   try {
@@ -73,8 +80,16 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
       const parts = await Part.find(partFilter).session(dbSession);
       const partById = new Map(parts.map((p) => [p._id.toString(), p]));
 
-      const lines: { partId: mongoose.Types.ObjectId; name: string; price: number; qty: number }[] = [];
-      let subtotal = 0;
+      const rawLines: {
+        partId: mongoose.Types.ObjectId;
+        name: string;
+        rawPrice: number;
+        qty: number;
+        batchNumber?: string;
+        serialNumber?: string;
+        expiryDate?: Date;
+      }[] = [];
+      let rawSubtotal = 0;
 
       for (const item of items) {
         const part = partById.get(item.partId!) as (PartDoc & mongoose.Document) | undefined;
@@ -86,9 +101,37 @@ async function handleCheckout(req: VercelRequest, res: VercelResponse) {
             statusCode: 400,
           });
         }
-        lines.push({ partId: part._id, name: part.name, price: part.price, qty: item.qty! });
-        subtotal += part.price * item.qty!;
+        // Sales Module Phase 15 — snapshotted so the sale keeps a permanent
+        // record of which batch/serial was actually sold, unaffected by any
+        // later edit to the Part.
+        rawLines.push({
+          partId: part._id, name: part.name, rawPrice: part.price, qty: item.qty!,
+          batchNumber: part.batchNumber ?? undefined, serialNumber: part.serialNumber ?? undefined, expiryDate: part.expiryDate ?? undefined,
+        });
+        rawSubtotal += part.price * item.qty!;
       }
+
+      // Applied per-line against the raw (pre-promotion) subtotal above —
+      // POS checkout has no separate discount UI/fields to defer to (unlike
+      // Sales Order's discount1/discount2), so a matching promotion adjusts
+      // the recorded unit price directly, same "just changes the number"
+      // footprint as Phase 6's Price Lists.
+      const lines = rawLines.map((rl) => {
+        const grossLineTotal = rl.rawPrice * rl.qty;
+        const match = resolveBestPromotion(
+          activePromotions,
+          { customerType: undefined, branchId: branchId || undefined, orderSubtotal: rawSubtotal },
+          rl.partId.toString(),
+          rl.qty,
+          grossLineTotal
+        );
+        const snapshot = { batchNumber: rl.batchNumber, serialNumber: rl.serialNumber, expiryDate: rl.expiryDate };
+        if (!match) return { partId: rl.partId, name: rl.name, price: rl.rawPrice, qty: rl.qty, ...snapshot };
+        const discountAmount = match.discountType === 'percent' ? (grossLineTotal * match.discountValue) / 100 : Math.min(match.discountValue, grossLineTotal);
+        const newLineTotal = Math.max(0, grossLineTotal - discountAmount);
+        return { partId: rl.partId, name: rl.name, price: Math.round((newLineTotal / rl.qty) * 100) / 100, qty: rl.qty, ...snapshot };
+      });
+      const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
 
       const tax = Math.round(subtotal * (taxRatePct / 100) * 100) / 100;
       const total = subtotal + tax;

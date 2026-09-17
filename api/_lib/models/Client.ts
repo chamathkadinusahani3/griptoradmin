@@ -54,6 +54,19 @@ const SmsConfigSchema = new Schema(
 // DEFAULT_NUMBERING_PREFIXES), so an unconfigured tenant sees byte-identical
 // numbers to today. Empty/unset per-key falls back to that same default at
 // generation time, not here — this sub-schema only stores an override.
+// Tenant-configurable volume→vehicle-type suggestion table for Sales Force
+// Management's delivery load calculation — explicitly NOT hard-coded
+// thresholds (the spec's own requirement). Sorted ascending by maxVolume at
+// use time; the first rule whose maxVolume >= a delivery's total volume is
+// the suggestion.
+const DeliveryLoadRuleSchema = new Schema(
+  {
+    maxVolume: { type: Number, required: true },
+    vehicleType: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const NumberingPrefixesSchema = new Schema(
   {
     invoice: { type: String },
@@ -72,6 +85,14 @@ const NumberingPrefixesSchema = new Schema(
     salaryAdvance: { type: String },
     warrantyClaim: { type: String },
     supplierClaim: { type: String },
+    creditNote: { type: String },
+    debitNote: { type: String },
+    receipt: { type: String },
+    advancePayment: { type: String },
+    stockIssue: { type: String },
+    cashHandover: { type: String },
+    utilization: { type: String },
+    customerDebitNote: { type: String },
   },
   { _id: false }
 );
@@ -153,6 +174,62 @@ const ClientSchema = new Schema(
     // for when that wiring happens.
     fiscalYearStartMonth: { type: Number, min: 1, max: 12, default: 1 },
     numberingPrefixes: { type: NumberingPrefixesSchema, default: () => ({}) },
+    deliveryLoadRules: { type: [DeliveryLoadRuleSchema], default: [] },
+    // Rs per liter — tenant-configurable, used with FleetVehicle.fuelEfficiency
+    // by SF-Phase 10's trip fuel-cost estimate. Default 0 means unset.
+    fuelPricePerLiter: { type: Number, default: 0 },
+    // Kill-switch (ERP-Phase 2) — the first plain on/off business-behavior
+    // toggle on this model. Default false: existing tenants see zero change
+    // until they explicitly opt in via Settings; new sales orders keep going
+    // straight to 'Confirmed'. When true, new orders are created
+    // 'Pending Approval' instead and need an explicit approve/reject.
+    requireSalesOrderApproval: { type: Boolean, default: false },
+    // ERP-Phase 4 — same opt-in shape/default as requireSalesOrderApproval.
+    // When false (default), fulfilling a sales order still does everything
+    // in one atomic step exactly as before this field existed. When true,
+    // fulfilling instead only creates a Pending DeliveryNote (the "DAG") —
+    // stock, the SalesOrder, and the Sale record don't change until a
+    // separate Delivery Confirm action runs.
+    requireDeliveryConfirm: { type: Boolean, default: false },
+    // Sales Module Phase 2 — a hard tenant-wide policy on a CUSTOMER's own
+    // total outstanding balance vs their own Customer.creditLimit, distinct
+    // from salesExecCredit.ts's per-STAFF exposure cap and
+    // creditDiscipline.ts's discount-forfeiture check (see
+    // api/_lib/customerCreditLimitGate.ts for how the three coexist).
+    // Default 'Off': zero behavior change for tenants that haven't
+    // configured this, same opt-in discipline as the two booleans above.
+    customerCreditLimitPolicy: { type: String, enum: ['Off', 'Block', 'Warn', 'RequireApproval'], default: 'Off' },
+    // Sales Module Phase 6 — opt-in kill-switch, same shape/default as
+    // requireSalesOrderApproval above. While off, a customer's
+    // defaultPriceListId can't even be set (enforced in
+    // routes/customers/index.ts + [id].ts) and SalesOrder creation resolves
+    // prices exactly as before this phase existed.
+    priceListsEnabled: { type: Boolean, default: false },
+    // Sales Module Phase 7 — a staff-entered per-line discount (SalesOrder's
+    // discount1/discount2, the only staff-controlled discount in the app;
+    // Quotation/CustomerInvoice.discountPct is always snapshotted from the
+    // customer's own discountPct, never staff-entered) above this % gets
+    // blocked for anyone without approvals:respond, filing a 'Discount
+    // Authorization' Approval doc (see discountGovernance.ts). 0 (default)
+    // means "no cap enforced" — same "0 means unconfigured" convention as
+    // Customer.creditLimit — so an unconfigured tenant sees zero behavior
+    // change.
+    maxDiscountPctBeforeApproval: { type: Number, default: 0 },
+    // Sales Module Phase 7 — same gate shape as maxDiscountPctBeforeApproval
+    // above, applied to a CustomerInvoice's total instead of a per-line
+    // discount. 0 (default) means "no cap enforced."
+    invoiceApprovalThresholdAmount: { type: Number, default: 0 },
+    // Sales Module Phase 11 — opt-in gate on Return.ts's Pending/Inspected/
+    // Approved/Rejected lifecycle (see that model's own comment). Default
+    // false: zero behavior change for a tenant that hasn't opted in — every
+    // return still executes its stock/CreditNote-DebitNote/refund-GL side
+    // effects immediately at creation, exactly as before this phase existed.
+    requireReturnApproval: { type: Boolean, default: false },
+    // Sales Module Phase 12 — independent opt-in gate on Return.ts's
+    // refundStatus Requested/Approved/Paid lifecycle (see that model's own
+    // comment). Default false: a return's refund still GL-posts immediately
+    // alongside its own goods-effects, exactly as before this phase existed.
+    requireRefundApproval: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

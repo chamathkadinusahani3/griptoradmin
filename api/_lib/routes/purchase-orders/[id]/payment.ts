@@ -12,6 +12,7 @@ interface RecordPaymentBody {
   notes?: string;
   chequeNumber?: string;
   bankAccountId?: string;
+  discountAmount?: number;
 }
 
 // Manual payment recording against a supplier's purchase order — the
@@ -28,12 +29,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id } = req.query;
   if (typeof id !== 'string') return res.status(400).json({ error: 'Missing purchase order id' });
 
-  const { amount, method, date, notes, chequeNumber, bankAccountId } = (req.body ?? {}) as RecordPaymentBody;
+  const { amount, method, date, notes, chequeNumber, bankAccountId, discountAmount } = (req.body ?? {}) as RecordPaymentBody;
   if (!amount || amount <= 0 || !method) {
     return res.status(400).json({ error: 'A positive amount and a payment method are required' });
   }
   if (method === 'Cheque' && !chequeNumber?.trim()) {
     return res.status(400).json({ error: 'A cheque number is required for cheque payments' });
+  }
+  if (discountAmount !== undefined && (typeof discountAmount !== 'number' || discountAmount < 0)) {
+    return res.status(400).json({ error: 'discountAmount must be a non-negative number' });
   }
 
   await connectToDatabase();
@@ -45,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     notes,
     chequeNumber: method === 'Cheque' ? chequeNumber : undefined,
     bankAccountId,
+    discountAmount,
   });
   if (!order) return res.status(400).json({ error: 'This purchase order was not found or is not payable (must be Ordered, Partially Received, or Received)' });
 

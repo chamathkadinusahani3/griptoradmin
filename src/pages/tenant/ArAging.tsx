@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ClockIcon, WalletIcon, PrinterIcon } from 'lucide-react';
+import { ClockIcon, WalletIcon, PrinterIcon, ClipboardCheckIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -21,6 +22,7 @@ const BUCKET_TONE: Record<AgingBucket, 'gray' | 'blue' | 'amber' | 'red'> = {
 };
 
 export function ArAging() {
+  const navigate = useNavigate();
   const [data, setData] = useState<ArAgingReport | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -81,6 +83,7 @@ export function ArAging() {
                       <th className="px-5 py-3 font-bold">Customer</th>
                       <th className="px-5 py-3 font-bold">Oldest bucket</th>
                       <th className="px-5 py-3 text-right font-bold">Outstanding</th>
+                      <th className="px-5 py-3 print:hidden"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -89,6 +92,11 @@ export function ArAging() {
                         <td className="px-5 py-3 font-semibold text-navy dark:text-slate-100">{c.name}</td>
                         <td className="px-5 py-3"><Badge tone={BUCKET_TONE[c.oldestBucket]}>{c.oldestBucket}</Badge></td>
                         <td className="px-5 py-3 text-right font-bold text-navy dark:text-slate-100">{formatCurrency(c.outstanding)}</td>
+                        <td className="px-5 py-3 text-right print:hidden">
+                          <Button size="sm" variant="ghost" onClick={() => navigate(`/app/erp/collection-tasks?customerId=${c.id}`)}>
+                            <ClipboardCheckIcon className="h-3.5 w-3.5" /> Create task
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

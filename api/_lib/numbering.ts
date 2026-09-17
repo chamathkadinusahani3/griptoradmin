@@ -17,7 +17,15 @@ export type DocumentType =
   | 'deliveryNote'
   | 'salaryAdvance'
   | 'warrantyClaim'
-  | 'supplierClaim';
+  | 'supplierClaim'
+  | 'creditNote'
+  | 'debitNote'
+  | 'receipt'
+  | 'advancePayment'
+  | 'stockIssue'
+  | 'cashHandover'
+  | 'utilization'
+  | 'customerDebitNote';
 
 // The literal prefixes every route hardcoded before per-tenant Numbering
 // settings existed — kept as the fallback so an unconfigured tenant (or an
@@ -39,6 +47,20 @@ export const DEFAULT_NUMBERING_PREFIXES: Record<DocumentType, string> = {
   salaryAdvance: 'ADV',
   warrantyClaim: 'WC',
   supplierClaim: 'SC',
+  creditNote: 'CN',
+  debitNote: 'DBN',
+  receipt: 'RCPT',
+  // Deliberately distinct from salaryAdvance's 'ADV' prefix — a different
+  // concept (customer/supplier advance payment, not a staff salary advance)
+  // that shouldn't share a document-number series with it.
+  advancePayment: 'ADVP',
+  stockIssue: 'SI',
+  cashHandover: 'CH',
+  utilization: 'UTL',
+  // Deliberately distinct from debitNote's 'DBN' prefix — a different
+  // document (customer-direction, manually raised against an invoice) that
+  // shouldn't share a number series with the supplier-direction one.
+  customerDebitNote: 'CDN',
 };
 
 /**

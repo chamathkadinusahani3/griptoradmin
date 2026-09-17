@@ -33,6 +33,11 @@ const PaymentRecordSchema = new Schema(
     chequeNumber: { type: String },
     // Which BankAccount this cheque/transfer was drawn from — unset for Cash.
     bankAccountId: { type: Schema.Types.ObjectId, ref: 'BankAccount' },
+    // ERP-Phase 6 "Settlement Discount" — a discount the supplier offered
+    // for settling this specific payment (e.g. early-payment terms). Not
+    // cash paid, but it still counts toward closing the PO's balance — see
+    // PurchaseOrder.settlementDiscountTotal below.
+    discountAmount: { type: Number },
     // Simple manual reconciliation flag — see CustomerInvoice.ts's identical
     // fields (the other direction of money) for the full reasoning.
     reconciled: { type: Boolean, default: false },
@@ -63,6 +68,12 @@ const PurchaseOrderSchema = new Schema(
     // directly by the client. Payments are only recordable once a PO is
     // Ordered or Received (a real commitment/delivery), never while Draft.
     paidAmount: { type: Number, default: 0 },
+    // Cumulative sum of every payment's discountAmount — kept alongside
+    // paidAmount (not merged into it) so "how much cash actually moved" and
+    // "how much was written off as a settlement discount" stay separately
+    // visible, same reasoning CustomerInvoice keeps subtotal/discountAmount/
+    // taxAmount as distinct fields rather than folding them into one number.
+    settlementDiscountTotal: { type: Number, default: 0 },
     balance: { type: Number, required: true },
     paymentStatus: { type: String, enum: ['Unpaid', 'Partial', 'Paid'], default: 'Unpaid' },
     paymentHistory: { type: [PaymentRecordSchema], default: [] },

@@ -1,4 +1,5 @@
 import { LineItem } from './quotation';
+import { Attachment } from './attachment';
 
 export type InvoiceStatus = 'Draft' | 'Issued' | 'Paid' | 'Void';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
@@ -23,6 +24,7 @@ export interface CustomerInvoice {
   customer?: string;
   jobCardId?: string;
   quotationId?: string;
+  salespersonId?: string;
   vehicle: string;
   plate?: string;
   vehicleId?: string;
@@ -39,5 +41,6 @@ export interface CustomerInvoice {
   paymentHistory: PaymentRecord[];
   dueDate?: string;
   notes?: string;
+  attachments: Attachment[];
   createdAt: string;
 }

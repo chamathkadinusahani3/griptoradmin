@@ -2,13 +2,17 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectToDatabase } from '../../db.js';
 import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoice.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
+import { Client, ClientDoc } from '../../models/Client.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
+import { SalespersonAssignment } from '../../models/SalespersonAssignment.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomerInvoice } from '../../serializers.js';
 import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 import { generateSequentialNumber } from '../../numbering.js';
 import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
+import { checkCustomerCreditLimitGate } from '../../customerCreditLimitGate.js';
+import { checkInvoiceAmountThresholdGate } from '../../discountGovernance.js';
 
 interface CreateInvoiceBody {
   customerId?: string;
@@ -54,6 +58,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   const customer = (await Customer.findOne({ _id: customerId, clientId: session.clientId }).lean()) as CustomerDoc | null;
   if (!customer) return res.status(400).json({ error: 'Unknown customer' });
+  if (customer.status === 'Blocked') return res.status(400).json({ error: 'This customer is blocked and cannot be invoiced' });
 
   // Same job-card-derived vehicle fields as api/quotations/index.ts.
   let vehicleFields = { vehicle, plate, vehicleId: undefined as string | undefined };
@@ -74,12 +79,23 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const limitCheck = await checkCreditExposureLimit(session, customer, total);
   if (limitCheck.blocked) return res.status(400).json({ error: limitCheck.message });
 
+  const client = (await Client.findById(session.clientId).select('customerCreditLimitPolicy invoiceApprovalThresholdAmount').lean()) as ClientDoc | null;
+  const creditLimitGate = await checkCustomerCreditLimitGate(session, client?.customerCreditLimitPolicy ?? 'Off', customer, total);
+  if (creditLimitGate.blocked) return res.status(400).json({ error: creditLimitGate.message });
+
+  const invoiceAmountGate = await checkInvoiceAmountThresholdGate(session, client?.invoiceApprovalThresholdAmount ?? 0, total);
+  if (invoiceAmountGate.blocked) return res.status(400).json({ error: invoiceAmountGate.message });
+
   const invoiceNumber = await generateSequentialNumber(CustomerInvoice, session.clientId, 'invoiceNumber', 'invoice');
+
+  // Best-effort attribution — see SalesOrder's identical lookup.
+  const assignment = await SalespersonAssignment.findOne({ clientId: session.clientId, customerId, active: true }).lean();
 
   const invoice = await CustomerInvoice.create({
     clientId: session.clientId,
     customerId,
     jobCardId: jobCardId || undefined,
+    salespersonId: assignment?.salespersonId || undefined,
     invoiceNumber,
     ...vehicleFields,
     items: computedItems,
@@ -96,7 +112,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     notes,
   });
 
-  return res
-    .status(201)
-    .json({ invoice: serializeCustomerInvoice(invoice.toObject(), (customer as CustomerDoc).name) });
+  return res.status(201).json({
+    invoice: serializeCustomerInvoice(invoice.toObject(), (customer as CustomerDoc).name),
+    creditWarning: creditLimitGate.warning,
+    discountWarning: invoiceAmountGate.warning,
+  });
 }

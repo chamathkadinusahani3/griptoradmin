@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ImageIcon, CopyIcon, LockIcon } from 'lucide-react';
+import { ImageIcon, CopyIcon, LockIcon, PlusIcon, TrashIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -58,12 +58,32 @@ export function Settings() {
   const [taxRatePct, setTaxRatePct] = useState('8');
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState('1');
   const [savingFinance, setSavingFinance] = useState(false);
+  const [requireSalesOrderApproval, setRequireSalesOrderApproval] = useState(false);
+  const [savingApprovals, setSavingApprovals] = useState(false);
+  const [requireDeliveryConfirm, setRequireDeliveryConfirm] = useState(false);
+  const [savingDeliveryConfirm, setSavingDeliveryConfirm] = useState(false);
+  const [customerCreditLimitPolicy, setCustomerCreditLimitPolicy] = useState<'Off' | 'Block' | 'Warn' | 'RequireApproval'>('Off');
+  const [savingCreditLimitPolicy, setSavingCreditLimitPolicy] = useState(false);
+  const [priceListsEnabled, setPriceListsEnabled] = useState(false);
+  const [savingPriceListsEnabled, setSavingPriceListsEnabled] = useState(false);
+  const [requireReturnApproval, setRequireReturnApproval] = useState(false);
+  const [savingReturnApproval, setSavingReturnApproval] = useState(false);
+  const [requireRefundApproval, setRequireRefundApproval] = useState(false);
+  const [savingRefundApproval, setSavingRefundApproval] = useState(false);
+  const [maxDiscountPctBeforeApproval, setMaxDiscountPctBeforeApproval] = useState('0');
+  const [savingMaxDiscountPct, setSavingMaxDiscountPct] = useState(false);
+  const [invoiceApprovalThresholdAmount, setInvoiceApprovalThresholdAmount] = useState('0');
+  const [savingInvoiceThreshold, setSavingInvoiceThreshold] = useState(false);
   const [numberingPrefixes, setNumberingPrefixes] = useState({
     invoice: '', quotation: '', purchaseOrder: '', complaint: '', expense: '', return: '',
     purchaseRequisition: '', rfq: '', supplierQuotation: '', grn: '', purchaseInvoice: '',
-    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '',
+    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '', creditNote: '', debitNote: '', receipt: '', advancePayment: '', stockIssue: '', cashHandover: '', utilization: '', customerDebitNote: '',
   });
   const [savingNumbering, setSavingNumbering] = useState(false);
+  const [deliveryLoadRules, setDeliveryLoadRules] = useState<{ maxVolume: string; vehicleType: string }[]>([]);
+  const [savingLoadRules, setSavingLoadRules] = useState(false);
+  const [fuelPricePerLiter, setFuelPricePerLiter] = useState('0');
+  const [savingFuelPrice, setSavingFuelPrice] = useState(false);
   const [paletteId, setPaletteId] = useState('blue');
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
   const [defaultMode, setDefaultMode] = useState<'light' | 'dark'>('light');
@@ -117,7 +137,25 @@ export function Settings() {
           salaryAdvance: client.numberingPrefixes.salaryAdvance ?? '',
           warrantyClaim: client.numberingPrefixes.warrantyClaim ?? '',
           supplierClaim: client.numberingPrefixes.supplierClaim ?? '',
+          creditNote: client.numberingPrefixes.creditNote ?? '',
+          debitNote: client.numberingPrefixes.debitNote ?? '',
+          receipt: client.numberingPrefixes.receipt ?? '',
+          advancePayment: client.numberingPrefixes.advancePayment ?? '',
+          stockIssue: client.numberingPrefixes.stockIssue ?? '',
+          cashHandover: client.numberingPrefixes.cashHandover ?? '',
+          utilization: client.numberingPrefixes.utilization ?? '',
+          customerDebitNote: client.numberingPrefixes.customerDebitNote ?? '',
         });
+        setDeliveryLoadRules(client.deliveryLoadRules.map((r) => ({ maxVolume: String(r.maxVolume), vehicleType: r.vehicleType })));
+        setFuelPricePerLiter(String(client.fuelPricePerLiter));
+        setRequireSalesOrderApproval(client.requireSalesOrderApproval);
+        setRequireDeliveryConfirm(client.requireDeliveryConfirm);
+        setCustomerCreditLimitPolicy(client.customerCreditLimitPolicy);
+        setPriceListsEnabled(client.priceListsEnabled);
+        setMaxDiscountPctBeforeApproval(String(client.maxDiscountPctBeforeApproval));
+        setInvoiceApprovalThresholdAmount(String(client.invoiceApprovalThresholdAmount));
+        setRequireReturnApproval(client.requireReturnApproval);
+        setRequireRefundApproval(client.requireRefundApproval);
       })
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load settings'))
       .finally(() => setLoading(false));
@@ -193,12 +231,180 @@ export function Settings() {
         salaryAdvance: updated.numberingPrefixes.salaryAdvance ?? '',
         warrantyClaim: updated.numberingPrefixes.warrantyClaim ?? '',
         supplierClaim: updated.numberingPrefixes.supplierClaim ?? '',
+        creditNote: updated.numberingPrefixes.creditNote ?? '',
+        debitNote: updated.numberingPrefixes.debitNote ?? '',
+        receipt: updated.numberingPrefixes.receipt ?? '',
+        advancePayment: updated.numberingPrefixes.advancePayment ?? '',
+        stockIssue: updated.numberingPrefixes.stockIssue ?? '',
+        cashHandover: updated.numberingPrefixes.cashHandover ?? '',
+        utilization: updated.numberingPrefixes.utilization ?? '',
+        customerDebitNote: updated.numberingPrefixes.customerDebitNote ?? '',
       });
       toast.success('Document numbering updated');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to update document numbering');
     } finally {
       setSavingNumbering(false);
+    }
+  };
+
+  const saveDeliveryLoadRules = async () => {
+    const parsed = deliveryLoadRules.map((r) => ({ maxVolume: Number(r.maxVolume), vehicleType: r.vehicleType.trim() }));
+    if (parsed.some((r) => !r.maxVolume || r.maxVolume <= 0 || !r.vehicleType)) {
+      toast.error('Each rule needs a positive max volume and a vehicle type');
+      return;
+    }
+    setSavingLoadRules(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { deliveryLoadRules: parsed });
+      setGarage(updated);
+      setDeliveryLoadRules(updated.deliveryLoadRules.map((r) => ({ maxVolume: String(r.maxVolume), vehicleType: r.vehicleType })));
+      toast.success('Delivery load rules updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update delivery load rules');
+    } finally {
+      setSavingLoadRules(false);
+    }
+  };
+
+  const saveFuelPrice = async () => {
+    const parsed = Number(fuelPricePerLiter);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toast.error('Fuel price must be a non-negative number');
+      return;
+    }
+    setSavingFuelPrice(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { fuelPricePerLiter: parsed });
+      setGarage(updated);
+      setFuelPricePerLiter(String(updated.fuelPricePerLiter));
+      toast.success('Fuel price updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update fuel price');
+    } finally {
+      setSavingFuelPrice(false);
+    }
+  };
+
+  const saveApprovals = async (next: boolean) => {
+    setSavingApprovals(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { requireSalesOrderApproval: next });
+      setGarage(updated);
+      setRequireSalesOrderApproval(updated.requireSalesOrderApproval);
+      toast.success(next ? 'Sales orders now require approval' : 'Sales order approval requirement turned off');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update approval setting');
+    } finally {
+      setSavingApprovals(false);
+    }
+  };
+
+  const saveDeliveryConfirm = async (next: boolean) => {
+    setSavingDeliveryConfirm(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { requireDeliveryConfirm: next });
+      setGarage(updated);
+      setRequireDeliveryConfirm(updated.requireDeliveryConfirm);
+      toast.success(next ? 'Deliveries now need a separate confirm step' : 'Deliveries go straight through again');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update delivery confirm setting');
+    } finally {
+      setSavingDeliveryConfirm(false);
+    }
+  };
+
+  const savePriceListsEnabled = async (next: boolean) => {
+    setSavingPriceListsEnabled(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { priceListsEnabled: next });
+      setGarage(updated);
+      setPriceListsEnabled(updated.priceListsEnabled);
+      toast.success(next ? 'Price lists enabled' : 'Price lists disabled');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update price lists setting');
+    } finally {
+      setSavingPriceListsEnabled(false);
+    }
+  };
+
+  const saveReturnApproval = async (next: boolean) => {
+    setSavingReturnApproval(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { requireReturnApproval: next });
+      setGarage(updated);
+      setRequireReturnApproval(updated.requireReturnApproval);
+      toast.success(next ? 'Returns now require inspection/approval before stock or refunds move' : 'Returns execute immediately again');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update return approval setting');
+    } finally {
+      setSavingReturnApproval(false);
+    }
+  };
+
+  const saveRefundApproval = async (next: boolean) => {
+    setSavingRefundApproval(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { requireRefundApproval: next });
+      setGarage(updated);
+      setRequireRefundApproval(updated.requireRefundApproval);
+      toast.success(next ? 'Refunds now need separate approval before paying out' : 'Refunds post immediately again');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update refund approval setting');
+    } finally {
+      setSavingRefundApproval(false);
+    }
+  };
+
+  const saveMaxDiscountPct = async () => {
+    const parsed = Number(maxDiscountPctBeforeApproval);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      toast.error('Max discount % must be between 0 and 100');
+      return;
+    }
+    setSavingMaxDiscountPct(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { maxDiscountPctBeforeApproval: parsed });
+      setGarage(updated);
+      setMaxDiscountPctBeforeApproval(String(updated.maxDiscountPctBeforeApproval));
+      toast.success('Discount approval limit updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update discount approval limit');
+    } finally {
+      setSavingMaxDiscountPct(false);
+    }
+  };
+
+  const saveInvoiceThreshold = async () => {
+    const parsed = Number(invoiceApprovalThresholdAmount);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toast.error('Invoice approval threshold must be a non-negative number');
+      return;
+    }
+    setSavingInvoiceThreshold(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { invoiceApprovalThresholdAmount: parsed });
+      setGarage(updated);
+      setInvoiceApprovalThresholdAmount(String(updated.invoiceApprovalThresholdAmount));
+      toast.success('Invoice approval threshold updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update invoice approval threshold');
+    } finally {
+      setSavingInvoiceThreshold(false);
+    }
+  };
+
+  const saveCreditLimitPolicy = async (next: 'Off' | 'Block' | 'Warn' | 'RequireApproval') => {
+    setSavingCreditLimitPolicy(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { customerCreditLimitPolicy: next });
+      setGarage(updated);
+      setCustomerCreditLimitPolicy(updated.customerCreditLimitPolicy);
+      toast.success('Customer credit limit policy updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update credit limit policy');
+    } finally {
+      setSavingCreditLimitPolicy(false);
     }
   };
 
@@ -335,6 +541,123 @@ export function Settings() {
         </Card>
 
         <Card>
+          <CardHeader title="Approvals" subtitle="Optional gates on new documents before they take effect" />
+          <div className="space-y-4 p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-navy dark:text-slate-100">Require approval for new sales orders</p>
+                <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                  When on, new sales orders start as Pending Approval instead of Confirmed — an Owner/Manager must approve or reject before they can be delivered.
+                </p>
+              </div>
+              <Toggle
+                checked={requireSalesOrderApproval}
+                disabled={!canEdit || savingApprovals}
+                onChange={(next) => saveApprovals(next)} />
+
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-border-soft pt-4 dark:border-slate-800">
+              <div>
+                <p className="text-sm font-semibold text-navy dark:text-slate-100">Require delivery confirmation</p>
+                <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                  When on, delivering a sales order first prepares a Pending delivery note (a DAG) — stock and the Sale record only update once it's explicitly confirmed from Delivery Notes.
+                </p>
+              </div>
+              <Toggle
+                checked={requireDeliveryConfirm}
+                disabled={!canEdit || savingDeliveryConfirm}
+                onChange={(next) => saveDeliveryConfirm(next)} />
+
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-border-soft pt-4 dark:border-slate-800">
+              <div>
+                <p className="text-sm font-semibold text-navy dark:text-slate-100">Require return inspection/approval</p>
+                <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                  When on, a new return starts Pending — stock isn't moved and no credit/debit note or refund posting happens until it's Approved (an optional Inspected step can sit in between). Off by default: a return still executes immediately, exactly as before.
+                </p>
+              </div>
+              <Toggle
+                checked={requireReturnApproval}
+                disabled={!canEdit || savingReturnApproval}
+                onChange={(next) => saveReturnApproval(next)} />
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-border-soft pt-4 dark:border-slate-800">
+              <div>
+                <p className="text-sm font-semibold text-navy dark:text-slate-100">Require refund approval</p>
+                <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                  When on, a return's refund stops at Requested — filed as a "Refund Request" on the Approvals page — until someone with approval authority approves it and it's then marked paid. Independent of the return-approval toggle above. Off by default: a refund still posts immediately.
+                </p>
+              </div>
+              <Toggle
+                checked={requireRefundApproval}
+                disabled={!canEdit || savingRefundApproval}
+                onChange={(next) => saveRefundApproval(next)} />
+            </div>
+            <div className="border-t border-border-soft pt-4 dark:border-slate-800">
+              <Label htmlFor="credit-limit-policy">Customer credit limit policy</Label>
+              <Select
+                id="credit-limit-policy"
+                value={customerCreditLimitPolicy}
+                disabled={!canEdit || savingCreditLimitPolicy}
+                onChange={(e) => saveCreditLimitPolicy(e.target.value as 'Off' | 'Block' | 'Warn' | 'RequireApproval')}>
+
+                <option value="Off">Off — no limit enforced</option>
+                <option value="Warn">Warn — allow the sale, show a warning</option>
+                <option value="RequireApproval">Require approval — block unless an Owner/Manager overrides</option>
+                <option value="Block">Block — no exceptions, not even for an Owner/Manager</option>
+              </Select>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                Applies when a Corporate, Wholesale, or Dealer customer's outstanding balance would exceed their own configured credit limit on a new quotation, sales order, or invoice.
+              </p>
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-border-soft pt-4 dark:border-slate-800">
+              <div>
+                <p className="text-sm font-semibold text-navy dark:text-slate-100">Enable price lists</p>
+                <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                  When on, a customer can be assigned a Price List (Pricing → Price Lists) with per-part overrides — sales orders use that price instead of the catalog price. Off by default so pricing stays byte-identical until you opt in.
+                </p>
+              </div>
+              <Toggle
+                checked={priceListsEnabled}
+                disabled={!canEdit || savingPriceListsEnabled}
+                onChange={(next) => savePriceListsEnabled(next)} />
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Discount Governance" subtitle="Block or flag discretionary discounts, below-minimum sales, and large invoices for anyone without approval authority" />
+          <div className="space-y-4 p-5">
+            <div>
+              <Label htmlFor="max-discount-pct">Max discount % before approval</Label>
+              <div className="flex gap-2">
+                <Input id="max-discount-pct" type="number" min={0} max={100} value={maxDiscountPctBeforeApproval} onChange={(e) => setMaxDiscountPctBeforeApproval(e.target.value)} disabled={!canEdit} />
+                {canEdit && <Button variant="secondary" onClick={saveMaxDiscountPct} loading={savingMaxDiscountPct}>Save</Button>}
+              </div>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                0 means no cap. Above this, a Sales Order line discount is blocked for anyone without approvals:respond — a "Discount Authorization" request is filed on the Approvals page instead. An Owner/Manager can always proceed directly.
+              </p>
+            </div>
+            <div className="border-t border-border-soft pt-4 dark:border-slate-800">
+              <Label htmlFor="invoice-threshold">Invoice approval threshold</Label>
+              <div className="flex gap-2">
+                <Input id="invoice-threshold" type="number" min={0} value={invoiceApprovalThresholdAmount} onChange={(e) => setInvoiceApprovalThresholdAmount(e.target.value)} disabled={!canEdit} />
+                {canEdit && <Button variant="secondary" onClick={saveInvoiceThreshold} loading={savingInvoiceThreshold}>Save</Button>}
+              </div>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                0 means no cap. A Customer Invoice above this total is blocked for anyone without approvals:respond, same override behavior as above.
+              </p>
+            </div>
+            <div className="border-t border-border-soft pt-4 dark:border-slate-800">
+              <p className="text-sm font-semibold text-navy dark:text-slate-100">Minimum selling price</p>
+              <p className="mt-0.5 text-xs text-text-gray dark:text-slate-400">
+                Set per part in Inventory (optional "Min selling price" field). A Sales Order line selling below a part's floor is gated the same way as an oversized discount above.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
           <CardHeader title="Document numbering" subtitle="Prefixes used for auto-generated document numbers, e.g. INV-202607-0001" />
           <div className="space-y-4 p-5">
             {([
@@ -354,6 +677,14 @@ export function Settings() {
               ['salaryAdvance', 'Salary advances'],
               ['warrantyClaim', 'Warranty claims'],
               ['supplierClaim', 'Supplier claims'],
+              ['creditNote', 'Credit notes'],
+              ['debitNote', 'Debit notes'],
+              ['receipt', 'Receipts'],
+              ['advancePayment', 'Advance payments'],
+              ['stockIssue', 'Stock issues'],
+              ['cashHandover', 'Cash handovers'],
+              ['utilization', 'Utilizations'],
+              ['customerDebitNote', 'Customer debit notes'],
             ] as const).map(([key, label]) => (
               <div key={key}>
                 <Label htmlFor={`numbering-${key}`}>{label}</Label>
@@ -370,6 +701,77 @@ export function Settings() {
             {canEdit && (
               <Button loading={savingNumbering} onClick={saveNumbering}>
                 Save numbering
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Delivery load rules" subtitle="Suggests a vehicle type for a delivery's total volume — configurable, not hard-coded. E.g. up to 100 cubic ft → Small Lorry." />
+          <div className="space-y-3 p-5">
+            {deliveryLoadRules.map((rule, i) => (
+              <div key={i} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Label htmlFor={`load-rule-volume-${i}`}>Max volume (cubic ft)</Label>
+                  <Input
+                    id={`load-rule-volume-${i}`}
+                    type="number"
+                    min={0}
+                    disabled={!canEdit}
+                    value={rule.maxVolume}
+                    onChange={(e) => setDeliveryLoadRules((prev) => prev.map((r, ri) => (ri === i ? { ...r, maxVolume: e.target.value } : r)))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`load-rule-type-${i}`}>Suggested vehicle type</Label>
+                  <Input
+                    id={`load-rule-type-${i}`}
+                    placeholder="e.g. Small Lorry"
+                    disabled={!canEdit}
+                    value={rule.vehicleType}
+                    onChange={(e) => setDeliveryLoadRules((prev) => prev.map((r, ri) => (ri === i ? { ...r, vehicleType: e.target.value } : r)))}
+                  />
+                </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryLoadRules((prev) => prev.filter((_, ri) => ri !== i))}
+                    aria-label="Remove rule"
+                    className="mb-0.5 rounded-lg p-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400">
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {deliveryLoadRules.length === 0 && (
+              <p className="text-sm text-text-gray dark:text-slate-400">No rules configured yet — the Pending Deliveries page won't suggest a vehicle until you add one.</p>
+            )}
+            {canEdit && (
+              <div className="flex items-center gap-3 pt-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setDeliveryLoadRules((prev) => [...prev, { maxVolume: '', vehicleType: '' }])}>
+                  <PlusIcon className="h-4 w-4" /> Add rule
+                </Button>
+                <Button loading={savingLoadRules} onClick={saveDeliveryLoadRules}>
+                  Save rules
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Fleet &amp; fuel" subtitle="Fuel price used with each vehicle's fuel efficiency (Fleet Vehicles page) to estimate trip cost on Sales Visits." />
+          <div className="space-y-4 p-5">
+            <div>
+              <Label htmlFor="fuel-price">Fuel price (Rs per liter)</Label>
+              <Input id="fuel-price" type="number" min={0} step="0.01" value={fuelPricePerLiter} disabled={!canEdit} onChange={(e) => setFuelPricePerLiter(e.target.value)} />
+            </div>
+            {canEdit && (
+              <Button loading={savingFuelPrice} onClick={saveFuelPrice}>
+                Save fuel price
               </Button>
             )}
           </div>

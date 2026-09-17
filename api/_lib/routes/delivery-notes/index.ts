@@ -6,9 +6,11 @@ import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeDeliveryNote } from '../../serializers.js';
 
-// Read-only — a Delivery Note is only ever created as a side effect of
-// fulfilling a sales order (sales-orders/[id]/fulfill.ts), never entered
-// directly, same reasoning as goods-received-notes/index.ts.
+// This list route is read-only — a Delivery Note is only ever created as a
+// side effect of fulfilling a sales order (sales-orders/[id]/fulfill.ts),
+// never entered directly, same reasoning as goods-received-notes/index.ts.
+// Its own status can change afterward though, via [id].ts (cancel) or
+// [id]/confirm.ts (confirm) — see DeliveryNote.ts's ERP-Phase 4 comment.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');

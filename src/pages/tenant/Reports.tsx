@@ -21,7 +21,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Select } from '../../components/ui/Input';
 import { TenantReports, ReportRange } from '../../types/reports';
 import { Branch } from '../../types/branch';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatCurrency, formatDate, exportCsv } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
 const RANGE_OPTIONS: { key: ReportRange; label: string }[] = [
@@ -33,17 +33,6 @@ const RANGE_OPTIONS: { key: ReportRange; label: string }[] = [
 
 
 const COLORS = ['#2164B4', '#1EA4B6', '#22C1C7', '#2A8BD4', '#19356E', '#8B5CF6', '#F59E0B'];
-
-function exportCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);

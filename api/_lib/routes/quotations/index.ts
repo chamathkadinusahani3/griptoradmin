@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectToDatabase } from '../../db.js';
 import { Quotation, QuotationDoc } from '../../models/Quotation.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
+import { Client, ClientDoc } from '../../models/Client.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeQuotation } from '../../serializers.js';
@@ -9,6 +10,7 @@ import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js
 import { generateSequentialNumber } from '../../numbering.js';
 import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
+import { checkCustomerCreditLimitGate } from '../../customerCreditLimitGate.js';
 
 interface CreateQuotationBody {
   customerId?: string;
@@ -54,6 +56,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   const customer = (await Customer.findOne({ _id: customerId, clientId: session.clientId }).lean()) as CustomerDoc | null;
   if (!customer) return res.status(400).json({ error: 'Unknown customer' });
+  if (customer.status === 'Blocked') return res.status(400).json({ error: 'This customer is blocked and cannot be quoted' });
 
   // When a job card is linked, the vehicle/plate/vehicleId come from that
   // authoritative record rather than whatever the client sent — closes a
@@ -77,6 +80,10 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const limitCheck = await checkCreditExposureLimit(session, customer, total);
   if (limitCheck.blocked) return res.status(400).json({ error: limitCheck.message });
 
+  const client = (await Client.findById(session.clientId).select('customerCreditLimitPolicy').lean()) as ClientDoc | null;
+  const creditLimitGate = await checkCustomerCreditLimitGate(session, client?.customerCreditLimitPolicy ?? 'Off', customer, total);
+  if (creditLimitGate.blocked) return res.status(400).json({ error: creditLimitGate.message });
+
   const quoteNumber = await generateSequentialNumber(Quotation, session.clientId, 'quoteNumber', 'quotation');
 
   const quotation = await Quotation.create({
@@ -97,5 +104,5 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   return res
     .status(201)
-    .json({ quotation: serializeQuotation(quotation.toObject(), (customer as CustomerDoc).name) });
+    .json({ quotation: serializeQuotation(quotation.toObject(), (customer as CustomerDoc).name), creditWarning: creditLimitGate.warning });
 }

@@ -221,10 +221,16 @@ export const MODULES: ModuleDef[] = [
     {
       label: 'Sales',
       items: [
+      { label: 'Sales Dashboard', to: 'sales-dashboard', icon: 'LayoutDashboardIcon' },
       { label: 'Sales', to: 'sales', icon: 'ReceiptIcon' },
       { label: 'Sales Orders', to: 'sales-orders', icon: 'FileTextIcon' },
+      { label: 'Price Lists', to: 'price-lists', icon: 'TagIcon' },
+      { label: 'Promotions', to: 'promotions', icon: 'PercentIcon' },
       { label: 'Delivery Notes', to: 'delivery-notes', icon: 'TruckIcon' },
       { label: 'Returns', to: 'returns', icon: 'RotateCcwIcon' },
+      { label: 'Credit Notes', to: 'credit-notes', icon: 'FileMinusIcon' },
+      { label: 'Customer Debit Notes', to: 'customer-debit-notes', icon: 'FilePlus2Icon' },
+      { label: 'Receipts', to: 'receipts', icon: 'HandCoinsIcon' },
       { label: 'Complaints', to: 'complaints', icon: 'AlertTriangleIcon' }]
 
     },
@@ -235,7 +241,8 @@ export const MODULES: ModuleDef[] = [
       { label: 'RFQs', to: 'rfqs', icon: 'SendIcon' },
       { label: 'Purchase Orders', to: 'purchase-orders', icon: 'ShoppingCartIcon' },
       { label: 'Goods Received', to: 'goods-received-notes', icon: 'PackageCheckIcon' },
-      { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' }]
+      { label: 'Purchase Invoices', to: 'purchase-invoices', icon: 'ReceiptIcon' },
+      { label: 'Debit Notes', to: 'debit-notes', icon: 'FilePlusIcon' }]
 
     },
     {
@@ -245,6 +252,7 @@ export const MODULES: ModuleDef[] = [
       { label: 'Warehouses', to: 'warehouses', icon: 'WarehouseIcon' },
       { label: 'Stock Transfers', to: 'stock-transfers', icon: 'ArrowLeftRightIcon' },
       { label: 'Stock Adjustments', to: 'stock-adjustments', icon: 'SlidersHorizontalIcon' },
+      { label: 'Stock Issues', to: 'stock-issues', icon: 'PackageMinusIcon' },
       { label: 'Stock Counts', to: 'stock-counts', icon: 'ClipboardListIcon' }]
 
     },
@@ -262,6 +270,11 @@ export const MODULES: ModuleDef[] = [
       { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
       { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },
       { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
+      { label: 'Cheques', to: 'cheques', icon: 'FileCheckIcon' },
+      { label: 'Advance Payments', to: 'advance-payments', icon: 'PiggyBankIcon' },
+      { label: 'Collection Tasks', to: 'collection-tasks', icon: 'ClipboardCheckIcon' },
+      { label: 'Cash Handovers', to: 'cash-handovers', icon: 'HandshakeIcon' },
+      { label: 'Utilization', to: 'utilizations', icon: 'ShuffleIcon' },
       { label: 'Transactions', to: 'transactions', icon: 'ArrowLeftRightIcon' },
       { label: 'Expenses', to: 'expenses', icon: 'WalletIcon' }]
 
@@ -291,6 +304,58 @@ export const MODULES: ModuleDef[] = [
       { label: 'Supplier Report', to: 'supplier-report', icon: 'BarChart3Icon' },
       { label: 'AR Aging', to: 'ar-aging', icon: 'ClockIcon' },
       { label: 'AP Aging', to: 'ap-aging', icon: 'ClockIcon' }]
+
+    },
+    {
+      label: 'Sales Reports',
+      items: [
+      { label: 'Sales Report', to: 'sales-report', icon: 'BarChart3Icon' },
+      { label: 'Sales By', to: 'sales-by-report', icon: 'BarChart3Icon' },
+      { label: 'Gross Profit', to: 'gross-profit-report', icon: 'BarChart3Icon' },
+      { label: 'Sales Returns', to: 'sales-return-report', icon: 'BarChart3Icon' },
+      { label: 'Top Customers', to: 'top-customers-report', icon: 'BarChart3Icon' },
+      { label: 'Slow-Moving Products', to: 'slow-moving-products-report', icon: 'BarChart3Icon' }]
+
+    }]
+
+  }
+},
+{
+  id: 'sales-force',
+  name: 'Sales Force Management',
+  price: 79,
+  tagline: 'Field salespersons, visits, targets, collections & delivery logistics',
+  core: ['Salesperson & Route Management', 'GPS Visit Check-in/Check-out', 'Sales Targets vs. Actuals', 'Field Collections', 'Delivery Load & Fuel Cost Planning'],
+  addOns: [],
+  navGroup: {
+    heading: 'Sales Force Management',
+    sections: [
+    {
+      label: 'Sales Force',
+      items: [
+      { label: 'SF Dashboard', to: 'sf-dashboard', icon: 'LayoutDashboardIcon' },
+      { label: 'Salespersons', to: 'salespersons', icon: 'IdCardIcon' },
+      { label: 'Sales Visits', to: 'sales-visits', icon: 'CalendarCheckIcon' },
+      { label: 'Sales Targets', to: 'sales-targets', icon: 'TargetIcon' },
+      { label: 'Collections', to: 'collections', icon: 'HandCoinsIcon' },
+      { label: 'Pending Deliveries', to: 'pending-deliveries', icon: 'PackageSearchIcon' },
+      { label: 'Routes', to: 'sf-routes', icon: 'RouteIcon' },
+      { label: 'Fleet Vehicles', to: 'sf-vehicles', icon: 'CarIcon' }]
+
+    },
+    {
+      label: 'SF Reports',
+      items: [
+      { label: 'Salesperson Performance', to: 'sf-salesperson-report', icon: 'BarChart3Icon' },
+      { label: 'Target vs Actual', to: 'sf-target-report', icon: 'BarChart3Icon' },
+      { label: 'Shop Visit', to: 'sf-visit-report', icon: 'BarChart3Icon' },
+      { label: 'Attendance / Geo Visit', to: 'sf-geo-visit-report', icon: 'BarChart3Icon' },
+      { label: 'Collection', to: 'sf-collection-report', icon: 'BarChart3Icon' },
+      { label: 'Pending Delivery', to: 'sf-pending-delivery-report', icon: 'BarChart3Icon' },
+      { label: 'Delivery Route', to: 'sf-route-report', icon: 'BarChart3Icon' },
+      { label: 'Vehicle Utilization', to: 'sf-vehicle-report', icon: 'BarChart3Icon' },
+      { label: 'Trip Distance / Fuel Cost', to: 'sf-trip-report', icon: 'BarChart3Icon' },
+      { label: 'Salesperson Activity', to: 'sf-activity-report', icon: 'BarChart3Icon' }]
 
     }]
 

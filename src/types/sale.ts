@@ -3,6 +3,9 @@ export interface SaleLine {
   name: string;
   price: number;
   qty: number;
+  batchNumber?: string;
+  serialNumber?: string;
+  expiryDate?: string;
 }
 
 export interface Sale {

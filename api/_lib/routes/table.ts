@@ -12,390 +12,514 @@ export interface RouteDef {
   handler: (req: VercelRequest, res: VercelResponse) => unknown;
 }
 
-import route0 from './approvals/[id].js';
-import route1 from './approvals/index.js';
-import route2 from './attendance/index.js';
-import route3 from './attendance/me.js';
-import route4 from './auth/exit-impersonation.js';
-import route5 from './auth/login.js';
-import route6 from './auth/logout.js';
-import route7 from './auth/me.js';
-import route8 from './bank-accounts/[id].js';
-import route9 from './bank-accounts/index.js';
-import route10 from './bays/index.js';
-import route11 from './billing/summary.js';
-import route12 from './bookings/[id].js';
-import route13 from './bookings/[id]/convert.js';
-import route14 from './bookings/[id]/late-alert.js';
-import route15 from './bookings/availability.js';
-import route16 from './bookings/index.js';
-import route17 from './branches/[id].js';
-import route18 from './branches/index.js';
-import route19 from './call-logs/[id].js';
-import route20 from './call-logs/index.js';
-import route21 from './candidates/[id].js';
-import route22 from './candidates/index.js';
-import route23 from './cash-sessions/[id]/close.js';
-import route24 from './cash-sessions/index.js';
-import route25 from './chart-of-accounts/[id].js';
-import route26 from './chart-of-accounts/index.js';
-import route27 from './clients/[id].js';
-import route28 from './clients/[id]/impersonate.js';
-import route29 from './clients/[id]/permissions.js';
-import route30 from './clients/[id]/roles.js';
-import route31 from './clients/[id]/users/[userId].js';
-import route32 from './clients/[id]/users/[userId]/reset-password.js';
-import route33 from './clients/[id]/users/index.js';
-import route34 from './clients/index.js';
-import route35 from './complaints/[id].js';
-import route36 from './complaints/index.js';
-import route37 from './cron/daily.js';
-import route38 from './customer-invoices/[id].js';
-import route39 from './customer-invoices/[id]/checkout.js';
-import route40 from './customer-invoices/[id]/payment.js';
-import route41 from './customer-invoices/[id]/reconcile.js';
-import route42 from './customer-invoices/index.js';
-import route43 from './customer-portal/bookings.js';
-import route44 from './customer-portal/invoices.js';
-import route45 from './customer-portal/invoices/[id]/checkout.js';
-import route46 from './customer-portal/jobs.js';
-import route47 from './customer-portal/me.js';
-import route48 from './customer-portal/vehicles.js';
-import route49 from './customers/[id].js';
-import route50 from './customers/[id]/history.js';
-import route51 from './customers/[id]/portal-password.js';
-import route52 from './customers/[id]/redeem.js';
-import route53 from './customers/[id]/statement.js';
-import route54 from './customers/[id]/vehicles/[vehicleId].js';
-import route55 from './customers/[id]/vehicles/index.js';
-import route56 from './customers/corporate-summary.js';
-import route57 from './customers/index.js';
-import route58 from './dashboard/summary.js';
-import route59 from './delivery-notes/index.js';
-import route60 from './departments/[id].js';
-import route61 from './departments/index.js';
-import route62 from './employees/[userId].js';
-import route63 from './employees/index.js';
-import route64 from './expenses/[id].js';
-import route65 from './expenses/index.js';
-import route66 from './feedback/[id].js';
-import route67 from './feedback/index.js';
-import route68 from './followups/[id].js';
-import route69 from './followups/index.js';
-import route70 from './goods-received-notes/index.js';
-import route71 from './inspections/[id].js';
-import route72 from './inspections/index.js';
-import route73 from './inspections/upload-token.js';
-import route74 from './invoices/[id].js';
-import route75 from './invoices/index.js';
-import route76 from './job-cards/[id].js';
-import route77 from './job-cards/[id]/invoice.js';
-import route78 from './job-cards/[id]/parts.js';
-import route79 from './job-cards/index.js';
-import route80 from './job-openings/[id].js';
-import route81 from './job-openings/index.js';
-import route82 from './journal-entries/index.js';
-import route83 from './leads/[id].js';
-import route84 from './leads/index.js';
-import route85 from './leads/submit.js';
-import route86 from './leave-requests/[id].js';
-import route87 from './leave-requests/index.js';
-import route88 from './loyalty-rewards/[id].js';
-import route89 from './loyalty-rewards/index.js';
-import route90 from './message-templates/[id].js';
-import route91 from './message-templates/index.js';
-import route92 from './parts/index.js';
-import route93 from './payroll-runs/[id].js';
-import route94 from './payroll-runs/index.js';
-import route95 from './payslips/index.js';
-import route96 from './performance-reviews/index.js';
-import route97 from './permissions/index.js';
-import route98 from './pricing-tiers/[tierId].js';
-import route99 from './pricing-tiers/index.js';
-import route100 from './prospects/[id].js';
-import route101 from './prospects/[id]/convert.js';
-import route102 from './prospects/index.js';
-import route103 from './public/bookings/[slug]/availability.js';
-import route104 from './public/bookings/[slug]/index.js';
-import route105 from './public/inspections/[token].js';
-import route106 from './public/invoices/[id]/status.js';
-import route107 from './public/pay/[token].js';
-import route108 from './public/payhere-notify.js';
-import route109 from './public/portal/[slug]/login.js';
-import route110 from './public/portal/[slug]/logout.js';
-import route111 from './public/portal/[slug]/register.js';
-import route112 from './public/pricing-tiers.js';
-import route113 from './public/tenant-branding/[slug].js';
-import route114 from './purchase-invoices/index.js';
-import route115 from './purchase-orders/[id].js';
-import route116 from './purchase-orders/[id]/payment.js';
-import route117 from './purchase-orders/[id]/reconcile.js';
-import route118 from './purchase-orders/index.js';
-import route119 from './purchase-requisitions/[id].js';
-import route120 from './purchase-requisitions/[id]/convert-to-rfq.js';
-import route121 from './purchase-requisitions/index.js';
-import route122 from './quotations/[id].js';
-import route123 from './quotations/[id]/convert-to-job.js';
-import route124 from './quotations/[id]/convert.js';
-import route125 from './quotations/index.js';
-import route126 from './reminders/[id].js';
-import route127 from './reminders/index.js';
-import route128 from './returns/[id]/reconcile.js';
-import route129 from './returns/index.js';
-import route130 from './rfqs/[id].js';
-import route131 from './rfqs/index.js';
-import route132 from './roles/[id].js';
-import route133 from './roles/index.js';
-import route134 from './salary-advances/[id].js';
-import route135 from './salary-advances/index.js';
-import route136 from './sales-orders/[id].js';
-import route137 from './sales-orders/[id]/fulfill.js';
-import route138 from './sales-orders/index.js';
-import route139 from './sales/index.js';
-import route140 from './services/[id].js';
-import route141 from './services/index.js';
-import route142 from './settings/notifications.js';
-import route143 from './sms/logs.js';
-import route144 from './sms/send.js';
-import route145 from './staff/[id].js';
-import route146 from './staff/index.js';
-import route147 from './stock-adjustments/index.js';
-import route148 from './stock-counts/[id].js';
-import route149 from './stock-counts/index.js';
-import route150 from './stock-transfers/index.js';
-import route151 from './supplier-claims/[id].js';
-import route152 from './supplier-claims/index.js';
-import route153 from './supplier-quotations/[id]/select.js';
-import route154 from './supplier-quotations/index.js';
-import route155 from './suppliers/index.js';
-import route156 from './team/[id].js';
-import route157 from './team/index.js';
-import route158 from './technicians/[id].js';
-import route159 from './technicians/[id]/attendance-history.js';
-import route160 from './technicians/[id]/attendance.js';
-import route161 from './technicians/index.js';
-import route162 from './tenant/accounting-report.js';
-import route163 from './tenant/ap-aging.js';
-import route164 from './tenant/ar-aging.js';
-import route165 from './tenant/bank-transactions.js';
-import route166 from './tenant/booking-report.js';
-import route167 from './tenant/customer-report.js';
-import route168 from './tenant/dashboard.js';
-import route169 from './tenant/financial-overview.js';
-import route170 from './tenant/hr-report.js';
-import route171 from './tenant/inspection-report.js';
-import route172 from './tenant/inventory-report.js';
-import route173 from './tenant/job-report.js';
-import route174 from './tenant/me.js';
-import route175 from './tenant/purchase-report.js';
-import route176 from './tenant/purchase.js';
-import route177 from './tenant/reports.js';
-import route178 from './tenant/settings.js';
-import route179 from './tenant/setup-payment.js';
-import route180 from './tenant/sms-config.js';
-import route181 from './tenant/supplier-report.js';
-import route182 from './tenant/workshop-report.js';
-import route183 from './tenants/register.js';
-import route184 from './tickets/[id].js';
-import route185 from './tickets/index.js';
-import route186 from './timesheets/[id].js';
-import route187 from './timesheets/index.js';
-import route188 from './warehouses/[id].js';
-import route189 from './warehouses/index.js';
-import route190 from './warranty-claims/[id].js';
-import route191 from './warranty-claims/index.js';
+import route0 from './advance-payments/[id].js';
+import route1 from './advance-payments/index.js';
+import route2 from './approvals/[id].js';
+import route3 from './approvals/index.js';
+import route4 from './attendance/index.js';
+import route5 from './attendance/me.js';
+import route6 from './auth/exit-impersonation.js';
+import route7 from './auth/login.js';
+import route8 from './auth/logout.js';
+import route9 from './auth/me.js';
+import route10 from './bank-accounts/[id].js';
+import route11 from './bank-accounts/index.js';
+import route12 from './bays/index.js';
+import route13 from './billing/summary.js';
+import route14 from './bookings/[id].js';
+import route15 from './bookings/[id]/convert.js';
+import route16 from './bookings/[id]/late-alert.js';
+import route17 from './bookings/availability.js';
+import route18 from './bookings/index.js';
+import route19 from './branches/[id].js';
+import route20 from './branches/index.js';
+import route21 from './call-logs/[id].js';
+import route22 from './call-logs/index.js';
+import route23 from './candidates/[id].js';
+import route24 from './candidates/index.js';
+import route25 from './cash-handovers/index.js';
+import route26 from './cash-sessions/[id]/close.js';
+import route27 from './cash-sessions/index.js';
+import route28 from './chart-of-accounts/[id].js';
+import route29 from './chart-of-accounts/index.js';
+import route30 from './cheques/[id].js';
+import route31 from './cheques/[id]/return.js';
+import route32 from './cheques/index.js';
+import route33 from './clients/[id].js';
+import route34 from './clients/[id]/impersonate.js';
+import route35 from './clients/[id]/permissions.js';
+import route36 from './clients/[id]/roles.js';
+import route37 from './clients/[id]/users/[userId].js';
+import route38 from './clients/[id]/users/[userId]/reset-password.js';
+import route39 from './clients/[id]/users/index.js';
+import route40 from './clients/index.js';
+import route41 from './collection-tasks/[id].js';
+import route42 from './collection-tasks/index.js';
+import route43 from './collections/index.js';
+import route44 from './complaints/[id].js';
+import route45 from './complaints/index.js';
+import route46 from './credit-notes/[id].js';
+import route47 from './credit-notes/index.js';
+import route48 from './cron/daily.js';
+import route49 from './customer-debit-notes/[id].js';
+import route50 from './customer-debit-notes/index.js';
+import route51 from './customer-invoices/[id].js';
+import route52 from './customer-invoices/[id]/attachments.js';
+import route53 from './customer-invoices/[id]/checkout.js';
+import route54 from './customer-invoices/[id]/payment.js';
+import route55 from './customer-invoices/[id]/reconcile.js';
+import route56 from './customer-invoices/index.js';
+import route57 from './customer-portal/bookings.js';
+import route58 from './customer-portal/invoices.js';
+import route59 from './customer-portal/invoices/[id]/checkout.js';
+import route60 from './customer-portal/jobs.js';
+import route61 from './customer-portal/me.js';
+import route62 from './customer-portal/vehicles.js';
+import route63 from './customers/[id].js';
+import route64 from './customers/[id]/history.js';
+import route65 from './customers/[id]/portal-password.js';
+import route66 from './customers/[id]/redeem.js';
+import route67 from './customers/[id]/statement.js';
+import route68 from './customers/[id]/vehicles/[vehicleId].js';
+import route69 from './customers/[id]/vehicles/index.js';
+import route70 from './customers/corporate-summary.js';
+import route71 from './customers/index.js';
+import route72 from './dashboard/summary.js';
+import route73 from './debit-notes/[id].js';
+import route74 from './debit-notes/index.js';
+import route75 from './delivery-notes/[id].js';
+import route76 from './delivery-notes/[id]/confirm.js';
+import route77 from './delivery-notes/index.js';
+import route78 from './departments/[id].js';
+import route79 from './departments/index.js';
+import route80 from './employees/[userId].js';
+import route81 from './employees/index.js';
+import route82 from './expenses/[id].js';
+import route83 from './expenses/index.js';
+import route84 from './feedback/[id].js';
+import route85 from './feedback/index.js';
+import route86 from './followups/[id].js';
+import route87 from './followups/index.js';
+import route88 from './goods-received-notes/index.js';
+import route89 from './inspections/[id].js';
+import route90 from './inspections/index.js';
+import route91 from './inspections/upload-token.js';
+import route92 from './invoices/[id].js';
+import route93 from './invoices/index.js';
+import route94 from './job-cards/[id].js';
+import route95 from './job-cards/[id]/invoice.js';
+import route96 from './job-cards/[id]/parts.js';
+import route97 from './job-cards/index.js';
+import route98 from './job-openings/[id].js';
+import route99 from './job-openings/index.js';
+import route100 from './journal-entries/index.js';
+import route101 from './leads/[id].js';
+import route102 from './leads/index.js';
+import route103 from './leads/submit.js';
+import route104 from './leave-requests/[id].js';
+import route105 from './leave-requests/index.js';
+import route106 from './loyalty-rewards/[id].js';
+import route107 from './loyalty-rewards/index.js';
+import route108 from './message-templates/[id].js';
+import route109 from './message-templates/index.js';
+import route110 from './parts/index.js';
+import route111 from './payroll-runs/[id].js';
+import route112 from './payroll-runs/index.js';
+import route113 from './payslips/index.js';
+import route114 from './pending-deliveries/[salesOrderId].js';
+import route115 from './pending-deliveries/index.js';
+import route116 from './performance-reviews/index.js';
+import route117 from './permissions/index.js';
+import route118 from './price-lists/[id].js';
+import route119 from './price-lists/index.js';
+import route120 from './pricing-tiers/[tierId].js';
+import route121 from './pricing-tiers/index.js';
+import route122 from './promotions/[id].js';
+import route123 from './promotions/index.js';
+import route124 from './prospects/[id].js';
+import route125 from './prospects/[id]/convert.js';
+import route126 from './prospects/index.js';
+import route127 from './public/bookings/[slug]/availability.js';
+import route128 from './public/bookings/[slug]/index.js';
+import route129 from './public/inspections/[token].js';
+import route130 from './public/invoices/[id]/status.js';
+import route131 from './public/pay/[token].js';
+import route132 from './public/payhere-notify.js';
+import route133 from './public/portal/[slug]/login.js';
+import route134 from './public/portal/[slug]/logout.js';
+import route135 from './public/portal/[slug]/register.js';
+import route136 from './public/pricing-tiers.js';
+import route137 from './public/tenant-branding/[slug].js';
+import route138 from './purchase-invoices/index.js';
+import route139 from './purchase-orders/[id].js';
+import route140 from './purchase-orders/[id]/payment.js';
+import route141 from './purchase-orders/[id]/reconcile.js';
+import route142 from './purchase-orders/index.js';
+import route143 from './purchase-requisitions/[id].js';
+import route144 from './purchase-requisitions/[id]/convert-to-rfq.js';
+import route145 from './purchase-requisitions/index.js';
+import route146 from './quotations/[id].js';
+import route147 from './quotations/[id]/attachments.js';
+import route148 from './quotations/[id]/convert-to-job.js';
+import route149 from './quotations/[id]/convert.js';
+import route150 from './quotations/index.js';
+import route151 from './receipts/index.js';
+import route152 from './reminders/[id].js';
+import route153 from './reminders/index.js';
+import route154 from './returns/[id].js';
+import route155 from './returns/[id]/attachments.js';
+import route156 from './returns/[id]/reconcile.js';
+import route157 from './returns/index.js';
+import route158 from './rfqs/[id].js';
+import route159 from './rfqs/index.js';
+import route160 from './roles/[id].js';
+import route161 from './roles/index.js';
+import route162 from './salary-advances/[id].js';
+import route163 from './salary-advances/index.js';
+import route164 from './sales-attachments/upload-token.js';
+import route165 from './sales-orders/[id].js';
+import route166 from './sales-orders/[id]/attachments.js';
+import route167 from './sales-orders/[id]/fulfill.js';
+import route168 from './sales-orders/index.js';
+import route169 from './sales-targets/[id].js';
+import route170 from './sales-targets/index.js';
+import route171 from './sales-visits/[id].js';
+import route172 from './sales-visits/index.js';
+import route173 from './sales/index.js';
+import route174 from './salesperson-assignments/[id].js';
+import route175 from './salesperson-assignments/index.js';
+import route176 from './salespersons/[id].js';
+import route177 from './salespersons/index.js';
+import route178 from './services/[id].js';
+import route179 from './services/index.js';
+import route180 from './settings/notifications.js';
+import route181 from './sf-routes/[id].js';
+import route182 from './sf-routes/index.js';
+import route183 from './sf-vehicles/[id].js';
+import route184 from './sf-vehicles/index.js';
+import route185 from './sms/logs.js';
+import route186 from './sms/send.js';
+import route187 from './staff/[id].js';
+import route188 from './staff/index.js';
+import route189 from './stock-adjustments/index.js';
+import route190 from './stock-counts/[id].js';
+import route191 from './stock-counts/index.js';
+import route192 from './stock-issues/index.js';
+import route193 from './stock-transfers/index.js';
+import route194 from './supplier-claims/[id].js';
+import route195 from './supplier-claims/index.js';
+import route196 from './supplier-quotations/[id]/select.js';
+import route197 from './supplier-quotations/index.js';
+import route198 from './suppliers/index.js';
+import route199 from './team/[id].js';
+import route200 from './team/index.js';
+import route201 from './technicians/[id].js';
+import route202 from './technicians/[id]/attendance-history.js';
+import route203 from './technicians/[id]/attendance.js';
+import route204 from './technicians/index.js';
+import route205 from './tenant/accounting-report.js';
+import route206 from './tenant/ap-aging.js';
+import route207 from './tenant/ar-aging.js';
+import route208 from './tenant/bank-transactions.js';
+import route209 from './tenant/booking-report.js';
+import route210 from './tenant/customer-report.js';
+import route211 from './tenant/dashboard.js';
+import route212 from './tenant/financial-overview.js';
+import route213 from './tenant/gross-profit-report.js';
+import route214 from './tenant/hr-report.js';
+import route215 from './tenant/inspection-report.js';
+import route216 from './tenant/inventory-report.js';
+import route217 from './tenant/job-report.js';
+import route218 from './tenant/me.js';
+import route219 from './tenant/purchase-report.js';
+import route220 from './tenant/purchase.js';
+import route221 from './tenant/reports.js';
+import route222 from './tenant/sales-by-report.js';
+import route223 from './tenant/sales-dashboard.js';
+import route224 from './tenant/sales-report.js';
+import route225 from './tenant/sales-return-report.js';
+import route226 from './tenant/settings.js';
+import route227 from './tenant/setup-payment.js';
+import route228 from './tenant/sf-activity-report.js';
+import route229 from './tenant/sf-collection-report.js';
+import route230 from './tenant/sf-dashboard.js';
+import route231 from './tenant/sf-geo-visit-report.js';
+import route232 from './tenant/sf-pending-delivery-report.js';
+import route233 from './tenant/sf-route-report.js';
+import route234 from './tenant/sf-salesperson-report.js';
+import route235 from './tenant/sf-target-report.js';
+import route236 from './tenant/sf-trip-report.js';
+import route237 from './tenant/sf-vehicle-report.js';
+import route238 from './tenant/sf-visit-report.js';
+import route239 from './tenant/slow-moving-products-report.js';
+import route240 from './tenant/sms-config.js';
+import route241 from './tenant/supplier-report.js';
+import route242 from './tenant/top-customers-report.js';
+import route243 from './tenant/workshop-report.js';
+import route244 from './tenants/register.js';
+import route245 from './tickets/[id].js';
+import route246 from './tickets/index.js';
+import route247 from './timesheets/[id].js';
+import route248 from './timesheets/index.js';
+import route249 from './utilizations/index.js';
+import route250 from './warehouses/[id].js';
+import route251 from './warehouses/index.js';
+import route252 from './warranty-claims/[id].js';
+import route253 from './warranty-claims/index.js';
 
 export const ROUTES: RouteDef[] = [
-  { segments: ['approvals', { param: 'id' }], handler: route0 }, // approvals/[id].ts
-  { segments: ['approvals'], handler: route1 }, // approvals/index.ts
-  { segments: ['attendance'], handler: route2 }, // attendance/index.ts
-  { segments: ['attendance', 'me'], handler: route3 }, // attendance/me.ts
-  { segments: ['auth', 'exit-impersonation'], handler: route4 }, // auth/exit-impersonation.ts
-  { segments: ['auth', 'login'], handler: route5 }, // auth/login.ts
-  { segments: ['auth', 'logout'], handler: route6 }, // auth/logout.ts
-  { segments: ['auth', 'me'], handler: route7 }, // auth/me.ts
-  { segments: ['bank-accounts', { param: 'id' }], handler: route8 }, // bank-accounts/[id].ts
-  { segments: ['bank-accounts'], handler: route9 }, // bank-accounts/index.ts
-  { segments: ['bays'], handler: route10 }, // bays/index.ts
-  { segments: ['billing', 'summary'], handler: route11 }, // billing/summary.ts
-  { segments: ['bookings', { param: 'id' }], handler: route12 }, // bookings/[id].ts
-  { segments: ['bookings', { param: 'id' }, 'convert'], handler: route13 }, // bookings/[id]/convert.ts
-  { segments: ['bookings', { param: 'id' }, 'late-alert'], handler: route14 }, // bookings/[id]/late-alert.ts
-  { segments: ['bookings', 'availability'], handler: route15 }, // bookings/availability.ts
-  { segments: ['bookings'], handler: route16 }, // bookings/index.ts
-  { segments: ['branches', { param: 'id' }], handler: route17 }, // branches/[id].ts
-  { segments: ['branches'], handler: route18 }, // branches/index.ts
-  { segments: ['call-logs', { param: 'id' }], handler: route19 }, // call-logs/[id].ts
-  { segments: ['call-logs'], handler: route20 }, // call-logs/index.ts
-  { segments: ['candidates', { param: 'id' }], handler: route21 }, // candidates/[id].ts
-  { segments: ['candidates'], handler: route22 }, // candidates/index.ts
-  { segments: ['cash-sessions', { param: 'id' }, 'close'], handler: route23 }, // cash-sessions/[id]/close.ts
-  { segments: ['cash-sessions'], handler: route24 }, // cash-sessions/index.ts
-  { segments: ['chart-of-accounts', { param: 'id' }], handler: route25 }, // chart-of-accounts/[id].ts
-  { segments: ['chart-of-accounts'], handler: route26 }, // chart-of-accounts/index.ts
-  { segments: ['clients', { param: 'id' }], handler: route27 }, // clients/[id].ts
-  { segments: ['clients', { param: 'id' }, 'impersonate'], handler: route28 }, // clients/[id]/impersonate.ts
-  { segments: ['clients', { param: 'id' }, 'permissions'], handler: route29 }, // clients/[id]/permissions.ts
-  { segments: ['clients', { param: 'id' }, 'roles'], handler: route30 }, // clients/[id]/roles.ts
-  { segments: ['clients', { param: 'id' }, 'users', { param: 'userId' }], handler: route31 }, // clients/[id]/users/[userId].ts
-  { segments: ['clients', { param: 'id' }, 'users', { param: 'userId' }, 'reset-password'], handler: route32 }, // clients/[id]/users/[userId]/reset-password.ts
-  { segments: ['clients', { param: 'id' }, 'users'], handler: route33 }, // clients/[id]/users/index.ts
-  { segments: ['clients'], handler: route34 }, // clients/index.ts
-  { segments: ['complaints', { param: 'id' }], handler: route35 }, // complaints/[id].ts
-  { segments: ['complaints'], handler: route36 }, // complaints/index.ts
-  { segments: ['cron', 'daily'], handler: route37 }, // cron/daily.ts
-  { segments: ['customer-invoices', { param: 'id' }], handler: route38 }, // customer-invoices/[id].ts
-  { segments: ['customer-invoices', { param: 'id' }, 'checkout'], handler: route39 }, // customer-invoices/[id]/checkout.ts
-  { segments: ['customer-invoices', { param: 'id' }, 'payment'], handler: route40 }, // customer-invoices/[id]/payment.ts
-  { segments: ['customer-invoices', { param: 'id' }, 'reconcile'], handler: route41 }, // customer-invoices/[id]/reconcile.ts
-  { segments: ['customer-invoices'], handler: route42 }, // customer-invoices/index.ts
-  { segments: ['customer-portal', 'bookings'], handler: route43 }, // customer-portal/bookings.ts
-  { segments: ['customer-portal', 'invoices'], handler: route44 }, // customer-portal/invoices.ts
-  { segments: ['customer-portal', 'invoices', { param: 'id' }, 'checkout'], handler: route45 }, // customer-portal/invoices/[id]/checkout.ts
-  { segments: ['customer-portal', 'jobs'], handler: route46 }, // customer-portal/jobs.ts
-  { segments: ['customer-portal', 'me'], handler: route47 }, // customer-portal/me.ts
-  { segments: ['customer-portal', 'vehicles'], handler: route48 }, // customer-portal/vehicles.ts
-  { segments: ['customers', { param: 'id' }], handler: route49 }, // customers/[id].ts
-  { segments: ['customers', { param: 'id' }, 'history'], handler: route50 }, // customers/[id]/history.ts
-  { segments: ['customers', { param: 'id' }, 'portal-password'], handler: route51 }, // customers/[id]/portal-password.ts
-  { segments: ['customers', { param: 'id' }, 'redeem'], handler: route52 }, // customers/[id]/redeem.ts
-  { segments: ['customers', { param: 'id' }, 'statement'], handler: route53 }, // customers/[id]/statement.ts
-  { segments: ['customers', { param: 'id' }, 'vehicles', { param: 'vehicleId' }], handler: route54 }, // customers/[id]/vehicles/[vehicleId].ts
-  { segments: ['customers', { param: 'id' }, 'vehicles'], handler: route55 }, // customers/[id]/vehicles/index.ts
-  { segments: ['customers', 'corporate-summary'], handler: route56 }, // customers/corporate-summary.ts
-  { segments: ['customers'], handler: route57 }, // customers/index.ts
-  { segments: ['dashboard', 'summary'], handler: route58 }, // dashboard/summary.ts
-  { segments: ['delivery-notes'], handler: route59 }, // delivery-notes/index.ts
-  { segments: ['departments', { param: 'id' }], handler: route60 }, // departments/[id].ts
-  { segments: ['departments'], handler: route61 }, // departments/index.ts
-  { segments: ['employees', { param: 'userId' }], handler: route62 }, // employees/[userId].ts
-  { segments: ['employees'], handler: route63 }, // employees/index.ts
-  { segments: ['expenses', { param: 'id' }], handler: route64 }, // expenses/[id].ts
-  { segments: ['expenses'], handler: route65 }, // expenses/index.ts
-  { segments: ['feedback', { param: 'id' }], handler: route66 }, // feedback/[id].ts
-  { segments: ['feedback'], handler: route67 }, // feedback/index.ts
-  { segments: ['followups', { param: 'id' }], handler: route68 }, // followups/[id].ts
-  { segments: ['followups'], handler: route69 }, // followups/index.ts
-  { segments: ['goods-received-notes'], handler: route70 }, // goods-received-notes/index.ts
-  { segments: ['inspections', { param: 'id' }], handler: route71 }, // inspections/[id].ts
-  { segments: ['inspections'], handler: route72 }, // inspections/index.ts
-  { segments: ['inspections', 'upload-token'], handler: route73 }, // inspections/upload-token.ts
-  { segments: ['invoices', { param: 'id' }], handler: route74 }, // invoices/[id].ts
-  { segments: ['invoices'], handler: route75 }, // invoices/index.ts
-  { segments: ['job-cards', { param: 'id' }], handler: route76 }, // job-cards/[id].ts
-  { segments: ['job-cards', { param: 'id' }, 'invoice'], handler: route77 }, // job-cards/[id]/invoice.ts
-  { segments: ['job-cards', { param: 'id' }, 'parts'], handler: route78 }, // job-cards/[id]/parts.ts
-  { segments: ['job-cards'], handler: route79 }, // job-cards/index.ts
-  { segments: ['job-openings', { param: 'id' }], handler: route80 }, // job-openings/[id].ts
-  { segments: ['job-openings'], handler: route81 }, // job-openings/index.ts
-  { segments: ['journal-entries'], handler: route82 }, // journal-entries/index.ts
-  { segments: ['leads', { param: 'id' }], handler: route83 }, // leads/[id].ts
-  { segments: ['leads'], handler: route84 }, // leads/index.ts
-  { segments: ['leads', 'submit'], handler: route85 }, // leads/submit.ts
-  { segments: ['leave-requests', { param: 'id' }], handler: route86 }, // leave-requests/[id].ts
-  { segments: ['leave-requests'], handler: route87 }, // leave-requests/index.ts
-  { segments: ['loyalty-rewards', { param: 'id' }], handler: route88 }, // loyalty-rewards/[id].ts
-  { segments: ['loyalty-rewards'], handler: route89 }, // loyalty-rewards/index.ts
-  { segments: ['message-templates', { param: 'id' }], handler: route90 }, // message-templates/[id].ts
-  { segments: ['message-templates'], handler: route91 }, // message-templates/index.ts
-  { segments: ['parts'], handler: route92 }, // parts/index.ts
-  { segments: ['payroll-runs', { param: 'id' }], handler: route93 }, // payroll-runs/[id].ts
-  { segments: ['payroll-runs'], handler: route94 }, // payroll-runs/index.ts
-  { segments: ['payslips'], handler: route95 }, // payslips/index.ts
-  { segments: ['performance-reviews'], handler: route96 }, // performance-reviews/index.ts
-  { segments: ['permissions'], handler: route97 }, // permissions/index.ts
-  { segments: ['pricing-tiers', { param: 'tierId' }], handler: route98 }, // pricing-tiers/[tierId].ts
-  { segments: ['pricing-tiers'], handler: route99 }, // pricing-tiers/index.ts
-  { segments: ['prospects', { param: 'id' }], handler: route100 }, // prospects/[id].ts
-  { segments: ['prospects', { param: 'id' }, 'convert'], handler: route101 }, // prospects/[id]/convert.ts
-  { segments: ['prospects'], handler: route102 }, // prospects/index.ts
-  { segments: ['public', 'bookings', { param: 'slug' }, 'availability'], handler: route103 }, // public/bookings/[slug]/availability.ts
-  { segments: ['public', 'bookings', { param: 'slug' }], handler: route104 }, // public/bookings/[slug]/index.ts
-  { segments: ['public', 'inspections', { param: 'token' }], handler: route105 }, // public/inspections/[token].ts
-  { segments: ['public', 'invoices', { param: 'id' }, 'status'], handler: route106 }, // public/invoices/[id]/status.ts
-  { segments: ['public', 'pay', { param: 'token' }], handler: route107 }, // public/pay/[token].ts
-  { segments: ['public', 'payhere-notify'], handler: route108 }, // public/payhere-notify.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'login'], handler: route109 }, // public/portal/[slug]/login.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'logout'], handler: route110 }, // public/portal/[slug]/logout.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'register'], handler: route111 }, // public/portal/[slug]/register.ts
-  { segments: ['public', 'pricing-tiers'], handler: route112 }, // public/pricing-tiers.ts
-  { segments: ['public', 'tenant-branding', { param: 'slug' }], handler: route113 }, // public/tenant-branding/[slug].ts
-  { segments: ['purchase-invoices'], handler: route114 }, // purchase-invoices/index.ts
-  { segments: ['purchase-orders', { param: 'id' }], handler: route115 }, // purchase-orders/[id].ts
-  { segments: ['purchase-orders', { param: 'id' }, 'payment'], handler: route116 }, // purchase-orders/[id]/payment.ts
-  { segments: ['purchase-orders', { param: 'id' }, 'reconcile'], handler: route117 }, // purchase-orders/[id]/reconcile.ts
-  { segments: ['purchase-orders'], handler: route118 }, // purchase-orders/index.ts
-  { segments: ['purchase-requisitions', { param: 'id' }], handler: route119 }, // purchase-requisitions/[id].ts
-  { segments: ['purchase-requisitions', { param: 'id' }, 'convert-to-rfq'], handler: route120 }, // purchase-requisitions/[id]/convert-to-rfq.ts
-  { segments: ['purchase-requisitions'], handler: route121 }, // purchase-requisitions/index.ts
-  { segments: ['quotations', { param: 'id' }], handler: route122 }, // quotations/[id].ts
-  { segments: ['quotations', { param: 'id' }, 'convert-to-job'], handler: route123 }, // quotations/[id]/convert-to-job.ts
-  { segments: ['quotations', { param: 'id' }, 'convert'], handler: route124 }, // quotations/[id]/convert.ts
-  { segments: ['quotations'], handler: route125 }, // quotations/index.ts
-  { segments: ['reminders', { param: 'id' }], handler: route126 }, // reminders/[id].ts
-  { segments: ['reminders'], handler: route127 }, // reminders/index.ts
-  { segments: ['returns', { param: 'id' }, 'reconcile'], handler: route128 }, // returns/[id]/reconcile.ts
-  { segments: ['returns'], handler: route129 }, // returns/index.ts
-  { segments: ['rfqs', { param: 'id' }], handler: route130 }, // rfqs/[id].ts
-  { segments: ['rfqs'], handler: route131 }, // rfqs/index.ts
-  { segments: ['roles', { param: 'id' }], handler: route132 }, // roles/[id].ts
-  { segments: ['roles'], handler: route133 }, // roles/index.ts
-  { segments: ['salary-advances', { param: 'id' }], handler: route134 }, // salary-advances/[id].ts
-  { segments: ['salary-advances'], handler: route135 }, // salary-advances/index.ts
-  { segments: ['sales-orders', { param: 'id' }], handler: route136 }, // sales-orders/[id].ts
-  { segments: ['sales-orders', { param: 'id' }, 'fulfill'], handler: route137 }, // sales-orders/[id]/fulfill.ts
-  { segments: ['sales-orders'], handler: route138 }, // sales-orders/index.ts
-  { segments: ['sales'], handler: route139 }, // sales/index.ts
-  { segments: ['services', { param: 'id' }], handler: route140 }, // services/[id].ts
-  { segments: ['services'], handler: route141 }, // services/index.ts
-  { segments: ['settings', 'notifications'], handler: route142 }, // settings/notifications.ts
-  { segments: ['sms', 'logs'], handler: route143 }, // sms/logs.ts
-  { segments: ['sms', 'send'], handler: route144 }, // sms/send.ts
-  { segments: ['staff', { param: 'id' }], handler: route145 }, // staff/[id].ts
-  { segments: ['staff'], handler: route146 }, // staff/index.ts
-  { segments: ['stock-adjustments'], handler: route147 }, // stock-adjustments/index.ts
-  { segments: ['stock-counts', { param: 'id' }], handler: route148 }, // stock-counts/[id].ts
-  { segments: ['stock-counts'], handler: route149 }, // stock-counts/index.ts
-  { segments: ['stock-transfers'], handler: route150 }, // stock-transfers/index.ts
-  { segments: ['supplier-claims', { param: 'id' }], handler: route151 }, // supplier-claims/[id].ts
-  { segments: ['supplier-claims'], handler: route152 }, // supplier-claims/index.ts
-  { segments: ['supplier-quotations', { param: 'id' }, 'select'], handler: route153 }, // supplier-quotations/[id]/select.ts
-  { segments: ['supplier-quotations'], handler: route154 }, // supplier-quotations/index.ts
-  { segments: ['suppliers'], handler: route155 }, // suppliers/index.ts
-  { segments: ['team', { param: 'id' }], handler: route156 }, // team/[id].ts
-  { segments: ['team'], handler: route157 }, // team/index.ts
-  { segments: ['technicians', { param: 'id' }], handler: route158 }, // technicians/[id].ts
-  { segments: ['technicians', { param: 'id' }, 'attendance-history'], handler: route159 }, // technicians/[id]/attendance-history.ts
-  { segments: ['technicians', { param: 'id' }, 'attendance'], handler: route160 }, // technicians/[id]/attendance.ts
-  { segments: ['technicians'], handler: route161 }, // technicians/index.ts
-  { segments: ['tenant', 'accounting-report'], handler: route162 }, // tenant/accounting-report.ts
-  { segments: ['tenant', 'ap-aging'], handler: route163 }, // tenant/ap-aging.ts
-  { segments: ['tenant', 'ar-aging'], handler: route164 }, // tenant/ar-aging.ts
-  { segments: ['tenant', 'bank-transactions'], handler: route165 }, // tenant/bank-transactions.ts
-  { segments: ['tenant', 'booking-report'], handler: route166 }, // tenant/booking-report.ts
-  { segments: ['tenant', 'customer-report'], handler: route167 }, // tenant/customer-report.ts
-  { segments: ['tenant', 'dashboard'], handler: route168 }, // tenant/dashboard.ts
-  { segments: ['tenant', 'financial-overview'], handler: route169 }, // tenant/financial-overview.ts
-  { segments: ['tenant', 'hr-report'], handler: route170 }, // tenant/hr-report.ts
-  { segments: ['tenant', 'inspection-report'], handler: route171 }, // tenant/inspection-report.ts
-  { segments: ['tenant', 'inventory-report'], handler: route172 }, // tenant/inventory-report.ts
-  { segments: ['tenant', 'job-report'], handler: route173 }, // tenant/job-report.ts
-  { segments: ['tenant', 'me'], handler: route174 }, // tenant/me.ts
-  { segments: ['tenant', 'purchase-report'], handler: route175 }, // tenant/purchase-report.ts
-  { segments: ['tenant', 'purchase'], handler: route176 }, // tenant/purchase.ts
-  { segments: ['tenant', 'reports'], handler: route177 }, // tenant/reports.ts
-  { segments: ['tenant', 'settings'], handler: route178 }, // tenant/settings.ts
-  { segments: ['tenant', 'setup-payment'], handler: route179 }, // tenant/setup-payment.ts
-  { segments: ['tenant', 'sms-config'], handler: route180 }, // tenant/sms-config.ts
-  { segments: ['tenant', 'supplier-report'], handler: route181 }, // tenant/supplier-report.ts
-  { segments: ['tenant', 'workshop-report'], handler: route182 }, // tenant/workshop-report.ts
-  { segments: ['tenants', 'register'], handler: route183 }, // tenants/register.ts
-  { segments: ['tickets', { param: 'id' }], handler: route184 }, // tickets/[id].ts
-  { segments: ['tickets'], handler: route185 }, // tickets/index.ts
-  { segments: ['timesheets', { param: 'id' }], handler: route186 }, // timesheets/[id].ts
-  { segments: ['timesheets'], handler: route187 }, // timesheets/index.ts
-  { segments: ['warehouses', { param: 'id' }], handler: route188 }, // warehouses/[id].ts
-  { segments: ['warehouses'], handler: route189 }, // warehouses/index.ts
-  { segments: ['warranty-claims', { param: 'id' }], handler: route190 }, // warranty-claims/[id].ts
-  { segments: ['warranty-claims'], handler: route191 }, // warranty-claims/index.ts
+  { segments: ['advance-payments', { param: 'id' }], handler: route0 }, // advance-payments/[id].ts
+  { segments: ['advance-payments'], handler: route1 }, // advance-payments/index.ts
+  { segments: ['approvals', { param: 'id' }], handler: route2 }, // approvals/[id].ts
+  { segments: ['approvals'], handler: route3 }, // approvals/index.ts
+  { segments: ['attendance'], handler: route4 }, // attendance/index.ts
+  { segments: ['attendance', 'me'], handler: route5 }, // attendance/me.ts
+  { segments: ['auth', 'exit-impersonation'], handler: route6 }, // auth/exit-impersonation.ts
+  { segments: ['auth', 'login'], handler: route7 }, // auth/login.ts
+  { segments: ['auth', 'logout'], handler: route8 }, // auth/logout.ts
+  { segments: ['auth', 'me'], handler: route9 }, // auth/me.ts
+  { segments: ['bank-accounts', { param: 'id' }], handler: route10 }, // bank-accounts/[id].ts
+  { segments: ['bank-accounts'], handler: route11 }, // bank-accounts/index.ts
+  { segments: ['bays'], handler: route12 }, // bays/index.ts
+  { segments: ['billing', 'summary'], handler: route13 }, // billing/summary.ts
+  { segments: ['bookings', { param: 'id' }], handler: route14 }, // bookings/[id].ts
+  { segments: ['bookings', { param: 'id' }, 'convert'], handler: route15 }, // bookings/[id]/convert.ts
+  { segments: ['bookings', { param: 'id' }, 'late-alert'], handler: route16 }, // bookings/[id]/late-alert.ts
+  { segments: ['bookings', 'availability'], handler: route17 }, // bookings/availability.ts
+  { segments: ['bookings'], handler: route18 }, // bookings/index.ts
+  { segments: ['branches', { param: 'id' }], handler: route19 }, // branches/[id].ts
+  { segments: ['branches'], handler: route20 }, // branches/index.ts
+  { segments: ['call-logs', { param: 'id' }], handler: route21 }, // call-logs/[id].ts
+  { segments: ['call-logs'], handler: route22 }, // call-logs/index.ts
+  { segments: ['candidates', { param: 'id' }], handler: route23 }, // candidates/[id].ts
+  { segments: ['candidates'], handler: route24 }, // candidates/index.ts
+  { segments: ['cash-handovers'], handler: route25 }, // cash-handovers/index.ts
+  { segments: ['cash-sessions', { param: 'id' }, 'close'], handler: route26 }, // cash-sessions/[id]/close.ts
+  { segments: ['cash-sessions'], handler: route27 }, // cash-sessions/index.ts
+  { segments: ['chart-of-accounts', { param: 'id' }], handler: route28 }, // chart-of-accounts/[id].ts
+  { segments: ['chart-of-accounts'], handler: route29 }, // chart-of-accounts/index.ts
+  { segments: ['cheques', { param: 'id' }], handler: route30 }, // cheques/[id].ts
+  { segments: ['cheques', { param: 'id' }, 'return'], handler: route31 }, // cheques/[id]/return.ts
+  { segments: ['cheques'], handler: route32 }, // cheques/index.ts
+  { segments: ['clients', { param: 'id' }], handler: route33 }, // clients/[id].ts
+  { segments: ['clients', { param: 'id' }, 'impersonate'], handler: route34 }, // clients/[id]/impersonate.ts
+  { segments: ['clients', { param: 'id' }, 'permissions'], handler: route35 }, // clients/[id]/permissions.ts
+  { segments: ['clients', { param: 'id' }, 'roles'], handler: route36 }, // clients/[id]/roles.ts
+  { segments: ['clients', { param: 'id' }, 'users', { param: 'userId' }], handler: route37 }, // clients/[id]/users/[userId].ts
+  { segments: ['clients', { param: 'id' }, 'users', { param: 'userId' }, 'reset-password'], handler: route38 }, // clients/[id]/users/[userId]/reset-password.ts
+  { segments: ['clients', { param: 'id' }, 'users'], handler: route39 }, // clients/[id]/users/index.ts
+  { segments: ['clients'], handler: route40 }, // clients/index.ts
+  { segments: ['collection-tasks', { param: 'id' }], handler: route41 }, // collection-tasks/[id].ts
+  { segments: ['collection-tasks'], handler: route42 }, // collection-tasks/index.ts
+  { segments: ['collections'], handler: route43 }, // collections/index.ts
+  { segments: ['complaints', { param: 'id' }], handler: route44 }, // complaints/[id].ts
+  { segments: ['complaints'], handler: route45 }, // complaints/index.ts
+  { segments: ['credit-notes', { param: 'id' }], handler: route46 }, // credit-notes/[id].ts
+  { segments: ['credit-notes'], handler: route47 }, // credit-notes/index.ts
+  { segments: ['cron', 'daily'], handler: route48 }, // cron/daily.ts
+  { segments: ['customer-debit-notes', { param: 'id' }], handler: route49 }, // customer-debit-notes/[id].ts
+  { segments: ['customer-debit-notes'], handler: route50 }, // customer-debit-notes/index.ts
+  { segments: ['customer-invoices', { param: 'id' }], handler: route51 }, // customer-invoices/[id].ts
+  { segments: ['customer-invoices', { param: 'id' }, 'attachments'], handler: route52 }, // customer-invoices/[id]/attachments.ts
+  { segments: ['customer-invoices', { param: 'id' }, 'checkout'], handler: route53 }, // customer-invoices/[id]/checkout.ts
+  { segments: ['customer-invoices', { param: 'id' }, 'payment'], handler: route54 }, // customer-invoices/[id]/payment.ts
+  { segments: ['customer-invoices', { param: 'id' }, 'reconcile'], handler: route55 }, // customer-invoices/[id]/reconcile.ts
+  { segments: ['customer-invoices'], handler: route56 }, // customer-invoices/index.ts
+  { segments: ['customer-portal', 'bookings'], handler: route57 }, // customer-portal/bookings.ts
+  { segments: ['customer-portal', 'invoices'], handler: route58 }, // customer-portal/invoices.ts
+  { segments: ['customer-portal', 'invoices', { param: 'id' }, 'checkout'], handler: route59 }, // customer-portal/invoices/[id]/checkout.ts
+  { segments: ['customer-portal', 'jobs'], handler: route60 }, // customer-portal/jobs.ts
+  { segments: ['customer-portal', 'me'], handler: route61 }, // customer-portal/me.ts
+  { segments: ['customer-portal', 'vehicles'], handler: route62 }, // customer-portal/vehicles.ts
+  { segments: ['customers', { param: 'id' }], handler: route63 }, // customers/[id].ts
+  { segments: ['customers', { param: 'id' }, 'history'], handler: route64 }, // customers/[id]/history.ts
+  { segments: ['customers', { param: 'id' }, 'portal-password'], handler: route65 }, // customers/[id]/portal-password.ts
+  { segments: ['customers', { param: 'id' }, 'redeem'], handler: route66 }, // customers/[id]/redeem.ts
+  { segments: ['customers', { param: 'id' }, 'statement'], handler: route67 }, // customers/[id]/statement.ts
+  { segments: ['customers', { param: 'id' }, 'vehicles', { param: 'vehicleId' }], handler: route68 }, // customers/[id]/vehicles/[vehicleId].ts
+  { segments: ['customers', { param: 'id' }, 'vehicles'], handler: route69 }, // customers/[id]/vehicles/index.ts
+  { segments: ['customers', 'corporate-summary'], handler: route70 }, // customers/corporate-summary.ts
+  { segments: ['customers'], handler: route71 }, // customers/index.ts
+  { segments: ['dashboard', 'summary'], handler: route72 }, // dashboard/summary.ts
+  { segments: ['debit-notes', { param: 'id' }], handler: route73 }, // debit-notes/[id].ts
+  { segments: ['debit-notes'], handler: route74 }, // debit-notes/index.ts
+  { segments: ['delivery-notes', { param: 'id' }], handler: route75 }, // delivery-notes/[id].ts
+  { segments: ['delivery-notes', { param: 'id' }, 'confirm'], handler: route76 }, // delivery-notes/[id]/confirm.ts
+  { segments: ['delivery-notes'], handler: route77 }, // delivery-notes/index.ts
+  { segments: ['departments', { param: 'id' }], handler: route78 }, // departments/[id].ts
+  { segments: ['departments'], handler: route79 }, // departments/index.ts
+  { segments: ['employees', { param: 'userId' }], handler: route80 }, // employees/[userId].ts
+  { segments: ['employees'], handler: route81 }, // employees/index.ts
+  { segments: ['expenses', { param: 'id' }], handler: route82 }, // expenses/[id].ts
+  { segments: ['expenses'], handler: route83 }, // expenses/index.ts
+  { segments: ['feedback', { param: 'id' }], handler: route84 }, // feedback/[id].ts
+  { segments: ['feedback'], handler: route85 }, // feedback/index.ts
+  { segments: ['followups', { param: 'id' }], handler: route86 }, // followups/[id].ts
+  { segments: ['followups'], handler: route87 }, // followups/index.ts
+  { segments: ['goods-received-notes'], handler: route88 }, // goods-received-notes/index.ts
+  { segments: ['inspections', { param: 'id' }], handler: route89 }, // inspections/[id].ts
+  { segments: ['inspections'], handler: route90 }, // inspections/index.ts
+  { segments: ['inspections', 'upload-token'], handler: route91 }, // inspections/upload-token.ts
+  { segments: ['invoices', { param: 'id' }], handler: route92 }, // invoices/[id].ts
+  { segments: ['invoices'], handler: route93 }, // invoices/index.ts
+  { segments: ['job-cards', { param: 'id' }], handler: route94 }, // job-cards/[id].ts
+  { segments: ['job-cards', { param: 'id' }, 'invoice'], handler: route95 }, // job-cards/[id]/invoice.ts
+  { segments: ['job-cards', { param: 'id' }, 'parts'], handler: route96 }, // job-cards/[id]/parts.ts
+  { segments: ['job-cards'], handler: route97 }, // job-cards/index.ts
+  { segments: ['job-openings', { param: 'id' }], handler: route98 }, // job-openings/[id].ts
+  { segments: ['job-openings'], handler: route99 }, // job-openings/index.ts
+  { segments: ['journal-entries'], handler: route100 }, // journal-entries/index.ts
+  { segments: ['leads', { param: 'id' }], handler: route101 }, // leads/[id].ts
+  { segments: ['leads'], handler: route102 }, // leads/index.ts
+  { segments: ['leads', 'submit'], handler: route103 }, // leads/submit.ts
+  { segments: ['leave-requests', { param: 'id' }], handler: route104 }, // leave-requests/[id].ts
+  { segments: ['leave-requests'], handler: route105 }, // leave-requests/index.ts
+  { segments: ['loyalty-rewards', { param: 'id' }], handler: route106 }, // loyalty-rewards/[id].ts
+  { segments: ['loyalty-rewards'], handler: route107 }, // loyalty-rewards/index.ts
+  { segments: ['message-templates', { param: 'id' }], handler: route108 }, // message-templates/[id].ts
+  { segments: ['message-templates'], handler: route109 }, // message-templates/index.ts
+  { segments: ['parts'], handler: route110 }, // parts/index.ts
+  { segments: ['payroll-runs', { param: 'id' }], handler: route111 }, // payroll-runs/[id].ts
+  { segments: ['payroll-runs'], handler: route112 }, // payroll-runs/index.ts
+  { segments: ['payslips'], handler: route113 }, // payslips/index.ts
+  { segments: ['pending-deliveries', { param: 'salesOrderId' }], handler: route114 }, // pending-deliveries/[salesOrderId].ts
+  { segments: ['pending-deliveries'], handler: route115 }, // pending-deliveries/index.ts
+  { segments: ['performance-reviews'], handler: route116 }, // performance-reviews/index.ts
+  { segments: ['permissions'], handler: route117 }, // permissions/index.ts
+  { segments: ['price-lists', { param: 'id' }], handler: route118 }, // price-lists/[id].ts
+  { segments: ['price-lists'], handler: route119 }, // price-lists/index.ts
+  { segments: ['pricing-tiers', { param: 'tierId' }], handler: route120 }, // pricing-tiers/[tierId].ts
+  { segments: ['pricing-tiers'], handler: route121 }, // pricing-tiers/index.ts
+  { segments: ['promotions', { param: 'id' }], handler: route122 }, // promotions/[id].ts
+  { segments: ['promotions'], handler: route123 }, // promotions/index.ts
+  { segments: ['prospects', { param: 'id' }], handler: route124 }, // prospects/[id].ts
+  { segments: ['prospects', { param: 'id' }, 'convert'], handler: route125 }, // prospects/[id]/convert.ts
+  { segments: ['prospects'], handler: route126 }, // prospects/index.ts
+  { segments: ['public', 'bookings', { param: 'slug' }, 'availability'], handler: route127 }, // public/bookings/[slug]/availability.ts
+  { segments: ['public', 'bookings', { param: 'slug' }], handler: route128 }, // public/bookings/[slug]/index.ts
+  { segments: ['public', 'inspections', { param: 'token' }], handler: route129 }, // public/inspections/[token].ts
+  { segments: ['public', 'invoices', { param: 'id' }, 'status'], handler: route130 }, // public/invoices/[id]/status.ts
+  { segments: ['public', 'pay', { param: 'token' }], handler: route131 }, // public/pay/[token].ts
+  { segments: ['public', 'payhere-notify'], handler: route132 }, // public/payhere-notify.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'login'], handler: route133 }, // public/portal/[slug]/login.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'logout'], handler: route134 }, // public/portal/[slug]/logout.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'register'], handler: route135 }, // public/portal/[slug]/register.ts
+  { segments: ['public', 'pricing-tiers'], handler: route136 }, // public/pricing-tiers.ts
+  { segments: ['public', 'tenant-branding', { param: 'slug' }], handler: route137 }, // public/tenant-branding/[slug].ts
+  { segments: ['purchase-invoices'], handler: route138 }, // purchase-invoices/index.ts
+  { segments: ['purchase-orders', { param: 'id' }], handler: route139 }, // purchase-orders/[id].ts
+  { segments: ['purchase-orders', { param: 'id' }, 'payment'], handler: route140 }, // purchase-orders/[id]/payment.ts
+  { segments: ['purchase-orders', { param: 'id' }, 'reconcile'], handler: route141 }, // purchase-orders/[id]/reconcile.ts
+  { segments: ['purchase-orders'], handler: route142 }, // purchase-orders/index.ts
+  { segments: ['purchase-requisitions', { param: 'id' }], handler: route143 }, // purchase-requisitions/[id].ts
+  { segments: ['purchase-requisitions', { param: 'id' }, 'convert-to-rfq'], handler: route144 }, // purchase-requisitions/[id]/convert-to-rfq.ts
+  { segments: ['purchase-requisitions'], handler: route145 }, // purchase-requisitions/index.ts
+  { segments: ['quotations', { param: 'id' }], handler: route146 }, // quotations/[id].ts
+  { segments: ['quotations', { param: 'id' }, 'attachments'], handler: route147 }, // quotations/[id]/attachments.ts
+  { segments: ['quotations', { param: 'id' }, 'convert-to-job'], handler: route148 }, // quotations/[id]/convert-to-job.ts
+  { segments: ['quotations', { param: 'id' }, 'convert'], handler: route149 }, // quotations/[id]/convert.ts
+  { segments: ['quotations'], handler: route150 }, // quotations/index.ts
+  { segments: ['receipts'], handler: route151 }, // receipts/index.ts
+  { segments: ['reminders', { param: 'id' }], handler: route152 }, // reminders/[id].ts
+  { segments: ['reminders'], handler: route153 }, // reminders/index.ts
+  { segments: ['returns', { param: 'id' }], handler: route154 }, // returns/[id].ts
+  { segments: ['returns', { param: 'id' }, 'attachments'], handler: route155 }, // returns/[id]/attachments.ts
+  { segments: ['returns', { param: 'id' }, 'reconcile'], handler: route156 }, // returns/[id]/reconcile.ts
+  { segments: ['returns'], handler: route157 }, // returns/index.ts
+  { segments: ['rfqs', { param: 'id' }], handler: route158 }, // rfqs/[id].ts
+  { segments: ['rfqs'], handler: route159 }, // rfqs/index.ts
+  { segments: ['roles', { param: 'id' }], handler: route160 }, // roles/[id].ts
+  { segments: ['roles'], handler: route161 }, // roles/index.ts
+  { segments: ['salary-advances', { param: 'id' }], handler: route162 }, // salary-advances/[id].ts
+  { segments: ['salary-advances'], handler: route163 }, // salary-advances/index.ts
+  { segments: ['sales-attachments', 'upload-token'], handler: route164 }, // sales-attachments/upload-token.ts
+  { segments: ['sales-orders', { param: 'id' }], handler: route165 }, // sales-orders/[id].ts
+  { segments: ['sales-orders', { param: 'id' }, 'attachments'], handler: route166 }, // sales-orders/[id]/attachments.ts
+  { segments: ['sales-orders', { param: 'id' }, 'fulfill'], handler: route167 }, // sales-orders/[id]/fulfill.ts
+  { segments: ['sales-orders'], handler: route168 }, // sales-orders/index.ts
+  { segments: ['sales-targets', { param: 'id' }], handler: route169 }, // sales-targets/[id].ts
+  { segments: ['sales-targets'], handler: route170 }, // sales-targets/index.ts
+  { segments: ['sales-visits', { param: 'id' }], handler: route171 }, // sales-visits/[id].ts
+  { segments: ['sales-visits'], handler: route172 }, // sales-visits/index.ts
+  { segments: ['sales'], handler: route173 }, // sales/index.ts
+  { segments: ['salesperson-assignments', { param: 'id' }], handler: route174 }, // salesperson-assignments/[id].ts
+  { segments: ['salesperson-assignments'], handler: route175 }, // salesperson-assignments/index.ts
+  { segments: ['salespersons', { param: 'id' }], handler: route176 }, // salespersons/[id].ts
+  { segments: ['salespersons'], handler: route177 }, // salespersons/index.ts
+  { segments: ['services', { param: 'id' }], handler: route178 }, // services/[id].ts
+  { segments: ['services'], handler: route179 }, // services/index.ts
+  { segments: ['settings', 'notifications'], handler: route180 }, // settings/notifications.ts
+  { segments: ['sf-routes', { param: 'id' }], handler: route181 }, // sf-routes/[id].ts
+  { segments: ['sf-routes'], handler: route182 }, // sf-routes/index.ts
+  { segments: ['sf-vehicles', { param: 'id' }], handler: route183 }, // sf-vehicles/[id].ts
+  { segments: ['sf-vehicles'], handler: route184 }, // sf-vehicles/index.ts
+  { segments: ['sms', 'logs'], handler: route185 }, // sms/logs.ts
+  { segments: ['sms', 'send'], handler: route186 }, // sms/send.ts
+  { segments: ['staff', { param: 'id' }], handler: route187 }, // staff/[id].ts
+  { segments: ['staff'], handler: route188 }, // staff/index.ts
+  { segments: ['stock-adjustments'], handler: route189 }, // stock-adjustments/index.ts
+  { segments: ['stock-counts', { param: 'id' }], handler: route190 }, // stock-counts/[id].ts
+  { segments: ['stock-counts'], handler: route191 }, // stock-counts/index.ts
+  { segments: ['stock-issues'], handler: route192 }, // stock-issues/index.ts
+  { segments: ['stock-transfers'], handler: route193 }, // stock-transfers/index.ts
+  { segments: ['supplier-claims', { param: 'id' }], handler: route194 }, // supplier-claims/[id].ts
+  { segments: ['supplier-claims'], handler: route195 }, // supplier-claims/index.ts
+  { segments: ['supplier-quotations', { param: 'id' }, 'select'], handler: route196 }, // supplier-quotations/[id]/select.ts
+  { segments: ['supplier-quotations'], handler: route197 }, // supplier-quotations/index.ts
+  { segments: ['suppliers'], handler: route198 }, // suppliers/index.ts
+  { segments: ['team', { param: 'id' }], handler: route199 }, // team/[id].ts
+  { segments: ['team'], handler: route200 }, // team/index.ts
+  { segments: ['technicians', { param: 'id' }], handler: route201 }, // technicians/[id].ts
+  { segments: ['technicians', { param: 'id' }, 'attendance-history'], handler: route202 }, // technicians/[id]/attendance-history.ts
+  { segments: ['technicians', { param: 'id' }, 'attendance'], handler: route203 }, // technicians/[id]/attendance.ts
+  { segments: ['technicians'], handler: route204 }, // technicians/index.ts
+  { segments: ['tenant', 'accounting-report'], handler: route205 }, // tenant/accounting-report.ts
+  { segments: ['tenant', 'ap-aging'], handler: route206 }, // tenant/ap-aging.ts
+  { segments: ['tenant', 'ar-aging'], handler: route207 }, // tenant/ar-aging.ts
+  { segments: ['tenant', 'bank-transactions'], handler: route208 }, // tenant/bank-transactions.ts
+  { segments: ['tenant', 'booking-report'], handler: route209 }, // tenant/booking-report.ts
+  { segments: ['tenant', 'customer-report'], handler: route210 }, // tenant/customer-report.ts
+  { segments: ['tenant', 'dashboard'], handler: route211 }, // tenant/dashboard.ts
+  { segments: ['tenant', 'financial-overview'], handler: route212 }, // tenant/financial-overview.ts
+  { segments: ['tenant', 'gross-profit-report'], handler: route213 }, // tenant/gross-profit-report.ts
+  { segments: ['tenant', 'hr-report'], handler: route214 }, // tenant/hr-report.ts
+  { segments: ['tenant', 'inspection-report'], handler: route215 }, // tenant/inspection-report.ts
+  { segments: ['tenant', 'inventory-report'], handler: route216 }, // tenant/inventory-report.ts
+  { segments: ['tenant', 'job-report'], handler: route217 }, // tenant/job-report.ts
+  { segments: ['tenant', 'me'], handler: route218 }, // tenant/me.ts
+  { segments: ['tenant', 'purchase-report'], handler: route219 }, // tenant/purchase-report.ts
+  { segments: ['tenant', 'purchase'], handler: route220 }, // tenant/purchase.ts
+  { segments: ['tenant', 'reports'], handler: route221 }, // tenant/reports.ts
+  { segments: ['tenant', 'sales-by-report'], handler: route222 }, // tenant/sales-by-report.ts
+  { segments: ['tenant', 'sales-dashboard'], handler: route223 }, // tenant/sales-dashboard.ts
+  { segments: ['tenant', 'sales-report'], handler: route224 }, // tenant/sales-report.ts
+  { segments: ['tenant', 'sales-return-report'], handler: route225 }, // tenant/sales-return-report.ts
+  { segments: ['tenant', 'settings'], handler: route226 }, // tenant/settings.ts
+  { segments: ['tenant', 'setup-payment'], handler: route227 }, // tenant/setup-payment.ts
+  { segments: ['tenant', 'sf-activity-report'], handler: route228 }, // tenant/sf-activity-report.ts
+  { segments: ['tenant', 'sf-collection-report'], handler: route229 }, // tenant/sf-collection-report.ts
+  { segments: ['tenant', 'sf-dashboard'], handler: route230 }, // tenant/sf-dashboard.ts
+  { segments: ['tenant', 'sf-geo-visit-report'], handler: route231 }, // tenant/sf-geo-visit-report.ts
+  { segments: ['tenant', 'sf-pending-delivery-report'], handler: route232 }, // tenant/sf-pending-delivery-report.ts
+  { segments: ['tenant', 'sf-route-report'], handler: route233 }, // tenant/sf-route-report.ts
+  { segments: ['tenant', 'sf-salesperson-report'], handler: route234 }, // tenant/sf-salesperson-report.ts
+  { segments: ['tenant', 'sf-target-report'], handler: route235 }, // tenant/sf-target-report.ts
+  { segments: ['tenant', 'sf-trip-report'], handler: route236 }, // tenant/sf-trip-report.ts
+  { segments: ['tenant', 'sf-vehicle-report'], handler: route237 }, // tenant/sf-vehicle-report.ts
+  { segments: ['tenant', 'sf-visit-report'], handler: route238 }, // tenant/sf-visit-report.ts
+  { segments: ['tenant', 'slow-moving-products-report'], handler: route239 }, // tenant/slow-moving-products-report.ts
+  { segments: ['tenant', 'sms-config'], handler: route240 }, // tenant/sms-config.ts
+  { segments: ['tenant', 'supplier-report'], handler: route241 }, // tenant/supplier-report.ts
+  { segments: ['tenant', 'top-customers-report'], handler: route242 }, // tenant/top-customers-report.ts
+  { segments: ['tenant', 'workshop-report'], handler: route243 }, // tenant/workshop-report.ts
+  { segments: ['tenants', 'register'], handler: route244 }, // tenants/register.ts
+  { segments: ['tickets', { param: 'id' }], handler: route245 }, // tickets/[id].ts
+  { segments: ['tickets'], handler: route246 }, // tickets/index.ts
+  { segments: ['timesheets', { param: 'id' }], handler: route247 }, // timesheets/[id].ts
+  { segments: ['timesheets'], handler: route248 }, // timesheets/index.ts
+  { segments: ['utilizations'], handler: route249 }, // utilizations/index.ts
+  { segments: ['warehouses', { param: 'id' }], handler: route250 }, // warehouses/[id].ts
+  { segments: ['warehouses'], handler: route251 }, // warehouses/index.ts
+  { segments: ['warranty-claims', { param: 'id' }], handler: route252 }, // warranty-claims/[id].ts
+  { segments: ['warranty-claims'], handler: route253 }, // warranty-claims/index.ts
 ];

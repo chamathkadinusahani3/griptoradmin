@@ -3,13 +3,16 @@ import { connectToDatabase } from '../../db.js';
 import { Client, ClientDoc } from '../../models/Client.js';
 import { Part, PartDoc } from '../../models/Part.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
+import { SalesVisit, SalesVisitDoc } from '../../models/SalesVisit.js';
 import { SmsLog } from '../../models/SmsLog.js';
 import { sendSms } from '../../notifylk.js';
 import { getCustomerInvoicesAndTotals, computeDealerMetrics } from '../../dealerMetrics.js';
+import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../creditDiscipline.js';
 
 interface RunSummary {
   lowStockAlertsSent: number;
   dealerReportsSent: number;
+  overdueVisitAlertsSent: number;
   errors: string[];
 }
 
@@ -48,7 +51,7 @@ export async function runLowStockScan(client: ClientDoc, summary: RunSummary, no
 }
 
 export async function runDealerOutstandingReport(client: ClientDoc, summary: RunSummary, now: Date) {
-  const dealers = (await Customer.find({ clientId: client._id, type: 'corporate' }).lean()) as CustomerDoc[];
+  const dealers = (await Customer.find({ clientId: client._id, type: { $in: CREDIT_ELIGIBLE_CUSTOMER_TYPES } }).lean()) as CustomerDoc[];
 
   for (const dealer of dealers) {
     const { invoices, totalOutstanding, overdueAmount } = await getCustomerInvoicesAndTotals(client._id.toString(), dealer._id.toString(), now);
@@ -69,6 +72,50 @@ export async function runDealerOutstandingReport(client: ClientDoc, summary: Run
     await SmsLog.create({ clientId: client._id, customerId: dealer._id, to: dealer.phone, message, sent: result.sent, error: result.error, source: 'dealer-outstanding-report' });
     if (result.sent) summary.dealerReportsSent++;
   }
+}
+
+// SF-Phase 13: an "overdue visit" is a Pending/Rescheduled SalesVisit whose
+// visitDate has passed — the exact same condition SalesVisits.tsx's own
+// "Overdue" tab already derives live, so nothing here changes what counts as
+// overdue. `overdueAlertActive` exists purely to avoid re-alerting on a
+// visit that's still overdue from a prior day, mirroring
+// Part.lowStockAlertActive's toggle-once discipline. One consolidated
+// SMS per client (new overdues only), same aggregation as runLowStockScan
+// — not a per-salesperson text for every visit.
+export async function runOverdueVisitScan(client: ClientDoc, summary: RunSummary, now: Date) {
+  const candidates = (await SalesVisit.find({
+    clientId: client._id,
+    status: { $in: ['Pending', 'Rescheduled'] },
+  })
+    .select('visitDate overdueAlertActive')
+    .lean()) as SalesVisitDoc[];
+
+  const newlyOverdue: SalesVisitDoc[] = [];
+  const bulkOps: Array<{ updateOne: { filter: { _id: unknown }; update: Record<string, unknown> } }> = [];
+
+  for (const visit of candidates) {
+    const overdue = visit.visitDate.getTime() < now.getTime();
+    if (overdue && !visit.overdueAlertActive) {
+      newlyOverdue.push(visit);
+      bulkOps.push({ updateOne: { filter: { _id: visit._id }, update: { overdueAlertActive: true } } });
+    } else if (!overdue && visit.overdueAlertActive) {
+      bulkOps.push({ updateOne: { filter: { _id: visit._id }, update: { overdueAlertActive: false } } });
+    }
+  }
+
+  if (bulkOps.length > 0) await SalesVisit.bulkWrite(bulkOps);
+  if (newlyOverdue.length === 0) return;
+
+  const message = `${newlyOverdue.length} sales visit${newlyOverdue.length === 1 ? ' is' : 's are'} overdue and still not checked in. Please review the Sales Visits page.`;
+
+  if (!client.alertsPhone) {
+    await SmsLog.create({ clientId: client._id, to: 'unconfigured', message, sent: false, error: 'No alerts phone configured', source: 'overdue-visit-alert' });
+    return;
+  }
+
+  const result = await sendSms(client, client.alertsPhone, message);
+  await SmsLog.create({ clientId: client._id, to: client.alertsPhone, message, sent: result.sent, error: result.error, source: 'overdue-visit-alert' });
+  if (result.sent) summary.overdueVisitAlertsSent++;
 }
 
 // The single daily scheduled job for this app (Vercel Hobby: max once/day,
@@ -93,11 +140,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isSaturday = now.getDay() === 6;
   const clients = (await Client.find({ status: { $in: ['Active', 'Trial'] } }).lean()) as ClientDoc[];
 
-  const summary: RunSummary = { lowStockAlertsSent: 0, dealerReportsSent: 0, errors: [] };
+  const summary: RunSummary = { lowStockAlertsSent: 0, dealerReportsSent: 0, overdueVisitAlertsSent: 0, errors: [] };
   for (const client of clients) {
     try {
       await runLowStockScan(client, summary, now);
       if (isSaturday) await runDealerOutstandingReport(client, summary, now);
+      await runOverdueVisitScan(client, summary, now);
     } catch (err) {
       summary.errors.push(`${client._id}: ${err instanceof Error ? err.message : 'unknown error'}`);
     }

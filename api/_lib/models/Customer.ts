@@ -15,10 +15,12 @@ const CustomerSchema = new Schema(
     lastVisit: { type: Date },
     loyaltyPoints: { type: Number, default: 0 },
     totalSpend: { type: Number, default: 0 },
-    // Corporate/B2B fields — setting `type: 'corporate'` or a non-zero
-    // creditLimit/discountPct requires the tenant's `gms-fleet` add-on
-    // (enforced in api/customers/index.ts + [id].ts, not here).
-    type: { type: String, enum: ['individual', 'corporate'], default: 'individual' },
+    // Corporate/B2B fields — setting `type` to `corporate`/`wholesale`/
+    // `dealer`, or a non-zero creditLimit/discountPct, requires the tenant's
+    // `gms-fleet` add-on (enforced in api/_lib/routes/customers/index.ts +
+    // [id].ts, not here). `individual`/`retail` stay ungated — both are
+    // walk-in/end-consumer classifications with no credit terms attached.
+    type: { type: String, enum: ['individual', 'corporate', 'retail', 'wholesale', 'dealer'], default: 'individual' },
     contactPerson: { type: String },
     creditLimit: { type: Number, default: 0 },
     discountPct: { type: Number, default: 0 },
@@ -26,6 +28,25 @@ const CustomerSchema = new Schema(
     // settle it before being "in violation" (api/_lib/creditDiscipline.ts) —
     // same gms-fleet gating as creditLimit/discountPct above.
     creditPeriodDays: { type: Number, default: 30 },
+    // Sales Module Phase 1 — generic B2B data entry, deliberately ungated
+    // (unlike the credit fields above, these carry no credit/discount
+    // implication on their own).
+    billingAddress: { type: String },
+    shippingAddress: { type: String },
+    taxNumber: { type: String },
+    // Business status — a Blocked customer is rejected at Quotation/
+    // SalesOrder/CustomerInvoice creation (the three "start something new"
+    // commercial entry points; POS Sale has no customer identity at all,
+    // and actions on an EXISTING relationship — Receipt, Return, Advance
+    // Payment — stay unaffected so a blocked customer's outstanding balance
+    // can still be collected/reconciled). Ungated, same reasoning as above.
+    status: { type: String, enum: ['Active', 'Inactive', 'Blocked'], default: 'Active' },
+    // Sales Module Phase 6 — settable only while Client.priceListsEnabled is
+    // on (enforced in api/_lib/routes/customers/index.ts + [id].ts, not
+    // here, same gating shape as the gms-fleet corporate fields above).
+    // Only ever consumed by SalesOrder creation — see PriceList.ts's own
+    // comment for why the other 3 document types can't use this.
+    defaultPriceListId: { type: Schema.Types.ObjectId, ref: 'PriceList' },
     // Presence means this customer has self-service portal access — set
     // either by self-registration (api/public/portal/[slug]/register.ts) or
     // staff-issued activation (api/customers/[id]/portal-password.ts).

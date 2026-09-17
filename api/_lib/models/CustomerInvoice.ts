@@ -1,4 +1,5 @@
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
+import { AttachmentSchema } from './attachmentSchema.js';
 
 // Named CustomerInvoice (not Invoice) and routed at /api/customer-invoices —
 // the `Invoice` model/route already exists for Griptor's own SaaS
@@ -48,6 +49,13 @@ const CustomerInvoiceSchema = new Schema(
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
     jobCardId: { type: Schema.Types.ObjectId, ref: 'JobCard' },
+    // Optional — defaulted from the customer's active SalespersonAssignment
+    // at creation time (Sales Force Management SF-Phase 6), only when the
+    // invoice is created via routes/customer-invoices/index.ts directly.
+    // Invoices created via quotation-conversion or job-card-invoice are NOT
+    // attributed by this phase — a known, deliberate scope boundary, not a
+    // bug (see SF-Phase 6 completion notes).
+    salespersonId: { type: Schema.Types.ObjectId, ref: 'Salesperson' },
     quotationId: { type: Schema.Types.ObjectId, ref: 'Quotation' },
     invoiceNumber: { type: String, required: true },
     vehicle: { type: String, required: true },
@@ -79,6 +87,8 @@ const CustomerInvoiceSchema = new Schema(
     notes: { type: String },
     // Foundation for Phase 8's GL auto-posting — see Expense.ts's identical field.
     accountId: { type: Schema.Types.ObjectId, ref: 'ChartOfAccounts' },
+    // Sales Module Phase 16 — see attachmentSchema.ts's own comment.
+    attachments: { type: [AttachmentSchema], default: [] },
   },
   { timestamps: true }
 );

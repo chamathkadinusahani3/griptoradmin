@@ -1,6 +1,7 @@
 import { User } from './models/User.js';
 import { CustomerDoc } from './models/Customer.js';
 import { getCustomerInvoicesAndTotals } from './dealerMetrics.js';
+import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from './creditDiscipline.js';
 
 /**
  * Enforces a staff member's own personal credit-exposure cap on corporate
@@ -17,7 +18,7 @@ export async function checkCreditExposureLimit(
   prospectiveNewTotal: number
 ): Promise<{ blocked: boolean; message?: string }> {
   if (!session.requiresCreditLimit) return { blocked: false };
-  if (customer.type !== 'corporate') return { blocked: false };
+  if (!CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])) return { blocked: false };
 
   const user = (await User.findById(session.sub).select('creditLimit').lean()) as { creditLimit?: number } | null;
   const limit = user?.creditLimit ?? 0;

@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import mongoose from 'mongoose';
 import { connectToDatabase } from '../../db.js';
-import { Return, ReturnDoc } from '../../models/Return.js';
+import { Return, ReturnDoc, RETURN_REASONS } from '../../models/Return.js';
+import { Client } from '../../models/Client.js';
+import { Approval } from '../../models/Approval.js';
+import { CreditNote } from '../../models/CreditNote.js';
+import { DebitNote } from '../../models/DebitNote.js';
 import { Sale, SaleDoc } from '../../models/Sale.js';
 import { PurchaseOrder, PurchaseOrderDoc } from '../../models/PurchaseOrder.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
@@ -12,6 +16,8 @@ import { effectiveReceivedQuantity } from '../../purchaseOrderReceiving.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
 import { serializeReturn } from '../../serializers.js';
 
+type ReturnReason = (typeof RETURN_REASONS)[number];
+
 interface ReturnLineBody {
   partId?: string;
   quantity?: number;
@@ -21,7 +27,7 @@ interface CreateReturnBody {
   direction?: 'customer' | 'supplier';
   sourceId?: string;
   items?: ReturnLineBody[];
-  reason?: string;
+  reason?: ReturnReason;
   notes?: string;
   refundAmount?: number;
   refundMethod?: 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
@@ -63,6 +69,181 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+interface ExecuteReturnEffectsParams {
+  clientId: string;
+  dbSession: mongoose.ClientSession;
+  returnDoc: ReturnDoc;
+  direction: 'customer' | 'supplier';
+  lines: { partId: string; name: string; quantity: number; unitPrice: number }[];
+  orderSupplierId?: string;
+  hasRefund: boolean;
+  refundAmount?: number;
+  refundMethod?: string;
+  // Sales Module Phase 12 — independent of this Return's own gate. true
+  // means the refund stops at 'Requested' (an Approval doc filed, GL
+  // posting deferred to routes/returns/[id].ts's mark-refund-paid action);
+  // false means the refund posts its GL entry right here, immediately.
+  refundGated: boolean;
+  actorSub: string;
+  // Only needed/passed when hasRefund && !refundGated — null otherwise.
+  accountIds: Map<string, string> | null;
+}
+
+interface PostReturnRefundGLParams {
+  clientId: string;
+  dbSession: mongoose.ClientSession;
+  returnDoc: ReturnDoc;
+  direction: 'customer' | 'supplier';
+  refundAmount: number;
+  refundMethod: string;
+  accountIds: Map<string, string>;
+}
+
+/**
+ * The actual refund GL entry — extracted so it can post either immediately
+ * (executeReturnEffects, when Client.requireRefundApproval is off) or later
+ * from routes/returns/[id].ts's mark-refund-paid action (when it's on).
+ */
+export async function postReturnRefundGL(params: PostReturnRefundGLParams): Promise<void> {
+  const { clientId, dbSession, returnDoc, direction, refundAmount, refundMethod, accountIds } = params;
+  const cashOrBankId = accountIds.get(cashOrBankAccountName(refundMethod));
+  // Customer return: we hand cash back out, reversing revenue we
+  // recognized earlier. Supplier return: the supplier hands cash back to
+  // us, reversing the expense we recognized when we paid them (Cost of
+  // Goods Sold — same account supplier payments post to).
+  const contraId = accountIds.get(direction === 'customer' ? 'Sales Returns & Allowances' : 'Cost of Goods Sold');
+  if (!cashOrBankId || !contraId) return;
+  await postJournalEntry(
+    {
+      clientId,
+      description: `${direction === 'customer' ? 'Customer' : 'Supplier'} return refund`,
+      sourceType: 'return-refund',
+      sourceId: returnDoc._id.toString(),
+      lines:
+        direction === 'customer'
+          ? [{ accountId: contraId, debit: refundAmount }, { accountId: cashOrBankId, credit: refundAmount }]
+          : [{ accountId: cashOrBankId, debit: refundAmount }, { accountId: contraId, credit: refundAmount }],
+    },
+    dbSession
+  );
+}
+
+/**
+ * The stock move + CreditNote/DebitNote creation + refund GL posting a
+ * Return actually accomplishes — extracted so it can run either immediately
+ * at creation (Client.requireReturnApproval off, the original always-
+ * immediate behavior) or later, at Approve time, when the tenant has opted
+ * into the Pending/Inspected/Approved gate (routes/returns/[id].ts). Always
+ * called from inside a transaction alongside the Return document's own
+ * create/status-update, so a Return is never left half-executed.
+ */
+export async function executeReturnEffects(params: ExecuteReturnEffectsParams): Promise<void> {
+  const { clientId, dbSession, returnDoc, direction, lines, orderSupplierId, hasRefund, refundAmount, refundMethod, refundGated, actorSub, accountIds } = params;
+  const totalAmount = returnDoc.totalAmount;
+  const reason = returnDoc.reason;
+
+  for (const line of lines) {
+    if (direction === 'customer') {
+      // Coming back into stock.
+      await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: line.quantity } }, { session: dbSession });
+    } else {
+      // Leaving stock again — check it's actually still there (it may have
+      // been sold/used on a job since being received, or since this return
+      // was first requested if the gate delayed execution).
+      const part = await Part.findOne({ _id: line.partId, clientId }).session(dbSession);
+      if (!part || part.stock < line.quantity) {
+        throw Object.assign(
+          new Error(`Not enough stock of "${line.name}" to return to the supplier (have ${part?.stock ?? 0}, returning ${line.quantity})`),
+          { statusCode: 400 }
+        );
+      }
+      await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: -line.quantity } }, { session: dbSession });
+    }
+  }
+
+  // ERP-Phase 5 — every customer-direction return gets a formal Credit Note
+  // documenting the value of goods returned, whether or not cash was
+  // refunded immediately. No GL posting here — the refund block below
+  // already posts one when hasRefund is true; this is paperwork, not a
+  // second entry.
+  if (direction === 'customer') {
+    const creditNoteNumber = await generateSequentialNumber(CreditNote, clientId, 'creditNoteNumber', 'creditNote');
+    const appliedAmount = hasRefund ? Math.min(refundAmount ?? 0, totalAmount) : 0;
+    const remainingAmount = Math.round((totalAmount - appliedAmount) * 100) / 100;
+    await CreditNote.create(
+      [
+        {
+          clientId,
+          creditNoteNumber,
+          returnId: returnDoc._id,
+          amount: totalAmount,
+          appliedAmount,
+          remainingAmount,
+          status: remainingAmount <= 0 ? 'Fully Applied' : 'Open',
+          reason,
+        },
+      ],
+      { session: dbSession }
+    );
+  }
+
+  // ERP-Phase 6 — the supplier-direction mirror of the block above. Starts
+  // 'Pending', not auto-confirmed — see DebitNote.ts.
+  if (direction === 'supplier' && orderSupplierId) {
+    const debitNoteNumber = await generateSequentialNumber(DebitNote, clientId, 'debitNoteNumber', 'debitNote');
+    const appliedAmount = hasRefund ? Math.min(refundAmount ?? 0, totalAmount) : 0;
+    const remainingAmount = Math.round((totalAmount - appliedAmount) * 100) / 100;
+    await DebitNote.create(
+      [
+        {
+          clientId,
+          debitNoteNumber,
+          returnId: returnDoc._id,
+          supplierId: orderSupplierId,
+          amount: totalAmount,
+          appliedAmount,
+          remainingAmount,
+          reason,
+        },
+      ],
+      { session: dbSession }
+    );
+  }
+
+  if (hasRefund) {
+    if (refundGated) {
+      // Sales Module Phase 12 — GL posting deferred; filed for visibility
+      // on the Approvals page, but the real state transition (and the
+      // permission check for it) lives on this Return document itself via
+      // routes/returns/[id].ts's approve-refund/mark-refund-paid actions —
+      // same "log is for audit visibility, the action's own permission
+      // gate is the real authority check" reasoning as
+      // customerCreditLimitGate.ts.
+      await Return.updateOne({ _id: returnDoc._id, clientId }, { $set: { refundStatus: 'Requested' } }, { session: dbSession });
+      await Approval.create(
+        [
+          {
+            clientId,
+            type: 'Refund Request',
+            subject: `Refund of ${refundAmount!.toFixed(2)} for return ${returnDoc.returnNumber}`,
+            amount: refundAmount,
+            requestedBy: actorSub,
+            status: 'Pending',
+          },
+        ],
+        { session: dbSession }
+      );
+    } else if (accountIds) {
+      await postReturnRefundGL({ clientId, dbSession, returnDoc, direction, refundAmount: refundAmount!, refundMethod: refundMethod!, accountIds });
+      await Return.updateOne(
+        { _id: returnDoc._id, clientId },
+        { $set: { refundStatus: 'Paid', refundPaidBy: actorSub, refundPaidAt: new Date() } },
+        { session: dbSession }
+      );
+    }
+  }
+}
+
 async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'returns:manage');
   if (!session) return;
@@ -76,8 +257,8 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   if (!sourceId || !items || items.length === 0) {
     return res.status(400).json({ error: 'sourceId and at least one item are required' });
   }
-  if (!reason?.trim()) {
-    return res.status(400).json({ error: 'A reason is required' });
+  if (!reason || !(RETURN_REASONS as readonly string[]).includes(reason)) {
+    return res.status(400).json({ error: `reason must be one of: ${RETURN_REASONS.join(', ')}` });
   }
   for (const line of items) {
     if (!line.partId || !line.quantity || line.quantity <= 0) {
@@ -93,12 +274,19 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   await connectToDatabase();
 
+  const client = await Client.findById(session.clientId).select('requireReturnApproval requireRefundApproval').lean();
+  const gated = !!client?.requireReturnApproval;
+  const refundGated = !!client?.requireRefundApproval;
+
   const sourceType = direction === 'customer' ? 'sale' : 'purchase-order';
 
   // Cumulative check — a source document's own line quantity is the cap
-  // across ALL returns ever made against it, not just this one, so the
-  // same item can't be returned twice past what was actually bought/received.
-  const priorReturns = (await Return.find({ clientId: session.clientId, sourceId, sourceType }).lean()) as ReturnDoc[];
+  // across every OTHER-THAN-REJECTED return ever made against it (Pending/
+  // Inspected returns reserve their quantity the same way Stock
+  // Reservation's provisional tally does — see stockReservation.ts — so two
+  // concurrent return requests against the same source can't both pass a
+  // check that together would over-return it).
+  const priorReturns = (await Return.find({ clientId: session.clientId, sourceId, sourceType, status: { $ne: 'Rejected' } }).lean()) as ReturnDoc[];
   const priorReturnedByPart = new Map<string, number>();
   for (const r of priorReturns) {
     for (const line of r.items) {
@@ -108,6 +296,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   }
 
   let sourceLineByPart: Map<string, { name: string; unitPrice: number; qty: number }>;
+  let orderSupplierId: string | undefined;
 
   if (direction === 'customer') {
     const sale = (await Sale.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as SaleDoc | null;
@@ -119,6 +308,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     if (order.status !== 'Received' && order.status !== 'Partially Received') {
       return res.status(400).json({ error: 'Only a Received (or Partially Received) purchase order can have items returned to the supplier' });
     }
+    orderSupplierId = order.supplierId.toString();
     // Capped by what actually ARRIVED, not the full ordered quantity — a
     // partial delivery can't have more returned against it than showed up.
     sourceLineByPart = new Map(
@@ -143,10 +333,13 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   totalAmount = Math.round(totalAmount * 100) / 100;
 
   // Resolved before the transaction starts — same "doesn't need
-  // transactional consistency with the stock/Return writes, only the
-  // actual JournalEntry insert does" reasoning as sales/index.ts.
+  // transactional consistency with the stock/Return writes, only the actual
+  // JournalEntry insert does" reasoning as sales/index.ts. Only meaningful
+  // when the return's own effects run immediately here (!gated) AND the
+  // refund itself isn't separately gated (!refundGated) — otherwise GL
+  // posting is deferred and this lookup would be wasted.
   const hasRefund = !!refundAmount && refundAmount > 0;
-  const accountIds = hasRefund
+  const accountIds = !gated && hasRefund && !refundGated
     ? await getAccountIdsByNames(session.clientId, ['Sales Returns & Allowances', 'Cost of Goods Sold', cashOrBankAccountName(refundMethod!)])
     : null;
 
@@ -154,24 +347,6 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   try {
     let created: ReturnDoc | undefined;
     await dbSession.withTransaction(async () => {
-      for (const line of lines) {
-        if (direction === 'customer') {
-          // Coming back into stock.
-          await Part.updateOne({ _id: line.partId, clientId: session.clientId }, { $inc: { stock: line.quantity } }, { session: dbSession });
-        } else {
-          // Leaving stock again — check it's actually still there (it may
-          // have been sold/used on a job since being received).
-          const part = await Part.findOne({ _id: line.partId, clientId: session.clientId }).session(dbSession);
-          if (!part || part.stock < line.quantity) {
-            throw Object.assign(
-              new Error(`Not enough stock of "${line.name}" to return to the supplier (have ${part?.stock ?? 0}, returning ${line.quantity})`),
-              { statusCode: 400 }
-            );
-          }
-          await Part.updateOne({ _id: line.partId, clientId: session.clientId }, { $inc: { stock: -line.quantity } }, { session: dbSession });
-        }
-      }
-
       const returnNumber = await generateSequentialNumber(Return, session.clientId, 'returnNumber', 'return');
       const [doc] = await Return.create(
         [
@@ -183,42 +358,38 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
             returnNumber,
             items: lines,
             totalAmount,
-            reason: reason.trim(),
+            reason,
             notes,
-            refundAmount: refundAmount && refundAmount > 0 ? refundAmount : undefined,
-            refundMethod: refundAmount && refundAmount > 0 ? refundMethod : undefined,
+            status: gated ? 'Pending' : 'Approved',
+            refundAmount: hasRefund ? refundAmount : undefined,
+            refundMethod: hasRefund ? refundMethod : undefined,
             chequeNumber: refundMethod === 'Cheque' ? chequeNumber : undefined,
-            bankAccountId: refundAmount && refundAmount > 0 ? bankAccountId : undefined,
-            refundDate: refundAmount && refundAmount > 0 ? new Date() : undefined,
+            bankAccountId: hasRefund ? bankAccountId : undefined,
+            refundDate: hasRefund ? new Date() : undefined,
           },
         ],
         { session: dbSession }
       );
       created = doc.toObject() as ReturnDoc;
 
-      if (hasRefund && accountIds) {
-        const cashOrBankId = accountIds.get(cashOrBankAccountName(refundMethod!));
-        // Customer return: we hand cash back out, reversing revenue we
-        // recognized earlier. Supplier return: the supplier hands cash
-        // back to us, reversing the expense we recognized when we paid
-        // them (Cost of Goods Sold — same account supplier payments post
-        // to, see purchaseOrderPayments.ts).
-        const contraId = accountIds.get(direction === 'customer' ? 'Sales Returns & Allowances' : 'Cost of Goods Sold');
-        if (cashOrBankId && contraId) {
-          await postJournalEntry(
-            {
-              clientId: session.clientId,
-              description: `${direction === 'customer' ? 'Customer' : 'Supplier'} return refund`,
-              sourceType: 'return-refund',
-              sourceId: created._id.toString(),
-              lines:
-                direction === 'customer'
-                  ? [{ accountId: contraId, debit: refundAmount! }, { accountId: cashOrBankId, credit: refundAmount! }]
-                  : [{ accountId: cashOrBankId, debit: refundAmount! }, { accountId: contraId, credit: refundAmount! }],
-            },
-            dbSession
-          );
-        }
+      // Gate off — same immediate execution as before this phase existed.
+      // Gate on — this Return sits Pending until routes/returns/[id].ts's
+      // approve action runs executeReturnEffects for real.
+      if (!gated) {
+        await executeReturnEffects({
+          clientId: session.clientId,
+          dbSession,
+          returnDoc: created,
+          direction,
+          lines,
+          orderSupplierId,
+          hasRefund,
+          refundAmount,
+          refundMethod,
+          refundGated,
+          actorSub: session.sub,
+          accountIds,
+        });
       }
     });
 
@@ -233,7 +404,12 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    return res.status(201).json({ return: serializeReturn(created!, party, reference) });
+    // Re-fetched rather than reusing the in-memory `created` captured before
+    // executeReturnEffects ran — that function may have written refund-
+    // lifecycle fields (refundStatus etc.) back onto this same document
+    // (Sales Module Phase 12), which the stale in-memory copy won't reflect.
+    const final = (await Return.findById(created!._id).lean()) as ReturnDoc;
+    return res.status(201).json({ return: serializeReturn(final, party, reference) });
   } catch (err) {
     const statusCode = (err as { statusCode?: number }).statusCode ?? 500;
     const message = err instanceof Error ? err.message : 'Failed to record return';
