@@ -54,12 +54,15 @@ export interface Client {
     cashHandover?: string;
     utilization?: string;
     customerDebitNote?: string;
+    effectiveNote?: string;
   };
   deliveryLoadRules: { maxVolume: number; vehicleType: string }[];
   fuelPricePerLiter: number;
   requireSalesOrderApproval: boolean;
   requireDeliveryConfirm: boolean;
   customerCreditLimitPolicy: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  returnRatioPolicy: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  returnRatioThresholdPct: number;
   priceListsEnabled: boolean;
   maxDiscountPctBeforeApproval: number;
   invoiceApprovalThresholdAmount: number;

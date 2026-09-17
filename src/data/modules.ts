@@ -272,6 +272,7 @@ export const MODULES: ModuleDef[] = [
       { label: 'Bank Accounts', to: 'bank-accounts', icon: 'LandmarkIcon' },
       { label: 'Cheques', to: 'cheques', icon: 'FileCheckIcon' },
       { label: 'Advance Payments', to: 'advance-payments', icon: 'PiggyBankIcon' },
+      { label: 'Effective Notes', to: 'effective-notes', icon: 'FileTextIcon' },
       { label: 'Collection Tasks', to: 'collection-tasks', icon: 'ClipboardCheckIcon' },
       { label: 'Cash Handovers', to: 'cash-handovers', icon: 'HandshakeIcon' },
       { label: 'Utilization', to: 'utilizations', icon: 'ShuffleIcon' },
@@ -335,6 +336,7 @@ export const MODULES: ModuleDef[] = [
       items: [
       { label: 'SF Dashboard', to: 'sf-dashboard', icon: 'LayoutDashboardIcon' },
       { label: 'Salespersons', to: 'salespersons', icon: 'IdCardIcon' },
+      { label: 'My Dealers', to: 'my-dealers', icon: 'UsersIcon' },
       { label: 'Sales Visits', to: 'sales-visits', icon: 'CalendarCheckIcon' },
       { label: 'Sales Targets', to: 'sales-targets', icon: 'TargetIcon' },
       { label: 'Collections', to: 'collections', icon: 'HandCoinsIcon' },

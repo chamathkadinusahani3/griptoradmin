@@ -25,7 +25,8 @@ export type DocumentType =
   | 'stockIssue'
   | 'cashHandover'
   | 'utilization'
-  | 'customerDebitNote';
+  | 'customerDebitNote'
+  | 'effectiveNote';
 
 // The literal prefixes every route hardcoded before per-tenant Numbering
 // settings existed — kept as the fallback so an unconfigured tenant (or an
@@ -61,6 +62,7 @@ export const DEFAULT_NUMBERING_PREFIXES: Record<DocumentType, string> = {
   // document (customer-direction, manually raised against an invoice) that
   // shouldn't share a number series with the supplier-direction one.
   customerDebitNote: 'CDN',
+  effectiveNote: 'EFN',
 };
 
 /**

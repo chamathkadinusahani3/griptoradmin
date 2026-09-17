@@ -5,6 +5,8 @@ import { Return, ReturnDoc } from '../../models/Return.js';
 import { Client } from '../../models/Client.js';
 import { PurchaseOrder, PurchaseOrderDoc } from '../../models/PurchaseOrder.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
+import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoice.js';
+import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { requireTenantPermission } from '../../auth.js';
 import { getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
 import { serializeReturn } from '../../serializers.js';
@@ -174,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         dbSession,
         returnDoc: updated,
         direction: updated.direction as 'customer' | 'supplier',
-        lines: updated.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+        lines: updated.items.map((i) => ({ partId: i.partId?.toString(), name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
         orderSupplierId,
         hasRefund,
         refundAmount: existing.refundAmount ?? undefined,
@@ -212,6 +214,13 @@ async function withLabels(ret: ReturnDoc) {
     if (order) {
       const supplier = (await Supplier.findById(order.supplierId).lean()) as SupplierDoc | null;
       party = supplier?.name;
+    }
+  } else if (ret.sourceType === 'customer-invoice') {
+    const invoice = (await CustomerInvoice.findById(ret.sourceId).lean()) as CustomerInvoiceDoc | null;
+    reference = invoice?.invoiceNumber;
+    if (invoice) {
+      const customer = (await Customer.findById(invoice.customerId).lean()) as CustomerDoc | null;
+      party = customer?.name;
     }
   }
   return serializeReturn(ret, party, reference);

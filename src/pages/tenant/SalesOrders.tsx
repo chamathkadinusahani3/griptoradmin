@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { FileTextIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, CheckIcon } from 'lucide-react';
+import { FileTextIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, CheckIcon, PencilIcon, SearchIcon, DownloadIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -12,7 +12,7 @@ import { Input, Select, Label, Textarea } from '../../components/ui/Input';
 import { SignaturePad } from '../../components/ui/SignaturePad';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { SalesOrder, SalesOrderStatus, SalesOrderDiscountType } from '../../types/salesOrder';
+import { SalesOrder, SalesOrderStatus, SalesOrderDiscountType, SalesOrderPayType, SalesOrderVatType } from '../../types/salesOrder';
 import { DeliveryNote } from '../../types/deliveryNote';
 import { Customer } from '../../types/customer';
 import { Part } from '../../types/part';
@@ -21,11 +21,18 @@ import { Salesperson } from '../../types/salesperson';
 import { Department } from '../../types/department';
 import { PriceList } from '../../types/priceList';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { downloadDocumentPdf } from '../../lib/pdf';
 import { api, ApiError } from '../../lib/api';
 import { useHasPermission } from '../../context/AuthContext';
 
 const STATUS_FILTERS: ('All' | SalesOrderStatus)[] = ['All', 'Pending Approval', 'Confirmed', 'Partially Fulfilled', 'Fulfilled', 'Cancelled'];
 const CREDIT_PERIODS = ['Cash on Delivery', 'Net 7 Days', 'Net 15 Days', 'Net 30 Days', 'Net 60 Days'] as const;
+const PAY_TYPES: SalesOrderPayType[] = ['Cash', 'Credit'];
+const VAT_TYPES: SalesOrderVatType[] = ['Non Vat', 'Vat'];
+const DELIVERY_TYPES = ['Normal', 'Express', 'Pickup'] as const;
+// A Sales Order can only be edited before anything's been delivered —
+// matches routes/sales-orders/[id].ts's own EDITABLE_STATUSES exactly.
+const EDITABLE_STATUSES: SalesOrderStatus[] = ['Pending Approval', 'Confirmed'];
 
 interface DraftLine {
   partId: string;
@@ -48,10 +55,20 @@ const emptyHeaderForm = {
   salespersonId: '',
   departmentId: '',
   creditPeriod: CREDIT_PERIODS[0] as string,
+  payType: 'Credit' as SalesOrderPayType,
   scheduledDeliveryDate: '',
+  deliveryMarkingDate: '',
+  deliveryType: DELIVERY_TYPES[0] as string,
   deliveryName: '',
   deliveryAddress: '',
+  customerAddress: '',
+  customerTel: '',
+  vatType: 'Non Vat' as SalesOrderVatType,
+  vatNumber: '',
+  svatNumber: '',
+  brand: '',
   notes: '',
+  staffNote: '',
 };
 
 function lineTotal(l: DraftLine): number {
@@ -72,8 +89,10 @@ export function SalesOrders() {
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'All' | SalesOrderStatus>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyHeaderForm);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
@@ -127,8 +146,59 @@ export function SalesOrders() {
   const noPrereqs = customers.length === 0;
 
   const openCreate = () => {
-    setForm({ ...emptyHeaderForm, customerId: customers[0]?.id ?? '' });
+    setEditingOrderId(null);
+    const firstCustomer = customers[0];
+    setForm({
+      ...emptyHeaderForm,
+      customerId: firstCustomer?.id ?? '',
+      customerAddress: firstCustomer?.billingAddress ?? '',
+      customerTel: firstCustomer?.phone ?? '',
+      vatNumber: firstCustomer?.taxNumber ?? '',
+    });
     setLines([]);
+    setModalOpen(true);
+  };
+
+  // Only offered for statuses the backend's own EDITABLE_STATUSES accepts —
+  // matches routes/sales-orders/[id].ts's handleEdit guard exactly, so a
+  // stale button never has to round-trip a 400 to discover it's blocked.
+  const openEdit = (order: SalesOrder) => {
+    setEditingOrderId(order.id);
+    setForm({
+      customerId: order.customerId,
+      jobCardId: order.jobCardId ?? '',
+      salespersonId: order.salespersonId ?? '',
+      departmentId: order.departmentId ?? '',
+      creditPeriod: order.creditPeriod ?? CREDIT_PERIODS[0],
+      payType: order.payType,
+      scheduledDeliveryDate: order.scheduledDeliveryDate ? order.scheduledDeliveryDate.slice(0, 10) : '',
+      deliveryMarkingDate: order.deliveryMarkingDate ? order.deliveryMarkingDate.slice(0, 10) : '',
+      deliveryType: order.deliveryType || DELIVERY_TYPES[0],
+      deliveryName: order.deliveryName ?? '',
+      deliveryAddress: order.deliveryAddress ?? '',
+      customerAddress: order.customerAddress ?? '',
+      customerTel: order.customerTel ?? '',
+      vatType: order.vatType,
+      vatNumber: order.vatNumber ?? '',
+      svatNumber: order.svatNumber ?? '',
+      brand: order.brand ?? '',
+      notes: order.notes ?? '',
+      staffNote: order.staffNote ?? '',
+    });
+    setLines(
+      order.items.map((l) => ({
+        partId: l.isManualEntry ? '' : l.partId,
+        isManualEntry: l.isManualEntry,
+        manualName: l.isManualEntry ? l.name : '',
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        unitCost: l.unitCost,
+        discount1Type: l.discount1Type,
+        discount1Value: l.discount1Value,
+        discount2Type: l.discount2Type,
+        discount2Value: l.discount2Value,
+      }))
+    );
     setModalOpen(true);
   };
 
@@ -162,47 +232,69 @@ export function SalesOrders() {
     }
     setSaving(true);
     try {
-      const { salesOrder, creditWarning, discountWarning, appliedPromotions } = await api.post<{
-        salesOrder: SalesOrder;
-        creditWarning?: string;
-        discountWarning?: string;
-        appliedPromotions?: { lineName: string; promotionName: string }[];
-      }>('/sales-orders', {
-        customerId: form.customerId,
+      const items = lines.map((l) =>
+        l.isManualEntry ?
+        {
+          manual: true,
+          name: l.manualName.trim(),
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          unitCost: l.unitCost,
+          discount1Type: l.discount1Type,
+          discount1Value: l.discount1Value,
+          discount2Type: l.discount2Type,
+          discount2Value: l.discount2Value,
+        } :
+        {
+          description: l.partId,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          discount1Type: l.discount1Type,
+          discount1Value: l.discount1Value,
+          discount2Type: l.discount2Type,
+          discount2Value: l.discount2Value,
+        }
+      );
+      // customerId is intentionally omitted from the edit body — the
+      // backend's handleEdit never reads it, an order's customer can't be
+      // changed after creation (see routes/sales-orders/[id].ts's comment).
+      const sharedBody = {
         jobCardId: form.jobCardId || undefined,
         salespersonId: form.salespersonId || undefined,
         departmentId: form.departmentId || undefined,
         creditPeriod: form.creditPeriod || undefined,
+        payType: form.payType,
         scheduledDeliveryDate: form.scheduledDeliveryDate || undefined,
+        deliveryMarkingDate: form.deliveryMarkingDate || undefined,
+        deliveryType: form.deliveryType || undefined,
         deliveryName: form.deliveryName || undefined,
         deliveryAddress: form.deliveryAddress || undefined,
+        customerAddress: form.customerAddress || undefined,
+        customerTel: form.customerTel || undefined,
+        vatType: form.vatType,
+        vatNumber: form.vatNumber || undefined,
+        svatNumber: form.svatNumber || undefined,
+        brand: form.brand || undefined,
         notes: form.notes || undefined,
-        items: lines.map((l) =>
-          l.isManualEntry ?
-          {
-            manual: true,
-            name: l.manualName.trim(),
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            unitCost: l.unitCost,
-            discount1Type: l.discount1Type,
-            discount1Value: l.discount1Value,
-            discount2Type: l.discount2Type,
-            discount2Value: l.discount2Value,
-          } :
-          {
-            description: l.partId,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            discount1Type: l.discount1Type,
-            discount1Value: l.discount1Value,
-            discount2Type: l.discount2Type,
-            discount2Value: l.discount2Value,
-          }
-        ),
-      });
-      setOrders((prev) => [salesOrder, ...prev]);
-      toast.success(`${salesOrder.salesOrderNumber} created`);
+        staffNote: form.staffNote || undefined,
+        items,
+      };
+      const response = editingOrderId ?
+      await api.patch<{
+        salesOrder: SalesOrder;
+        creditWarning?: string;
+        discountWarning?: string;
+        appliedPromotions?: { lineName: string; promotionName: string }[];
+      }>(`/sales-orders/${editingOrderId}`, sharedBody) :
+      await api.post<{
+        salesOrder: SalesOrder;
+        creditWarning?: string;
+        discountWarning?: string;
+        appliedPromotions?: { lineName: string; promotionName: string }[];
+      }>('/sales-orders', { ...sharedBody, customerId: form.customerId });
+      const { salesOrder, creditWarning, discountWarning, appliedPromotions } = response;
+      setOrders((prev) => editingOrderId ? prev.map((o) => (o.id === salesOrder.id ? salesOrder : o)) : [salesOrder, ...prev]);
+      toast.success(editingOrderId ? `${salesOrder.salesOrderNumber} updated` : `${salesOrder.salesOrderNumber} created`);
       if (creditWarning) toast.warning(creditWarning);
       if (discountWarning) toast.warning(discountWarning);
       if (appliedPromotions?.length) {
@@ -210,7 +302,7 @@ export function SalesOrders() {
       }
       setModalOpen(false);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to create sales order');
+      toast.error(err instanceof ApiError ? err.message : `Failed to ${editingOrderId ? 'update' : 'create'} sales order`);
     } finally {
       setSaving(false);
     }
@@ -324,7 +416,35 @@ export function SalesOrders() {
     }
   };
 
-  const filtered = orders.filter((o) => statusFilter === 'All' || o.status === statusFilter);
+  const printOrder = (order: SalesOrder) => {
+    downloadDocumentPdf({
+      title: 'Sales Order',
+      number: order.salesOrderNumber,
+      date: order.createdAt,
+      customerName: order.customerName,
+      items: order.items.map((l) => ({ description: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
+      subtotal: order.subtotal,
+      discountPct: order.discountPct,
+      discountAmount: order.discountAmount,
+      taxAmount: order.taxAmount,
+      total: order.total,
+      extraLines: [
+        { label: 'Pay Type', value: order.payType },
+        { label: 'VAT Type', value: order.vatType },
+        ...(order.vatNumber ? [{ label: 'VAT No', value: order.vatNumber }] : []),
+        ...(order.svatNumber ? [{ label: 'SVAT No', value: order.svatNumber }] : []),
+        ...(order.brand ? [{ label: 'Brand', value: order.brand }] : []),
+      ],
+      notes: order.notes,
+    });
+  };
+
+  const query = searchQuery.trim().toLowerCase();
+  const filtered = orders.filter(
+    (o) =>
+    (statusFilter === 'All' || o.status === statusFilter) &&
+    (!query || o.salesOrderNumber.toLowerCase().includes(query) || (o.customerName ?? '').toLowerCase().includes(query))
+  );
 
   return (
     <div>
@@ -348,6 +468,14 @@ export function SalesOrders() {
             {s}
           </button>
         )}
+        <div className="ml-auto w-full max-w-xs">
+          <Input
+            icon={SearchIcon}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Find by ref no or customer..." />
+
+        </div>
       </div>
 
       {loading ?
@@ -375,6 +503,10 @@ export function SalesOrders() {
                     basePath={`/sales-orders/${o.id}/attachments`}
                     attachments={o.attachments}
                     onChange={(next) => setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, attachments: next } : x)))} />
+                  <Button size="sm" variant="ghost" onClick={() => printOrder(o)}><DownloadIcon className="h-3.5 w-3.5" /> Print</Button>
+                  {EDITABLE_STATUSES.includes(o.status) &&
+              <Button size="sm" variant="ghost" onClick={() => openEdit(o)}><PencilIcon className="h-3.5 w-3.5" /> Edit</Button>
+              }
                   {o.status === 'Pending Approval' && canApprove &&
               <>
                       <Button size="sm" variant="secondary" loading={reviewing} onClick={() => approve(o)}><CheckIcon className="h-3.5 w-3.5" /> Approve</Button>
@@ -401,19 +533,34 @@ export function SalesOrders() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="New sales order"
+        title={editingOrderId ? 'Edit sales order' : 'New sales order'}
         size="xl"
         footer={
         <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={save} loading={saving}>Create sales order</Button>
+            <Button onClick={save} loading={saving}>{editingOrderId ? 'Save changes' : 'Create sales order'}</Button>
           </>
         }>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="so-customer">Customer</Label>
-            <Select id="so-customer" value={form.customerId} onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}>
+            <Select
+              id="so-customer"
+              value={form.customerId}
+              disabled={!!editingOrderId}
+              title={editingOrderId ? 'The customer on an existing order cannot be changed' : undefined}
+              onChange={(e) => {
+                const nextCustomer = customers.find((c) => c.id === e.target.value);
+                setForm((f) => ({
+                  ...f,
+                  customerId: e.target.value,
+                  customerAddress: nextCustomer?.billingAddress ?? '',
+                  customerTel: nextCustomer?.phone ?? '',
+                  vatNumber: nextCustomer?.taxNumber ?? '',
+                }));
+              }}>
+
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </div>
@@ -439,6 +586,12 @@ export function SalesOrders() {
             </Select>
           </div>
           <div>
+            <Label htmlFor="so-pay-type">Pay Type</Label>
+            <Select id="so-pay-type" value={form.payType} onChange={(e) => setForm((f) => ({ ...f, payType: e.target.value as SalesOrderPayType }))}>
+              {PAY_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </Select>
+          </div>
+          <div>
             <Label htmlFor="so-credit-period">Credit Period</Label>
             <Select id="so-credit-period" value={form.creditPeriod} onChange={(e) => setForm((f) => ({ ...f, creditPeriod: e.target.value }))}>
               {CREDIT_PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -449,12 +602,48 @@ export function SalesOrders() {
             <Input id="so-schedule-date" type="date" value={form.scheduledDeliveryDate} onChange={(e) => setForm((f) => ({ ...f, scheduledDeliveryDate: e.target.value }))} />
           </div>
           <div>
+            <Label htmlFor="so-delivery-marking-date">Delivery Marking Date (optional)</Label>
+            <Input id="so-delivery-marking-date" type="date" value={form.deliveryMarkingDate} onChange={(e) => setForm((f) => ({ ...f, deliveryMarkingDate: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="so-delivery-type">Delivery Type</Label>
+            <Select id="so-delivery-type" value={form.deliveryType} onChange={(e) => setForm((f) => ({ ...f, deliveryType: e.target.value }))}>
+              {DELIVERY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          </div>
+          <div>
             <Label htmlFor="so-delivery-name">Delivery Name (optional)</Label>
             <Input id="so-delivery-name" value={form.deliveryName} onChange={(e) => setForm((f) => ({ ...f, deliveryName: e.target.value }))} placeholder="Defaults to the customer" />
           </div>
           <div>
             <Label htmlFor="so-delivery-address">Delivery Address (optional)</Label>
             <Input id="so-delivery-address" value={form.deliveryAddress} onChange={(e) => setForm((f) => ({ ...f, deliveryAddress: e.target.value }))} placeholder="Defaults to the customer" />
+          </div>
+          <div>
+            <Label htmlFor="so-address">Address (optional)</Label>
+            <Input id="so-address" value={form.customerAddress} onChange={(e) => setForm((f) => ({ ...f, customerAddress: e.target.value }))} placeholder="Auto-filled from the customer" />
+          </div>
+          <div>
+            <Label htmlFor="so-tel">Tel (optional)</Label>
+            <Input id="so-tel" value={form.customerTel} onChange={(e) => setForm((f) => ({ ...f, customerTel: e.target.value }))} placeholder="Auto-filled from the customer" />
+          </div>
+          <div>
+            <Label htmlFor="so-vat-type">VAT Type</Label>
+            <Select id="so-vat-type" value={form.vatType} onChange={(e) => setForm((f) => ({ ...f, vatType: e.target.value as SalesOrderVatType }))}>
+              {VAT_TYPES.map((v) => <option key={v} value={v}>{v}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="so-vat-no">VAT No (optional)</Label>
+            <Input id="so-vat-no" value={form.vatNumber} onChange={(e) => setForm((f) => ({ ...f, vatNumber: e.target.value }))} placeholder="Auto-filled from the customer" disabled={form.vatType === 'Non Vat'} />
+          </div>
+          <div>
+            <Label htmlFor="so-svat-no">SVAT No (optional)</Label>
+            <Input id="so-svat-no" value={form.svatNumber} onChange={(e) => setForm((f) => ({ ...f, svatNumber: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="so-brand">Brand (optional)</Label>
+            <Input id="so-brand" value={form.brand} onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))} />
           </div>
         </div>
 
@@ -546,9 +735,15 @@ export function SalesOrders() {
           <p className="mt-2 text-right text-sm text-text-gray dark:text-slate-400">Sub Total: {formatCurrency(previewTotal)} (discount &amp; tax applied on save)</p>
         </div>
 
-        <div className="mt-4">
-          <Label htmlFor="so-notes">Remark (optional)</Label>
-          <Textarea id="so-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="so-notes">Remark (optional)</Label>
+            <Textarea id="so-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="so-staff-note">Staff Note (optional)</Label>
+            <Textarea id="so-staff-note" value={form.staffNote} onChange={(e) => setForm((f) => ({ ...f, staffNote: e.target.value }))} />
+          </div>
         </div>
       </Modal>
 

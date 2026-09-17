@@ -43,6 +43,7 @@ const PAIRED_RESOURCES = [
   'price-lists',
   'promotions',
   'customer-debit-notes',
+  'effective-notes',
   'complaints',
   'departments',
   'prospects',

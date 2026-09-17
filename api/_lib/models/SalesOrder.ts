@@ -75,12 +75,40 @@ const SalesOrderSchema = new Schema(
     // Free-text payment terms (e.g. "Cash on Delivery", "Net 30 Days") —
     // display-only, doesn't drive any credit/balance logic.
     creditPeriod: { type: String },
+    // Simple Cash/Credit categorization, distinct from (and coarser than)
+    // creditPeriod's detailed terms string above — display/reporting only.
+    payType: { type: String, enum: ['Cash', 'Credit'], default: 'Credit' },
     scheduledDeliveryDate: { type: Date },
+    // When the delivery was actually marked/flagged for dispatch — a
+    // separate milestone from scheduledDeliveryDate (the plan) and the
+    // DeliveryNote's own confirm timestamp (the actual handover).
+    deliveryMarkingDate: { type: Date },
+    // Free-text delivery categorization (e.g. "Normal", "Express") —
+    // display-only, doesn't drive any logic.
+    deliveryType: { type: String, default: 'Normal' },
     // Ship-to name/address, distinct from the Customer's own — unset means
     // "deliver to the customer's own address/contact" (no separate default
     // stored here; the UI/print flow falls back to the customer record).
     deliveryName: { type: String },
     deliveryAddress: { type: String },
+    // Snapshotted from the Customer at creation time (defaults to
+    // customer.billingAddress/phone/taxNumber, editable/overridable per
+    // order) so a later change to the customer record never alters an
+    // already-issued order's own printed details — same snapshot discipline
+    // as Quotation/CustomerInvoice's vehicle/plate fields.
+    customerAddress: { type: String },
+    customerTel: { type: String },
+    // GRIPTOR ERP customization — 'Non Vat' (the default) forces taxAmount
+    // to 0 for this order regardless of the tenant's configured taxRatePct;
+    // 'Vat' applies it normally. See salesOrderResolve.ts for where this is
+    // enforced.
+    vatType: { type: String, enum: ['Vat', 'Non Vat'], default: 'Non Vat' },
+    vatNumber: { type: String },
+    svatNumber: { type: String },
+    // Free-text product-brand association for this order (e.g. a tyre
+    // brand) — display/reporting only, order-level rather than per-line
+    // since the reference form places it in the document header.
+    brand: { type: String },
     items: { type: [SalesOrderLineSchema], default: [] },
     // Always server-computed from `items` — same computeTotals discipline
     // as Quotation/CustomerInvoice (api/_lib/accounting.ts).
@@ -94,7 +122,11 @@ const SalesOrderSchema = new Schema(
     // still defaults straight to 'Confirmed' otherwise, so an unconfigured
     // tenant sees byte-identical behavior to before this field existed.
     status: { type: String, enum: ['Pending Approval', 'Confirmed', 'Partially Fulfilled', 'Fulfilled', 'Cancelled'], default: 'Confirmed' },
+    // `notes` is the customer-facing "Remark"; `staffNote` below is a
+    // separate internal-only field — kept distinct rather than reusing one
+    // field for both, since the reference form shows them as two inputs.
     notes: { type: String },
+    staffNote: { type: String },
     // Set only when this order actually went through the approval gate —
     // standardized field names shared with every future gated document via
     // api/_lib/approvalGate.ts.

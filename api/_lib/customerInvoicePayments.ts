@@ -1,8 +1,10 @@
 import { CustomerInvoice, CustomerInvoiceDoc } from './models/CustomerInvoice.js';
 import { Cheque } from './models/Cheque.js';
+import { Customer, CustomerDoc } from './models/Customer.js';
 import { hasAddOn } from './entitlements.js';
 import { awardPoints } from './loyalty.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
+import { createAdvancePayment, AdvancePaymentMethod } from './advancePayments.js';
 
 export interface RecordPaymentInput {
   amount: number;
@@ -32,7 +34,18 @@ export async function recordCustomerInvoicePayment(
   const existing = (await CustomerInvoice.findOne({ _id: invoiceId, clientId }).lean()) as CustomerInvoiceDoc | null;
   if (!existing || existing.status === 'Void') return null;
 
-  const paidAmount = Math.round((existing.paidAmount + input.amount) * 100) / 100;
+  // Dealer Credit Control roadmap Module 2 — cap what actually applies to
+  // THIS invoice at its outstanding balance, so balance can never go
+  // negative. Any excess is money that really moved (unlike a Credit Note,
+  // which piggybacks on a prior GL event) and is captured as its own
+  // AdvancePayment for the customer instead — a reusable credit against a
+  // FUTURE invoice, via Utilization — rather than silently absorbed into a
+  // negative balance field nothing else in this app expects.
+  const outstanding = Math.max(0, Math.round((existing.total - existing.paidAmount) * 100) / 100);
+  const appliedAmount = Math.min(input.amount, outstanding);
+  const overpaymentAmount = Math.round((input.amount - appliedAmount) * 100) / 100;
+
+  const paidAmount = Math.round((existing.paidAmount + appliedAmount) * 100) / 100;
   const balance = Math.round((existing.total - paidAmount) * 100) / 100;
   const paymentStatus = balance <= 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid';
 
@@ -50,7 +63,7 @@ export async function recordCustomerInvoicePayment(
       },
       $push: {
         paymentHistory: {
-          amount: input.amount,
+          amount: appliedAmount,
           method: input.method,
           date: input.date ?? new Date(),
           notes: input.notes,
@@ -70,20 +83,48 @@ export async function recordCustomerInvoicePayment(
   // this codebase doesn't hook into for GL purposes), so this credits
   // Service Revenue directly rather than Accounts Receivable.
   try {
-    const accountIds = await getAccountIdsByNames(clientId, [cashOrBankAccountName(input.method), 'Service Revenue']);
-    const cashOrBankId = accountIds.get(cashOrBankAccountName(input.method));
-    const revenueId = accountIds.get('Service Revenue');
-    if (cashOrBankId && revenueId) {
-      await postJournalEntry({
-        clientId,
-        description: `Invoice payment — ${invoice.invoiceNumber}`,
-        sourceType: 'customer-payment',
-        sourceId: invoiceId,
-        lines: [{ accountId: cashOrBankId, debit: input.amount }, { accountId: revenueId, credit: input.amount }],
-      });
+    if (appliedAmount > 0) {
+      const accountIds = await getAccountIdsByNames(clientId, [cashOrBankAccountName(input.method), 'Service Revenue']);
+      const cashOrBankId = accountIds.get(cashOrBankAccountName(input.method));
+      const revenueId = accountIds.get('Service Revenue');
+      if (cashOrBankId && revenueId) {
+        await postJournalEntry({
+          clientId,
+          description: `Invoice payment — ${invoice.invoiceNumber}`,
+          sourceType: 'customer-payment',
+          sourceId: invoiceId,
+          lines: [{ accountId: cashOrBankId, debit: appliedAmount }, { accountId: revenueId, credit: appliedAmount }],
+        });
+      }
     }
   } catch (err) {
     console.error('Journal posting failed for customer payment', invoiceId, err);
+  }
+
+  // Dealer Credit Control roadmap Module 2 — the portion that couldn't
+  // apply to this invoice becomes its own AdvancePayment, with its own real
+  // GL entry (createAdvancePayment posts Accounts Receivable, not Service
+  // Revenue — this isn't recognized revenue yet, just cash held on
+  // account). Best-effort, same non-blocking reasoning as every other
+  // GL-posting side effect in this function.
+  if (overpaymentAmount > 0) {
+    try {
+      const customer = (await Customer.findById(invoice.customerId).select('name').lean()) as CustomerDoc | null;
+      await createAdvancePayment({
+        clientId,
+        direction: 'customer',
+        customerId: invoice.customerId.toString(),
+        partyName: customer?.name,
+        amount: overpaymentAmount,
+        method: (input.method === 'PayHere' ? 'Other' : input.method) as AdvancePaymentMethod,
+        chequeNumber: input.chequeNumber,
+        bankAccountId: input.bankAccountId,
+        date: input.date ?? new Date(),
+        notes: `Overpayment on invoice ${invoice.invoiceNumber}`,
+      });
+    } catch (err) {
+      console.error('Overpayment AdvancePayment creation failed for customer payment', invoiceId, err);
+    }
   }
 
   // ERP-Phase 3: a Cheque-method payment gets a real lifecycle record, not

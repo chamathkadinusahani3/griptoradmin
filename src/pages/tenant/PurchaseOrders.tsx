@@ -24,6 +24,8 @@ interface DraftLine {
   partId: string;
   quantity: number;
   unitCost: number;
+  promisedPrice: number;
+  brandDiscountPct: number;
 }
 
 export function PurchaseOrders() {
@@ -38,6 +40,7 @@ export function PurchaseOrders() {
   const [modalOpen, setModalOpen] = useState(false);
   const [supplierId, setSupplierId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
+  const [creditPeriodDays, setCreditPeriodDays] = useState('30');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
@@ -110,6 +113,7 @@ export function PurchaseOrders() {
     setEditingOrderId(null);
     setSupplierId(presetSupplierId || suppliers[0]?.id || '');
     setExpectedDate('');
+    setCreditPeriodDays('30');
     setNotes('');
     setLines([]);
     setModalOpen(true);
@@ -119,15 +123,19 @@ export function PurchaseOrders() {
     setEditingOrderId(order.id);
     setSupplierId(order.supplierId);
     setExpectedDate(order.expectedDate ? order.expectedDate.slice(0, 10) : '');
+    setCreditPeriodDays(String(order.creditPeriodDays));
     setNotes(order.notes ?? '');
-    setLines(order.items.map((i) => ({ partId: i.partId, quantity: i.quantity, unitCost: i.unitCost })));
+    setLines(order.items.map((i) => ({ partId: i.partId, quantity: i.quantity, unitCost: i.unitCost, promisedPrice: i.promisedPrice, brandDiscountPct: i.brandDiscountPct })));
     setModalOpen(true);
   };
 
   const addLine = () => {
     const firstAvailable = partsBySupplier[0];
     if (!firstAvailable) return;
-    setLines((prev) => [...prev, { partId: firstAvailable.id, quantity: 1, unitCost: firstAvailable.price }]);
+    // Dealer Credit Control roadmap Module 3 — pre-fill (editable) with the
+    // rule-based suggested reorder quantity when this part is low on stock,
+    // instead of always defaulting to 1.
+    setLines((prev) => [...prev, { partId: firstAvailable.id, quantity: firstAvailable.suggestedReorderQty ?? 1, unitCost: firstAvailable.price, promisedPrice: firstAvailable.price, brandDiscountPct: 0 }]);
   };
   const updateLine = (i: number, patch: Partial<DraftLine>) => {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -146,6 +154,7 @@ export function PurchaseOrders() {
       if (editingOrderId) {
         const { purchaseOrder } = await api.patch<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${editingOrderId}`, {
           items: lines,
+          creditPeriodDays: Number(creditPeriodDays),
           expectedDate: expectedDate || undefined,
           notes: notes || undefined,
         });
@@ -155,6 +164,7 @@ export function PurchaseOrders() {
         const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>('/purchase-orders', {
           supplierId,
           items: lines,
+          creditPeriodDays: Number(creditPeriodDays),
           expectedDate: expectedDate || undefined,
           notes: notes || undefined,
         });
@@ -399,6 +409,10 @@ export function PurchaseOrders() {
             <Label htmlFor="po-expected">Expected date (optional)</Label>
             <Input id="po-expected" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </div>
+          <div>
+            <Label htmlFor="po-credit-period">Credit period (days)</Label>
+            <Input id="po-credit-period" type="number" min={0} required value={creditPeriodDays} onChange={(e) => setCreditPeriodDays(e.target.value)} />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -407,24 +421,35 @@ export function PurchaseOrders() {
           <p className="text-xs text-text-gray dark:text-slate-400">This supplier has no parts linked to it yet — add parts under Inventory first.</p> :
 
           <>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {lines.map((l, i) =>
-              <div key={i} className="grid grid-cols-12 gap-2">
-                    <Select
-                  className="col-span-6"
-                  value={l.partId}
-                  onChange={(e) => {
-                    const part = partsBySupplier.find((p) => p.id === e.target.value);
-                    updateLine(i, { partId: e.target.value, unitCost: part?.price ?? l.unitCost });
-                  }}>
+              <div key={i} className="rounded-xl border border-border-soft p-2 dark:border-slate-800">
+                    <div className="grid grid-cols-12 gap-2">
+                      <Select
+                    className="col-span-6"
+                    value={l.partId}
+                    onChange={(e) => {
+                      const part = partsBySupplier.find((p) => p.id === e.target.value);
+                      updateLine(i, { partId: e.target.value, unitCost: part?.price ?? l.unitCost, quantity: part?.suggestedReorderQty ?? l.quantity, promisedPrice: part?.price ?? l.promisedPrice });
+                    }}>
 
-                      {partsBySupplier.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>)}
-                    </Select>
-                    <Input className="col-span-2" type="number" min={1} placeholder="Qty" value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} />
-                    <Input className="col-span-3" type="number" min={0} placeholder="Unit cost" value={l.unitCost} onChange={(e) => updateLine(i, { unitCost: Number(e.target.value) })} />
-                    <button type="button" onClick={() => removeLine(i)} className="col-span-1 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40">
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
+                        {partsBySupplier.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock){p.suggestedReorderQty ? ` — suggest ${p.suggestedReorderQty}` : ''}</option>)}
+                      </Select>
+                      <Input className="col-span-2" type="number" min={1} placeholder="Qty" value={l.quantity} onChange={(e) => updateLine(i, { quantity: Number(e.target.value) })} />
+                      <Input className="col-span-3" type="number" min={0} placeholder="Unit cost" value={l.unitCost} onChange={(e) => updateLine(i, { unitCost: Number(e.target.value) })} />
+                      <button type="button" onClick={() => removeLine(i)} className="col-span-1 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40">
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-2 grid grid-cols-12 gap-2">
+                      <div className="col-span-6">
+                        <Input type="number" min={0} placeholder="Promised price" value={l.promisedPrice} onChange={(e) => updateLine(i, { promisedPrice: Number(e.target.value) })} />
+                      </div>
+                      <div className="col-span-6 flex items-center gap-1">
+                        <Input type="number" min={0} max={100} placeholder="Brand discount %" value={l.brandDiscountPct} onChange={(e) => updateLine(i, { brandDiscountPct: Number(e.target.value) })} />
+                        <span className="text-xs text-text-gray dark:text-slate-400">%</span>
+                      </div>
+                    </div>
                   </div>
               )}
               </div>

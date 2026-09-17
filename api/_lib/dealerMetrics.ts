@@ -1,7 +1,42 @@
 import { CustomerInvoice, CustomerInvoiceDoc } from './models/CustomerInvoice.js';
+import { Return } from './models/Return.js';
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Dealer Credit Control roadmap Module 1 — sums 'customer-invoice'-sourced
+ * returns (the only Return sourceType attributable to a specific customer
+ * at all — see Return.ts's own comment) per invoice, across the given
+ * invoice ids in ONE query — used by corporate-summary.ts's batched
+ * multi-customer view so it isn't N+1. A separate query rather than a field
+ * on computeDealerMetrics's own invoices param, since Return isn't an
+ * invoice — keeps that function a pure computation over already-fetched
+ * data, this is the one extra round-trip its callers make first.
+ */
+export async function getReturnedAmountsByInvoiceId(clientId: string, invoiceIds: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (invoiceIds.length === 0) return map;
+  const returns = (await Return.find({
+    clientId,
+    sourceType: 'customer-invoice',
+    sourceId: { $in: invoiceIds },
+    status: { $ne: 'Rejected' },
+  })
+    .select('sourceId totalAmount')
+    .lean()) as { sourceId: { toString(): string }; totalAmount: number }[];
+  for (const r of returns) {
+    const key = r.sourceId.toString();
+    map.set(key, round2((map.get(key) ?? 0) + r.totalAmount));
+  }
+  return map;
+}
+
+/** Single-customer convenience wrapper around getReturnedAmountsByInvoiceId above. */
+export async function getCustomerReturnedAmount(clientId: string, invoiceIds: string[]): Promise<number> {
+  const map = await getReturnedAmountsByInvoiceId(clientId, invoiceIds);
+  return round2([...map.values()].reduce((sum, v) => sum + v, 0));
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -37,6 +72,8 @@ export interface DealerMetrics {
   isInViolation: boolean;
   daysPastCreditPeriod: number;
   creditUtilizationPct: number | null;
+  /** Dealer Credit Control roadmap Module 1 — returnedAmount / totalInvoiced, null when nothing's been invoiced yet. */
+  returnRatioPct: number | null;
 }
 
 /** Days between an invoice's creation and the payment that brought its cumulative paid total to (or past) `total` — null if never fully paid. */
@@ -59,7 +96,8 @@ export function computeDealerMetrics(
   creditLimit: number,
   totalOutstanding: number,
   creditPeriodDays: number,
-  now: Date = new Date()
+  now: Date = new Date(),
+  returnedAmount = 0
 ): DealerMetrics {
   const paidDaysList = invoices.map(daysToFullyPaid).filter((d): d is number => d !== null);
   const avgDaysToPay = paidDaysList.length > 0 ? Math.round(paidDaysList.reduce((a, b) => a + b, 0) / paidDaysList.length) : null;
@@ -93,6 +131,9 @@ export function computeDealerMetrics(
 
   const creditUtilizationPct = creditLimit > 0 ? Math.round((totalOutstanding / creditLimit) * 100) : null;
 
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const returnRatioPct = totalInvoiced > 0 ? Math.round((returnedAmount / totalInvoiced) * 100) : null;
+
   return {
     avgDaysToPay,
     onTimePaymentRatePct,
@@ -103,5 +144,6 @@ export function computeDealerMetrics(
     isInViolation,
     daysPastCreditPeriod,
     creditUtilizationPct,
+    returnRatioPct,
   };
 }

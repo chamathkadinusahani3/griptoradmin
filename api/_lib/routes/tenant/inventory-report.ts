@@ -4,6 +4,7 @@ import { Part, PartDoc } from '../../models/Part.js';
 import { Sale, SaleDoc } from '../../models/Sale.js';
 import { requireTenantPermission } from '../../auth.js';
 import { resolveReportRange } from '../../reportRange.js';
+import { resolveBranchFilter } from '../../branch.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -17,9 +18,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { from, to } = resolveReportRange(req);
   await connectToDatabase();
 
+  // Dealer Credit Control roadmap Module 3 — optional branch scoping so
+  // slow/fast movement can be compared branch to branch, same
+  // resolveBranchFilter pattern as parts/index.ts and
+  // slow-moving-products-report.ts. A part at two branches is two
+  // independent Part documents (see Part.ts's own comment), and Sale
+  // already carries its own branchId.
+  const { branchId: requestedBranchId } = req.query;
+  const effectiveBranchId = resolveBranchFilter(session, typeof requestedBranchId === 'string' ? requestedBranchId : undefined);
+  const partFilter: Record<string, unknown> = { clientId: session.clientId };
+  const saleFilter: Record<string, unknown> = { clientId: session.clientId, createdAt: { $gte: from, $lte: to } };
+  if (effectiveBranchId) {
+    partFilter.branchId = effectiveBranchId;
+    saleFilter.branchId = effectiveBranchId;
+  }
+
   const [parts, sales] = await Promise.all([
-    Part.find({ clientId: session.clientId }).lean() as Promise<PartDoc[]>,
-    Sale.find({ clientId: session.clientId, createdAt: { $gte: from, $lte: to } }).lean() as Promise<SaleDoc[]>,
+    Part.find(partFilter).lean() as Promise<PartDoc[]>,
+    Sale.find(saleFilter).lean() as Promise<SaleDoc[]>,
   ]);
 
   // --- Current inventory snapshot (not range-bound) ---

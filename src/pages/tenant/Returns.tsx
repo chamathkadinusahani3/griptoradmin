@@ -15,6 +15,7 @@ import { TableSkeleton } from '../../components/ui/Skeleton';
 import { Return, ReturnDirection, ReturnRefundMethod, ReturnReason, RETURN_REASONS, ReturnStatus } from '../../types/return';
 import { Sale } from '../../types/sale';
 import { PurchaseOrder } from '../../types/purchaseOrder';
+import { CustomerInvoice } from '../../types/customerInvoice';
 import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
@@ -22,6 +23,12 @@ import { api, ApiError } from '../../lib/api';
 const DIRECTION_FILTERS: ('All' | ReturnDirection)[] = ['All', 'customer', 'supplier'];
 const DIRECTION_LABEL: Record<ReturnDirection, string> = { customer: 'From customer', supplier: 'To supplier' };
 const REFUND_METHODS: ReturnRefundMethod[] = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'];
+// Only meaningful when direction is 'customer' — a B2B dealer's purchases go
+// through a CustomerInvoice, not a POS Sale, so returning against one needs
+// its own source kind (Dealer Credit Control roadmap Module 1). See
+// Return.ts's own comment for why this can't just reuse the Sale-sourced
+// per-Part line shape (CustomerInvoice items carry no Part reference).
+type CustomerSourceKind = 'sale' | 'customer-invoice';
 
 interface DraftLine {
   partId: string;
@@ -30,18 +37,27 @@ interface DraftLine {
   quantity: string;
 }
 
+interface InvoiceDraftLine {
+  description: string;
+  quantity: string;
+  unitPrice: string;
+}
+
 export function Returns() {
   const [returns, setReturns] = useState<Return[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [receivedOrders, setReceivedOrders] = useState<PurchaseOrder[]>([]);
+  const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [directionFilter, setDirectionFilter] = useState<'All' | ReturnDirection>('All');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [direction, setDirection] = useState<ReturnDirection>('customer');
+  const [sourceKind, setSourceKind] = useState<CustomerSourceKind>('sale');
   const [sourceId, setSourceId] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([]);
+  const [invoiceLines, setInvoiceLines] = useState<InvoiceDraftLine[]>([]);
   const [reason, setReason] = useState<ReturnReason>(RETURN_REASONS[0]);
   const [notes, setNotes] = useState('');
   const [wantRefund, setWantRefund] = useState(false);
@@ -73,13 +89,16 @@ export function Returns() {
       .get<{ purchaseOrders: PurchaseOrder[] }>('/purchase-orders?status=Received')
       .then(({ purchaseOrders }) => setReceivedOrders(purchaseOrders))
       .catch(() => setReceivedOrders([]));
+    api.get<{ invoices: CustomerInvoice[] }>('/customer-invoices').then(({ invoices }) => setInvoices(invoices)).catch(() => setInvoices([]));
     api.get<{ bankAccounts: BankAccount[] }>('/bank-accounts').then(({ bankAccounts }) => setBankAccounts(bankAccounts)).catch(() => setBankAccounts([]));
   }, []);
 
   const openCreate = () => {
     setDirection('customer');
+    setSourceKind('sale');
     setSourceId('');
     setLines([]);
+    setInvoiceLines([]);
     setReason(RETURN_REASONS[0]);
     setNotes('');
     setWantRefund(false);
@@ -92,30 +111,50 @@ export function Returns() {
 
   const selectSource = (id: string) => {
     setSourceId(id);
-    if (direction === 'customer') {
+    if (direction === 'supplier') {
+      const order = receivedOrders.find((o) => o.id === id);
+      setLines(order ? order.items.map((i) => ({ partId: i.partId, name: i.name, available: i.quantity, quantity: '' })) : []);
+    } else if (sourceKind === 'sale') {
       const sale = sales.find((s) => s.id === id);
       setLines(sale ? sale.items.map((i) => ({ partId: i.partId, name: i.name, available: i.qty, quantity: '' })) : []);
     } else {
-      const order = receivedOrders.find((o) => o.id === id);
-      setLines(order ? order.items.map((i) => ({ partId: i.partId, name: i.name, available: i.quantity, quantity: '' })) : []);
+      // customer-invoice — no per-part cap to pre-fill from, staff describe
+      // what's being returned directly (see Return.ts's comment).
+      setInvoiceLines([{ description: '', quantity: '1', unitPrice: '' }]);
     }
   };
 
   const changeDirection = (next: ReturnDirection) => {
     setDirection(next);
+    setSourceKind('sale');
     setSourceId('');
     setLines([]);
+    setInvoiceLines([]);
+  };
+
+  const changeSourceKind = (next: CustomerSourceKind) => {
+    setSourceKind(next);
+    setSourceId('');
+    setLines([]);
+    setInvoiceLines(next === 'customer-invoice' ? [{ description: '', quantity: '1', unitPrice: '' }] : []);
   };
 
   const updateLineQty = (partId: string, quantity: string) => {
     setLines((prev) => prev.map((l) => (l.partId === partId ? { ...l, quantity } : l)));
   };
 
+  const addInvoiceLine = () => setInvoiceLines((prev) => [...prev, { description: '', quantity: '1', unitPrice: '' }]);
+  const updateInvoiceLine = (i: number, patch: Partial<InvoiceDraftLine>) =>
+    setInvoiceLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  const removeInvoiceLine = (i: number) => setInvoiceLines((prev) => prev.filter((_, idx) => idx !== i));
+
+  const isInvoiceSourced = direction === 'customer' && sourceKind === 'customer-invoice';
   const activeLines = lines.filter((l) => Number(l.quantity) > 0);
+  const activeInvoiceLines = invoiceLines.filter((l) => l.description.trim() && Number(l.quantity) > 0 && l.unitPrice !== '');
 
   const save = async () => {
-    if (!sourceId || activeLines.length === 0) {
-      toast.error('Pick a source and at least one item quantity to return');
+    if (!sourceId || (isInvoiceSourced ? activeInvoiceLines.length === 0 : activeLines.length === 0)) {
+      toast.error('Pick a source and at least one item to return');
       return;
     }
     if (wantRefund) {
@@ -133,8 +172,11 @@ export function Returns() {
     try {
       const { return: created } = await api.post<{ return: Return }>('/returns', {
         direction,
+        sourceType: isInvoiceSourced ? 'customer-invoice' : undefined,
         sourceId,
-        items: activeLines.map((l) => ({ partId: l.partId, quantity: Number(l.quantity) })),
+        items: isInvoiceSourced
+          ? activeInvoiceLines.map((l) => ({ description: l.description.trim(), quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) }))
+          : activeLines.map((l) => ({ partId: l.partId, quantity: Number(l.quantity) })),
         reason,
         notes: notes || undefined,
         refundAmount: wantRefund ? Number(refundAmount) : undefined,
@@ -143,7 +185,7 @@ export function Returns() {
         bankAccountId: wantRefund ? bankAccountId || undefined : undefined,
       });
       setReturns((prev) => [created, ...prev]);
-      toast.success(`${created.returnNumber} recorded`);
+      toast.success(`${created.returnNumber} recorded${isInvoiceSourced ? ' — credited straight to the invoice' : ''}`);
       setModalOpen(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to record return');
@@ -225,12 +267,15 @@ export function Returns() {
 
   const sourceOptions = useMemo(
     () =>
-      direction === 'customer'
+      direction === 'supplier'
+        ? receivedOrders.map((o) => ({ id: o.id, label: `${o.poNumber} — ${o.supplier ?? 'Unknown supplier'}` }))
+        : sourceKind === 'sale'
         ? sales.map((s) => ({ id: s.id, label: `Sale — ${formatDate(s.date)} — ${formatCurrency(s.total)}` }))
-        : receivedOrders.map((o) => ({ id: o.id, label: `${o.poNumber} — ${o.supplier ?? 'Unknown supplier'}` })),
-    [direction, sales, receivedOrders]
+        : invoices.map((i) => ({ id: i.id, label: `${i.invoiceNumber} — ${i.customer ?? 'Unknown customer'} — ${formatCurrency(i.total)}` })),
+    [direction, sourceKind, sales, receivedOrders, invoices]
   );
-  const noPrereqs = direction === 'customer' ? sales.length === 0 : receivedOrders.length === 0;
+  const noPrereqs =
+    direction === 'supplier' ? receivedOrders.length === 0 : sourceKind === 'sale' ? sales.length === 0 : invoices.length === 0;
 
   const filtered = returns
     .filter((r) => directionFilter === 'All' || r.direction === directionFilter)
@@ -346,15 +391,24 @@ export function Returns() {
               <option value="supplier">We're returning to a supplier</option>
             </Select>
           </div>
+          {direction === 'customer' &&
           <div>
-            <Label htmlFor="ret-source">{direction === 'customer' ? 'Sale' : 'Purchase order'}</Label>
+              <Label htmlFor="ret-source-kind">Bought via</Label>
+              <Select id="ret-source-kind" value={sourceKind} onChange={(e) => changeSourceKind(e.target.value as CustomerSourceKind)}>
+                <option value="sale">A counter Sale</option>
+                <option value="customer-invoice">A Customer Invoice (dealer/B2B)</option>
+              </Select>
+            </div>
+          }
+          <div>
+            <Label htmlFor="ret-source">{direction === 'supplier' ? 'Purchase order' : sourceKind === 'sale' ? 'Sale' : 'Invoice'}</Label>
             <Select id="ret-source" value={sourceId} onChange={(e) => selectSource(e.target.value)} disabled={noPrereqs}>
               <option value="">— select —</option>
               {sourceOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </Select>
             {noPrereqs &&
             <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
-                {direction === 'customer' ? 'No sales recorded yet.' : 'No Received purchase orders yet.'}
+                {direction === 'supplier' ? 'No Received purchase orders yet.' : sourceKind === 'sale' ? 'No sales recorded yet.' : 'No customer invoices recorded yet.'}
               </p>
             }
           </div>
@@ -380,6 +434,47 @@ export function Returns() {
                 </div>
             )}
             </div>
+          </div>
+        }
+
+        {isInvoiceSourced && sourceId &&
+        <div className="mt-4">
+            <Label>Items to return</Label>
+            <p className="mb-2 text-xs text-text-gray dark:text-slate-400">This invoice has no per-part catalog reference — describe what's being returned directly. It'll be credited straight to this invoice's balance.</p>
+            <div className="space-y-2">
+              {invoiceLines.map((l, i) =>
+            <div key={i} className="grid grid-cols-12 items-center gap-2">
+                  <Input
+                className="col-span-6"
+                placeholder="Description"
+                value={l.description}
+                onChange={(e) => updateInvoiceLine(i, { description: e.target.value })} />
+
+                  <Input
+                className="col-span-2"
+                type="number"
+                min={1}
+                placeholder="Qty"
+                value={l.quantity}
+                onChange={(e) => updateInvoiceLine(i, { quantity: e.target.value })} />
+
+                  <Input
+                className="col-span-3"
+                type="number"
+                min={0}
+                placeholder="Unit price"
+                value={l.unitPrice}
+                onChange={(e) => updateInvoiceLine(i, { unitPrice: e.target.value })} />
+
+                  <button type="button" onClick={() => removeInvoiceLine(i)} className="col-span-1 flex items-center justify-center rounded-lg p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40">
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+            )}
+            </div>
+            <button type="button" onClick={addInvoiceLine} className="mt-2 flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+              <PlusIcon className="h-3.5 w-3.5" /> Add line
+            </button>
           </div>
         }
 

@@ -5,7 +5,7 @@ import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoic
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomer } from '../../serializers.js';
 import { hasAddOn } from '../../entitlements.js';
-import { computeDealerMetrics } from '../../dealerMetrics.js';
+import { computeDealerMetrics, getReturnedAmountsByInvoiceId } from '../../dealerMetrics.js';
 import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../creditDiscipline.js';
 
 // Bulk equivalent of api/customers/[id]/statement.ts — same live
@@ -56,6 +56,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     invoicesByCustomerId.set(key, list);
   }
 
+  // Dealer Credit Control roadmap Module 1 — one batched query for every
+  // customer's returned amount rather than N+1 (see getReturnedAmountsByInvoiceId's own comment).
+  const returnedByInvoiceId = await getReturnedAmountsByInvoiceId(session.clientId, invoices.map((i) => i._id.toString()));
+
   return res.status(200).json({
     accounts: customers.map((customer) => {
       const customerInvoices = invoicesByCustomerId.get(customer._id.toString()) ?? [];
@@ -67,7 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       totalOutstanding = Math.round(totalOutstanding * 100) / 100;
       const creditLimit = customer.creditLimit ?? 0;
-      const dealerMetrics = computeDealerMetrics(customerInvoices, creditLimit, totalOutstanding, customer.creditPeriodDays ?? 30, now);
+      const returnedAmount = customerInvoices.reduce((sum, inv) => sum + (returnedByInvoiceId.get(inv._id.toString()) ?? 0), 0);
+      const dealerMetrics = computeDealerMetrics(customerInvoices, creditLimit, totalOutstanding, customer.creditPeriodDays ?? 30, now, returnedAmount);
       return {
         ...serializeCustomer(customer),
         totalOutstanding,

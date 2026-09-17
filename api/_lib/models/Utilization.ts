@@ -1,6 +1,6 @@
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
 
-export const UTILIZATION_SOURCE_TYPES = ['creditNote', 'debitNote', 'advancePayment', 'receipt'] as const;
+export const UTILIZATION_SOURCE_TYPES = ['creditNote', 'debitNote', 'advancePayment', 'receipt', 'effectiveNote'] as const;
 export const UTILIZATION_TARGET_TYPES = ['invoice', 'return'] as const;
 
 // ERP-Phase 11 (last phase of this roadmap) — applies an existing unapplied

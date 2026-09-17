@@ -6,6 +6,7 @@ import { requireTenantPermission } from '../../auth.js';
 import { isValidBranch, resolveBranchFilter } from '../../branch.js';
 import { isValidWarehouse } from '../../warehouse.js';
 import { getReservedQtyByPart } from '../../stockReservation.js';
+import { getSuggestedReorderQtyByPart } from '../../reorderSuggestion.js';
 import { serializePart } from '../../serializers.js';
 
 interface CreatePartBody {
@@ -13,6 +14,7 @@ interface CreatePartBody {
   sku?: string;
   barcode?: string;
   category?: string;
+  brand?: string;
   stock?: number;
   reorderAt?: number;
   price?: number;
@@ -48,10 +50,16 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   const suppliers = (await Supplier.find({ clientId: session.clientId }).lean()) as SupplierDoc[];
   const nameById = new Map(suppliers.map((s) => [s._id.toString(), s.name]));
   const reservedByPart = await getReservedQtyByPart(session.clientId, parts.map((p) => p._id.toString()));
+  const suggestedByPart = await getSuggestedReorderQtyByPart(session.clientId, parts);
 
   return res.status(200).json({
     parts: parts.map((p) =>
-      serializePart(p, p.supplierId ? nameById.get(p.supplierId.toString()) : undefined, reservedByPart.get(p._id.toString()) ?? 0)
+      serializePart(
+        p,
+        p.supplierId ? nameById.get(p.supplierId.toString()) : undefined,
+        reservedByPart.get(p._id.toString()) ?? 0,
+        suggestedByPart.get(p._id.toString())
+      )
     ),
   });
 }
@@ -60,10 +68,16 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'parts:manage');
   if (!session) return;
 
-  const { name, sku, barcode, category, stock, reorderAt, price, cost, minSellingPrice, batchNumber, serialNumber, expiryDate, unitVolume, supplierId, branchId, warehouseId } =
+  const { name, sku, barcode, category, brand, stock, reorderAt, price, cost, minSellingPrice, batchNumber, serialNumber, expiryDate, unitVolume, supplierId, branchId, warehouseId } =
     (req.body ?? {}) as CreatePartBody;
   if (!name || !category) {
     return res.status(400).json({ error: 'name and category are required' });
+  }
+  // Dealer Credit Control roadmap Module 3 — a real reorder level is now
+  // mandatory at creation (previously optional, silently defaulting to 0,
+  // which meant the low-stock scan effectively never fired for that part).
+  if (reorderAt == null || typeof reorderAt !== 'number' || reorderAt <= 0) {
+    return res.status(400).json({ error: 'reorderAt must be a positive number' });
   }
   if (minSellingPrice !== undefined && (typeof minSellingPrice !== 'number' || minSellingPrice < 0)) {
     return res.status(400).json({ error: 'minSellingPrice must be a non-negative number' });
@@ -89,8 +103,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     sku,
     barcode,
     category,
+    brand: brand || undefined,
     stock: stock ?? 0,
-    reorderAt: reorderAt ?? 0,
+    reorderAt,
     price: price ?? 0,
     cost: cost ?? 0,
     minSellingPrice: minSellingPrice ?? undefined,

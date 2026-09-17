@@ -1,4 +1,4 @@
-export type ApprovalType = 'Discount Authorization' | 'Refund Request' | 'Credit Limit Override' | 'Warranty Claim' | 'Other';
+export type ApprovalType = 'Discount Authorization' | 'Refund Request' | 'Credit Limit Override' | 'Return Ratio Override' | 'Warranty Claim' | 'Other';
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface Approval {

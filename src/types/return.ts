@@ -1,7 +1,7 @@
 import { Attachment } from './attachment';
 
 export type ReturnDirection = 'customer' | 'supplier';
-export type ReturnSourceType = 'sale' | 'purchase-order';
+export type ReturnSourceType = 'sale' | 'purchase-order' | 'customer-invoice';
 export type ReturnRefundMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
 
 export const RETURN_REASONS = [
@@ -23,7 +23,8 @@ export const RETURN_REFUND_STATUSES = ['Requested', 'Approved', 'Paid'] as const
 export type ReturnRefundStatus = (typeof RETURN_REFUND_STATUSES)[number];
 
 export interface ReturnLine {
-  partId: string;
+  /** Absent for a 'customer-invoice'-sourced line — CustomerInvoice items carry no Part reference (see Return.ts's comment); `name` doubles as that line's free-text description. */
+  partId?: string;
   name: string;
   quantity: number;
   unitPrice: number;

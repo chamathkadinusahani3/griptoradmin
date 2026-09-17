@@ -64,6 +64,10 @@ export function Settings() {
   const [savingDeliveryConfirm, setSavingDeliveryConfirm] = useState(false);
   const [customerCreditLimitPolicy, setCustomerCreditLimitPolicy] = useState<'Off' | 'Block' | 'Warn' | 'RequireApproval'>('Off');
   const [savingCreditLimitPolicy, setSavingCreditLimitPolicy] = useState(false);
+  const [returnRatioPolicy, setReturnRatioPolicy] = useState<'Off' | 'Block' | 'Warn' | 'RequireApproval'>('Off');
+  const [savingReturnRatioPolicy, setSavingReturnRatioPolicy] = useState(false);
+  const [returnRatioThresholdPct, setReturnRatioThresholdPct] = useState('20');
+  const [savingReturnRatioThreshold, setSavingReturnRatioThreshold] = useState(false);
   const [priceListsEnabled, setPriceListsEnabled] = useState(false);
   const [savingPriceListsEnabled, setSavingPriceListsEnabled] = useState(false);
   const [requireReturnApproval, setRequireReturnApproval] = useState(false);
@@ -77,7 +81,7 @@ export function Settings() {
   const [numberingPrefixes, setNumberingPrefixes] = useState({
     invoice: '', quotation: '', purchaseOrder: '', complaint: '', expense: '', return: '',
     purchaseRequisition: '', rfq: '', supplierQuotation: '', grn: '', purchaseInvoice: '',
-    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '', creditNote: '', debitNote: '', receipt: '', advancePayment: '', stockIssue: '', cashHandover: '', utilization: '', customerDebitNote: '',
+    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '', creditNote: '', debitNote: '', receipt: '', advancePayment: '', stockIssue: '', cashHandover: '', utilization: '', customerDebitNote: '', effectiveNote: '',
   });
   const [savingNumbering, setSavingNumbering] = useState(false);
   const [deliveryLoadRules, setDeliveryLoadRules] = useState<{ maxVolume: string; vehicleType: string }[]>([]);
@@ -145,12 +149,15 @@ export function Settings() {
           cashHandover: client.numberingPrefixes.cashHandover ?? '',
           utilization: client.numberingPrefixes.utilization ?? '',
           customerDebitNote: client.numberingPrefixes.customerDebitNote ?? '',
+          effectiveNote: client.numberingPrefixes.effectiveNote ?? '',
         });
         setDeliveryLoadRules(client.deliveryLoadRules.map((r) => ({ maxVolume: String(r.maxVolume), vehicleType: r.vehicleType })));
         setFuelPricePerLiter(String(client.fuelPricePerLiter));
         setRequireSalesOrderApproval(client.requireSalesOrderApproval);
         setRequireDeliveryConfirm(client.requireDeliveryConfirm);
         setCustomerCreditLimitPolicy(client.customerCreditLimitPolicy);
+        setReturnRatioPolicy(client.returnRatioPolicy);
+        setReturnRatioThresholdPct(String(client.returnRatioThresholdPct));
         setPriceListsEnabled(client.priceListsEnabled);
         setMaxDiscountPctBeforeApproval(String(client.maxDiscountPctBeforeApproval));
         setInvoiceApprovalThresholdAmount(String(client.invoiceApprovalThresholdAmount));
@@ -239,6 +246,7 @@ export function Settings() {
         cashHandover: updated.numberingPrefixes.cashHandover ?? '',
         utilization: updated.numberingPrefixes.utilization ?? '',
         customerDebitNote: updated.numberingPrefixes.customerDebitNote ?? '',
+        effectiveNote: updated.numberingPrefixes.effectiveNote ?? '',
       });
       toast.success('Document numbering updated');
     } catch (err) {
@@ -405,6 +413,39 @@ export function Settings() {
       toast.error(err instanceof ApiError ? err.message : 'Failed to update credit limit policy');
     } finally {
       setSavingCreditLimitPolicy(false);
+    }
+  };
+
+  const saveReturnRatioPolicy = async (next: 'Off' | 'Block' | 'Warn' | 'RequireApproval') => {
+    setSavingReturnRatioPolicy(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { returnRatioPolicy: next });
+      setGarage(updated);
+      setReturnRatioPolicy(updated.returnRatioPolicy);
+      toast.success('Return ratio policy updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update return ratio policy');
+    } finally {
+      setSavingReturnRatioPolicy(false);
+    }
+  };
+
+  const saveReturnRatioThreshold = async () => {
+    const parsed = Number(returnRatioThresholdPct);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+      toast.error('Enter a percentage between 0 and 100');
+      return;
+    }
+    setSavingReturnRatioThreshold(true);
+    try {
+      const { client: updated } = await api.patch<{ client: Client }>('/tenant/settings', { returnRatioThresholdPct: parsed });
+      setGarage(updated);
+      setReturnRatioThresholdPct(String(updated.returnRatioThresholdPct));
+      toast.success('Return ratio threshold updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update return ratio threshold');
+    } finally {
+      setSavingReturnRatioThreshold(false);
     }
   };
 
@@ -610,6 +651,28 @@ export function Settings() {
                 Applies when a Corporate, Wholesale, or Dealer customer's outstanding balance would exceed their own configured credit limit on a new quotation, sales order, or invoice.
               </p>
             </div>
+            <div className="border-t border-border-soft pt-4 dark:border-slate-800">
+              <Label htmlFor="return-ratio-policy">Dealer return ratio policy</Label>
+              <Select
+                id="return-ratio-policy"
+                value={returnRatioPolicy}
+                disabled={!canEdit || savingReturnRatioPolicy}
+                onChange={(e) => saveReturnRatioPolicy(e.target.value as 'Off' | 'Block' | 'Warn' | 'RequireApproval')}>
+
+                <option value="Off">Off — no limit enforced</option>
+                <option value="Warn">Warn — allow the invoice, show a warning</option>
+                <option value="RequireApproval">Require approval — block unless an Owner overrides</option>
+                <option value="Block">Block — no exceptions, not even for an Owner</option>
+              </Select>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                Applies when a Corporate, Wholesale, or Dealer customer's return ratio (returned value ÷ total invoiced) exceeds the threshold below, at Customer Invoice generation only. "Require approval" needs a Director/Owner to override — not any Manager, unlike the credit limit policy above.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Input id="return-ratio-threshold" type="number" min={0} max={100} value={returnRatioThresholdPct} onChange={(e) => setReturnRatioThresholdPct(e.target.value)} disabled={!canEdit} />
+                {canEdit && <Button variant="secondary" onClick={saveReturnRatioThreshold} loading={savingReturnRatioThreshold}>Save</Button>}
+              </div>
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Return ratio threshold, as a percentage. Defaults to 20%.</p>
+            </div>
             <div className="flex items-center justify-between gap-4 border-t border-border-soft pt-4 dark:border-slate-800">
               <div>
                 <p className="text-sm font-semibold text-navy dark:text-slate-100">Enable price lists</p>
@@ -685,6 +748,7 @@ export function Settings() {
               ['cashHandover', 'Cash handovers'],
               ['utilization', 'Utilizations'],
               ['customerDebitNote', 'Customer debit notes'],
+              ['effectiveNote', 'Effective notes'],
             ] as const).map(([key, label]) => (
               <div key={key}>
                 <Label htmlFor={`numbering-${key}`}>{label}</Label>

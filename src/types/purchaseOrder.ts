@@ -7,6 +7,10 @@ export interface PurchaseOrderLine {
   name: string;
   quantity: number;
   unitCost: number;
+  /** The price originally agreed/quoted by the supplier — distinct from unitCost. Data-capture only, doesn't affect totals. */
+  promisedPrice: number;
+  /** Manufacturer/brand-specific discount negotiated for this line, as a percentage. Data-capture only, doesn't affect totals. */
+  brandDiscountPct: number;
   receivedQuantity: number;
 }
 
@@ -33,6 +37,7 @@ export interface PurchaseOrder {
   subtotal: number;
   total: number;
   status: PurchaseOrderStatus;
+  creditPeriodDays: number;
   expectedDate?: string;
   receivedAt?: string;
   notes?: string;

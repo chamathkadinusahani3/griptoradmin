@@ -8,4 +8,6 @@ export interface DealerMetrics {
   isInViolation: boolean;
   daysPastCreditPeriod: number;
   creditUtilizationPct: number | null;
+  /** Dealer Credit Control roadmap Module 1 — returnedAmount / totalInvoiced. */
+  returnRatioPct: number | null;
 }

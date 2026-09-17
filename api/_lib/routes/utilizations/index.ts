@@ -6,6 +6,7 @@ import { CreditNote, CreditNoteDoc } from '../../models/CreditNote.js';
 import { DebitNote, DebitNoteDoc } from '../../models/DebitNote.js';
 import { AdvancePayment, AdvancePaymentDoc } from '../../models/AdvancePayment.js';
 import { Receipt, ReceiptDoc } from '../../models/Receipt.js';
+import { EffectiveNote, EffectiveNoteDoc } from '../../models/EffectiveNote.js';
 import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoice.js';
 import { PurchaseOrder, PurchaseOrderDoc } from '../../models/PurchaseOrder.js';
 import { Return, ReturnDoc } from '../../models/Return.js';
@@ -22,18 +23,21 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   debitNote: 'Debit Note',
   advancePayment: 'Advance Payment',
   receipt: 'Receipt',
+  effectiveNote: 'Effective Note',
 };
 const SOURCE_NUMBER_FIELD: Record<SourceType, string> = {
   creditNote: 'creditNoteNumber',
   debitNote: 'debitNoteNumber',
   advancePayment: 'advancePaymentNumber',
   receipt: 'receiptNumber',
+  effectiveNote: 'effectiveNoteNumber',
 };
 const SOURCE_MODEL: Record<SourceType, mongoose.Model<any>> = {
   creditNote: CreditNote,
   debitNote: DebitNote,
   advancePayment: AdvancePayment,
   receipt: Receipt,
+  effectiveNote: EffectiveNote,
 };
 
 interface CreateUtilizationBody {
@@ -127,6 +131,12 @@ async function loadSource(sourceType: SourceType, sourceId: string, clientId: st
     if (doc.status === 'Void') return { remaining: 0, direction: doc.direction as Direction, number: doc.advancePaymentNumber, error: 'This advance payment has been voided' };
     return { remaining: doc.remainingAmount, direction: doc.direction as Direction, number: doc.advancePaymentNumber };
   }
+  if (sourceType === 'effectiveNote') {
+    const doc = (await EffectiveNote.findOne({ _id: sourceId, clientId }).session(dbSession).lean()) as EffectiveNoteDoc | null;
+    if (!doc) return null;
+    if (doc.status === 'Void') return { remaining: 0, direction: 'customer', number: doc.effectiveNoteNumber, error: 'This effective note has been voided' };
+    return { remaining: doc.remainingAmount, direction: 'customer', number: doc.effectiveNoteNumber };
+  }
   // receipt
   const doc = (await Receipt.findOne({ _id: sourceId, clientId }).session(dbSession).lean()) as ReceiptDoc | null;
   if (!doc) return null;
@@ -134,7 +144,7 @@ async function loadSource(sourceType: SourceType, sourceId: string, clientId: st
   return { remaining, direction: 'customer', number: doc.receiptNumber };
 }
 
-interface TargetInfo {
+export interface TargetInfo {
   kind: 'customerInvoice' | 'purchaseOrder' | 'return';
   outstanding: number;
   error?: string;
@@ -175,7 +185,10 @@ async function loadTarget(
   return { kind: 'return', outstanding };
 }
 
-async function applySource(sourceType: SourceType, sourceId: string, clientId: string, amount: number, dbSession: mongoose.ClientSession) {
+// Exported so returns/index.ts can auto-apply a CreditNote raised from a
+// CustomerInvoice-sourced Return straight back against that same invoice,
+// without duplicating this already-tested balance/status math.
+export async function applySource(sourceType: SourceType, sourceId: string, clientId: string, amount: number, dbSession: mongoose.ClientSession) {
   if (sourceType === 'receipt') {
     const doc = (await Receipt.findOne({ _id: sourceId, clientId }).session(dbSession)) as mongoose.Document & ReceiptDoc;
     const onAccountAppliedAmount = Math.round(((doc.onAccountAppliedAmount ?? 0) + amount) * 100) / 100;
@@ -193,7 +206,7 @@ async function applySource(sourceType: SourceType, sourceId: string, clientId: s
   await model.updateOne({ _id: sourceId, clientId }, { $set: { appliedAmount, remainingAmount, ...statusUpdate } }, { session: dbSession });
 }
 
-async function applyTarget(
+export async function applyTarget(
   targetInfo: TargetInfo,
   targetId: string,
   clientId: string,

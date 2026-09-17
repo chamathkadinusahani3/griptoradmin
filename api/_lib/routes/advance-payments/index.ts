@@ -4,9 +4,8 @@ import { AdvancePayment, AdvancePaymentDoc, ADVANCE_PAYMENT_METHODS } from '../.
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
 import { requireTenantPermission } from '../../auth.js';
-import { generateSequentialNumber } from '../../numbering.js';
 import { serializeAdvancePayment } from '../../serializers.js';
-import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
+import { createAdvancePayment } from '../../advancePayments.js';
 
 interface CreateAdvancePaymentBody {
   direction?: 'customer' | 'supplier';
@@ -98,50 +97,20 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     if (!supplier) return res.status(400).json({ error: 'Supplier not found' });
   }
 
-  const advancePaymentNumber = await generateSequentialNumber(AdvancePayment, session.clientId, 'advancePaymentNumber', 'advancePayment');
-  const payment = await AdvancePayment.create({
+  const payment = await createAdvancePayment({
     clientId: session.clientId,
-    advancePaymentNumber,
     direction,
-    customerId: direction === 'customer' ? customerId : undefined,
-    supplierId: direction === 'supplier' ? supplierId : undefined,
+    customerId,
+    supplierId,
+    partyName: direction === 'customer' ? customer?.name : supplier?.name,
     amount,
     method,
-    chequeNumber: method === 'Cheque' ? chequeNumber : undefined,
-    bankAccountId: bankAccountId || undefined,
+    chequeNumber,
+    bankAccountId,
     date,
-    appliedAmount: 0,
-    remainingAmount: amount,
     notes,
   });
 
-  // Best-effort, same non-blocking reasoning as every other GL posting
-  // outside an existing transaction in this codebase — real cash moved, so
-  // (unlike Credit/Debit Notes) this document posts its own entry. Reuses
-  // Accounts Receivable/Payable pushed into a credit-balance position, the
-  // exact technique Receipt's on-account remainder already established.
-  try {
-    const accountName = cashOrBankAccountName(method);
-    const otherAccountName = direction === 'customer' ? 'Accounts Receivable' : 'Accounts Payable';
-    const accountIds = await getAccountIdsByNames(session.clientId, [accountName, otherAccountName]);
-    const cashOrBankId = accountIds.get(accountName);
-    const otherId = accountIds.get(otherAccountName);
-    if (cashOrBankId && otherId) {
-      await postJournalEntry({
-        clientId: session.clientId,
-        description: direction === 'customer' ? `Advance from ${customer?.name}` : `Advance to ${supplier?.name}`,
-        sourceType: direction === 'customer' ? 'customer-payment' : 'supplier-payment',
-        sourceId: payment._id.toString(),
-        lines:
-          direction === 'customer'
-            ? [{ accountId: cashOrBankId, debit: amount }, { accountId: otherId, credit: amount }]
-            : [{ accountId: otherId, debit: amount }, { accountId: cashOrBankId, credit: amount }],
-      });
-    }
-  } catch (err) {
-    console.error('Journal posting failed for advance payment', payment._id.toString(), err);
-  }
-
-  const [serialized] = await withNames(session.clientId, [payment.toObject()]);
+  const [serialized] = await withNames(session.clientId, [payment]);
   return res.status(201).json({ advancePayment: serialized });
 }

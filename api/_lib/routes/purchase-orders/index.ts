@@ -12,12 +12,15 @@ interface CreateLine {
   partId?: string;
   quantity?: number;
   unitCost?: number;
+  promisedPrice?: number;
+  brandDiscountPct?: number;
 }
 
 interface CreatePurchaseOrderBody {
   supplierId?: string;
   branchId?: string;
   items?: CreateLine[];
+  creditPeriodDays?: number;
   expectedDate?: string;
   notes?: string;
 }
@@ -54,13 +57,26 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'purchase-orders:manage');
   if (!session) return;
 
-  const { supplierId, branchId: requestedBranchId, items, expectedDate, notes } = (req.body ?? {}) as CreatePurchaseOrderBody;
+  const { supplierId, branchId: requestedBranchId, items, creditPeriodDays, expectedDate, notes } = (req.body ?? {}) as CreatePurchaseOrderBody;
   if (!supplierId || !items || items.length === 0) {
     return res.status(400).json({ error: 'supplierId and at least one item are required' });
+  }
+  // Dealer Credit Control roadmap Module 4 — promisedPrice/brandDiscountPct
+  // per line and creditPeriodDays at header are now mandatory per the spec.
+  // Purely data-capture — see PurchaseOrder.ts's own comment for why they
+  // don't feed into subtotal/total.
+  if (creditPeriodDays == null || typeof creditPeriodDays !== 'number' || creditPeriodDays < 0) {
+    return res.status(400).json({ error: 'creditPeriodDays must be a non-negative number' });
   }
   for (const line of items) {
     if (!line.partId || !line.quantity || line.quantity <= 0 || line.unitCost == null || line.unitCost < 0) {
       return res.status(400).json({ error: 'Each item requires a partId, a positive quantity, and a non-negative unitCost' });
+    }
+    if (line.promisedPrice == null || typeof line.promisedPrice !== 'number' || line.promisedPrice < 0) {
+      return res.status(400).json({ error: 'Each item requires a non-negative promisedPrice' });
+    }
+    if (line.brandDiscountPct == null || typeof line.brandDiscountPct !== 'number' || line.brandDiscountPct < 0 || line.brandDiscountPct > 100) {
+      return res.status(400).json({ error: 'Each item requires a brandDiscountPct between 0 and 100' });
     }
   }
 
@@ -75,12 +91,19 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const parts = (await Part.find(partFilter).lean()) as PartDoc[];
   const partById = new Map(parts.map((p) => [p._id.toString(), p]));
 
-  const lines: { partId: string; name: string; quantity: number; unitCost: number }[] = [];
+  const lines: { partId: string; name: string; quantity: number; unitCost: number; promisedPrice: number; brandDiscountPct: number }[] = [];
   let subtotal = 0;
   for (const line of items) {
     const part = partById.get(line.partId!);
     if (!part) return res.status(400).json({ error: `Unknown part for this branch: ${line.partId}` });
-    lines.push({ partId: part._id.toString(), name: part.name, quantity: line.quantity!, unitCost: line.unitCost! });
+    lines.push({
+      partId: part._id.toString(),
+      name: part.name,
+      quantity: line.quantity!,
+      unitCost: line.unitCost!,
+      promisedPrice: line.promisedPrice!,
+      brandDiscountPct: line.brandDiscountPct!,
+    });
     subtotal += line.quantity! * line.unitCost!;
   }
   subtotal = Math.round(subtotal * 100) / 100;
@@ -96,6 +119,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     total: subtotal,
     balance: subtotal,
     status: 'Draft',
+    creditPeriodDays,
     expectedDate: expectedDate ? new Date(expectedDate) : undefined,
     notes,
   });

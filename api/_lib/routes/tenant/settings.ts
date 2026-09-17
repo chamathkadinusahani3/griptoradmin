@@ -48,12 +48,15 @@ interface UpdateSettingsBody {
     cashHandover?: string;
     utilization?: string;
     customerDebitNote?: string;
+    effectiveNote?: string;
   };
   deliveryLoadRules?: { maxVolume: number; vehicleType: string }[];
   fuelPricePerLiter?: number;
   requireSalesOrderApproval?: boolean;
   requireDeliveryConfirm?: boolean;
   customerCreditLimitPolicy?: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  returnRatioPolicy?: 'Off' | 'Block' | 'Warn' | 'RequireApproval';
+  returnRatioThresholdPct?: number;
   priceListsEnabled?: boolean;
   maxDiscountPctBeforeApproval?: number;
   invoiceApprovalThresholdAmount?: number;
@@ -88,6 +91,7 @@ const NUMBERING_KEYS = [
   'cashHandover',
   'utilization',
   'customerDebitNote',
+  'effectiveNote',
 ] as const;
 // A document number is embedded in a URL-safe-ish reference string
 // everywhere it's shown (invoice PDFs, PO printouts) — same conservative
@@ -112,7 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const {
     name, contact, email, branding, address, phone, taxId, website, taxRatePct, fiscalYearStartMonth, numberingPrefixes,
-    deliveryLoadRules, fuelPricePerLiter, requireSalesOrderApproval, requireDeliveryConfirm, customerCreditLimitPolicy, priceListsEnabled,
+    deliveryLoadRules, fuelPricePerLiter, requireSalesOrderApproval, requireDeliveryConfirm, customerCreditLimitPolicy,
+    returnRatioPolicy, returnRatioThresholdPct, priceListsEnabled,
     maxDiscountPctBeforeApproval, invoiceApprovalThresholdAmount, requireReturnApproval, requireRefundApproval,
   } = (req.body ?? {}) as UpdateSettingsBody;
 
@@ -160,6 +165,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (customerCreditLimitPolicy !== undefined && !CUSTOMER_CREDIT_LIMIT_POLICIES.includes(customerCreditLimitPolicy)) {
     return res.status(400).json({ error: `customerCreditLimitPolicy must be one of: ${CUSTOMER_CREDIT_LIMIT_POLICIES.join(', ')}` });
+  }
+  if (returnRatioPolicy !== undefined && !CUSTOMER_CREDIT_LIMIT_POLICIES.includes(returnRatioPolicy)) {
+    return res.status(400).json({ error: `returnRatioPolicy must be one of: ${CUSTOMER_CREDIT_LIMIT_POLICIES.join(', ')}` });
+  }
+  if (returnRatioThresholdPct !== undefined && (typeof returnRatioThresholdPct !== 'number' || returnRatioThresholdPct < 0 || returnRatioThresholdPct > 100)) {
+    return res.status(400).json({ error: 'returnRatioThresholdPct must be a number between 0 and 100' });
   }
   if (priceListsEnabled !== undefined && typeof priceListsEnabled !== 'boolean') {
     return res.status(400).json({ error: 'priceListsEnabled must be a boolean' });
@@ -220,6 +231,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (requireSalesOrderApproval !== undefined) update.requireSalesOrderApproval = requireSalesOrderApproval;
   if (requireDeliveryConfirm !== undefined) update.requireDeliveryConfirm = requireDeliveryConfirm;
   if (customerCreditLimitPolicy !== undefined) update.customerCreditLimitPolicy = customerCreditLimitPolicy;
+  if (returnRatioPolicy !== undefined) update.returnRatioPolicy = returnRatioPolicy;
+  if (returnRatioThresholdPct !== undefined) update.returnRatioThresholdPct = returnRatioThresholdPct;
   if (priceListsEnabled !== undefined) update.priceListsEnabled = priceListsEnabled;
   if (maxDiscountPctBeforeApproval !== undefined) update.maxDiscountPctBeforeApproval = maxDiscountPctBeforeApproval;
   if (invoiceApprovalThresholdAmount !== undefined) update.invoiceApprovalThresholdAmount = invoiceApprovalThresholdAmount;

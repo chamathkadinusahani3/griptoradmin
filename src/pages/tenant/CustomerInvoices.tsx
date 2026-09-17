@@ -107,7 +107,7 @@ export function CustomerInvoices() {
     }
     setSaving(true);
     try {
-      const { invoice, creditWarning, discountWarning } = await api.post<{ invoice: CustomerInvoice; creditWarning?: string; discountWarning?: string }>('/customer-invoices', {
+      const { invoice, creditWarning, returnRatioWarning, discountWarning } = await api.post<{ invoice: CustomerInvoice; creditWarning?: string; returnRatioWarning?: string; discountWarning?: string }>('/customer-invoices', {
         ...form,
         jobCardId: form.jobCardId || undefined,
         dueDate: form.dueDate || undefined,
@@ -116,6 +116,7 @@ export function CustomerInvoices() {
       setInvoices((prev) => [invoice, ...prev]);
       toast.success(`${invoice.invoiceNumber} created`);
       if (creditWarning) toast.warning(creditWarning);
+      if (returnRatioWarning) toast.warning(returnRatioWarning);
       if (discountWarning) toast.warning(discountWarning);
       setModalOpen(false);
     } catch (err) {

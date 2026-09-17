@@ -9,11 +9,15 @@ import { DebitNote } from '../../models/DebitNote.js';
 import { Sale, SaleDoc } from '../../models/Sale.js';
 import { PurchaseOrder, PurchaseOrderDoc } from '../../models/PurchaseOrder.js';
 import { Supplier, SupplierDoc } from '../../models/Supplier.js';
+import { Customer, CustomerDoc } from '../../models/Customer.js';
+import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoice.js';
+import { Utilization } from '../../models/Utilization.js';
 import { Part } from '../../models/Part.js';
 import { requireTenantPermission } from '../../auth.js';
 import { generateSequentialNumber } from '../../numbering.js';
 import { effectiveReceivedQuantity } from '../../purchaseOrderReceiving.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from '../../journal.js';
+import { applySource, applyTarget } from '../utilizations/index.js';
 import { serializeReturn } from '../../serializers.js';
 
 type ReturnReason = (typeof RETURN_REASONS)[number];
@@ -21,10 +25,21 @@ type ReturnReason = (typeof RETURN_REASONS)[number];
 interface ReturnLineBody {
   partId?: string;
   quantity?: number;
+  // Only used when sourceType is 'customer-invoice' — that source has no
+  // Part reference to look a name/price up from (see Return.ts's comment),
+  // so the line is described directly instead of matched against a source
+  // document's own items.
+  description?: string;
+  unitPrice?: number;
 }
 
 interface CreateReturnBody {
   direction?: 'customer' | 'supplier';
+  // Only meaningful when direction is 'customer' — defaults to 'sale' when
+  // omitted, preserving this endpoint's original behavior exactly for every
+  // existing caller. 'customer-invoice' is the Dealer Credit Control
+  // roadmap Module 1 addition (see Return.ts's comment).
+  sourceType?: 'sale' | 'customer-invoice';
   sourceId?: string;
   items?: ReturnLineBody[];
   reason?: ReturnReason;
@@ -59,11 +74,26 @@ async function handleList(req: VercelRequest, res: VercelResponse) {
   const supplierNameById = new Map(suppliers.map((s) => [s._id.toString(), s.name]));
   const poNumberById = new Map(orders.map((o) => [o._id.toString(), o.poNumber]));
 
+  const invoiceSourceIds = returns.filter((r) => r.sourceType === 'customer-invoice').map((r) => r.sourceId);
+  const invoices = invoiceSourceIds.length
+    ? ((await CustomerInvoice.find({ _id: { $in: invoiceSourceIds } }).lean()) as CustomerInvoiceDoc[])
+    : [];
+  const customerIdByInvoiceId = new Map(invoices.map((i) => [i._id.toString(), i.customerId.toString()]));
+  const invoiceCustomerIds = [...new Set([...customerIdByInvoiceId.values()])];
+  const invoiceCustomers = invoiceCustomerIds.length ? ((await Customer.find({ _id: { $in: invoiceCustomerIds } }).lean()) as CustomerDoc[]) : [];
+  const customerNameById = new Map(invoiceCustomers.map((c) => [c._id.toString(), c.name]));
+  const invoiceNumberById = new Map(invoices.map((i) => [i._id.toString(), i.invoiceNumber]));
+
   return res.status(200).json({
     returns: returns.map((r) => {
       const party =
-        r.sourceType === 'purchase-order' ? supplierNameById.get(supplierIdByOrderId.get(r.sourceId.toString()) ?? '') : undefined;
-      const reference = r.sourceType === 'purchase-order' ? poNumberById.get(r.sourceId.toString()) : undefined;
+        r.sourceType === 'purchase-order' ? supplierNameById.get(supplierIdByOrderId.get(r.sourceId.toString()) ?? '') :
+        r.sourceType === 'customer-invoice' ? customerNameById.get(customerIdByInvoiceId.get(r.sourceId.toString()) ?? '') :
+        undefined;
+      const reference =
+        r.sourceType === 'purchase-order' ? poNumberById.get(r.sourceId.toString()) :
+        r.sourceType === 'customer-invoice' ? invoiceNumberById.get(r.sourceId.toString()) :
+        undefined;
       return serializeReturn(r, party, reference);
     }),
   });
@@ -74,7 +104,7 @@ interface ExecuteReturnEffectsParams {
   dbSession: mongoose.ClientSession;
   returnDoc: ReturnDoc;
   direction: 'customer' | 'supplier';
-  lines: { partId: string; name: string; quantity: number; unitPrice: number }[];
+  lines: { partId?: string; name: string; quantity: number; unitPrice: number }[];
   orderSupplierId?: string;
   hasRefund: boolean;
   refundAmount?: number;
@@ -144,7 +174,11 @@ export async function executeReturnEffects(params: ExecuteReturnEffectsParams): 
 
   for (const line of lines) {
     if (direction === 'customer') {
-      // Coming back into stock.
+      // Coming back into stock — skipped for a customer-invoice line with no
+      // partId (see Return.ts's comment): there's no Part to identify, so
+      // nothing to reverse. Staff can run a manual Stock Adjustment
+      // separately if the physical goods actually came back.
+      if (!line.partId) continue;
       await Part.updateOne({ _id: line.partId, clientId }, { $inc: { stock: line.quantity } }, { session: dbSession });
     } else {
       // Leaving stock again — check it's actually still there (it may have
@@ -170,7 +204,7 @@ export async function executeReturnEffects(params: ExecuteReturnEffectsParams): 
     const creditNoteNumber = await generateSequentialNumber(CreditNote, clientId, 'creditNoteNumber', 'creditNote');
     const appliedAmount = hasRefund ? Math.min(refundAmount ?? 0, totalAmount) : 0;
     const remainingAmount = Math.round((totalAmount - appliedAmount) * 100) / 100;
-    await CreditNote.create(
+    const [creditNoteDoc] = await CreditNote.create(
       [
         {
           clientId,
@@ -185,6 +219,46 @@ export async function executeReturnEffects(params: ExecuteReturnEffectsParams): 
       ],
       { session: dbSession }
     );
+
+    // Dealer Credit Control roadmap Module 1 — a customer-invoice-sourced
+    // return means the goods were billed on a specific invoice, so (absent a
+    // cash refund) the natural outcome is crediting THAT invoice's balance
+    // immediately rather than leaving a floating CreditNote someone has to
+    // remember to apply later via Utilization. Reuses the exact same
+    // applySource/applyTarget balance math Utilization's own route already
+    // uses — this is just that same flow, auto-triggered. A cash refund
+    // (hasRefund) is handled by the block below instead, same as a
+    // Sale-sourced return; the CreditNote then stays available to apply
+    // manually for any remainder.
+    if (returnDoc.sourceType === 'customer-invoice' && remainingAmount > 0) {
+      await applySource('creditNote', creditNoteDoc._id.toString(), clientId, remainingAmount, dbSession);
+      await applyTarget(
+        { kind: 'customerInvoice', outstanding: 0 },
+        returnDoc.sourceId.toString(),
+        clientId,
+        remainingAmount,
+        new Date(),
+        `Auto-applied from Return ${returnDoc.returnNumber}`,
+        dbSession
+      );
+      const utilizationNumber = await generateSequentialNumber(Utilization, clientId, 'utilizationNumber', 'utilization');
+      await Utilization.create(
+        [
+          {
+            clientId,
+            utilizationNumber,
+            sourceType: 'creditNote',
+            sourceId: creditNoteDoc._id,
+            targetType: 'invoice',
+            targetId: returnDoc.sourceId,
+            amount: remainingAmount,
+            date: new Date(),
+            notes: `Auto-applied from Return ${returnDoc.returnNumber}`,
+          },
+        ],
+        { session: dbSession }
+      );
+    }
   }
 
   // ERP-Phase 6 — the supplier-direction mirror of the block above. Starts
@@ -260,8 +334,13 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   if (!reason || !(RETURN_REASONS as readonly string[]).includes(reason)) {
     return res.status(400).json({ error: `reason must be one of: ${RETURN_REASONS.join(', ')}` });
   }
+  const isInvoiceSourced = direction === 'customer' && body.sourceType === 'customer-invoice';
   for (const line of items) {
-    if (!line.partId || !line.quantity || line.quantity <= 0) {
+    if (isInvoiceSourced) {
+      if (!line.description?.trim() || !line.quantity || line.quantity <= 0 || line.unitPrice == null || line.unitPrice < 0) {
+        return res.status(400).json({ error: 'Each item requires a description, a positive quantity, and a unitPrice' });
+      }
+    } else if (!line.partId || !line.quantity || line.quantity <= 0) {
       return res.status(400).json({ error: 'Each item requires a partId and a positive quantity' });
     }
   }
@@ -278,59 +357,90 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const gated = !!client?.requireReturnApproval;
   const refundGated = !!client?.requireRefundApproval;
 
-  const sourceType = direction === 'customer' ? 'sale' : 'purchase-order';
+  const sourceType = direction === 'customer' ? (isInvoiceSourced ? 'customer-invoice' : 'sale') : 'purchase-order';
 
-  // Cumulative check — a source document's own line quantity is the cap
-  // across every OTHER-THAN-REJECTED return ever made against it (Pending/
-  // Inspected returns reserve their quantity the same way Stock
-  // Reservation's provisional tally does — see stockReservation.ts — so two
-  // concurrent return requests against the same source can't both pass a
-  // check that together would over-return it).
-  const priorReturns = (await Return.find({ clientId: session.clientId, sourceId, sourceType, status: { $ne: 'Rejected' } }).lean()) as ReturnDoc[];
-  const priorReturnedByPart = new Map<string, number>();
-  for (const r of priorReturns) {
-    for (const line of r.items) {
-      const key = line.partId.toString();
-      priorReturnedByPart.set(key, (priorReturnedByPart.get(key) ?? 0) + line.quantity);
-    }
-  }
-
-  let sourceLineByPart: Map<string, { name: string; unitPrice: number; qty: number }>;
+  const lines: { partId?: string; name: string; quantity: number; unitPrice: number }[] = [];
+  let totalAmount = 0;
   let orderSupplierId: string | undefined;
 
-  if (direction === 'customer') {
-    const sale = (await Sale.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as SaleDoc | null;
-    if (!sale) return res.status(404).json({ error: 'Sale not found' });
-    sourceLineByPart = new Map(sale.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.price, qty: i.qty }]));
-  } else {
-    const order = (await PurchaseOrder.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as PurchaseOrderDoc | null;
-    if (!order) return res.status(404).json({ error: 'Purchase order not found' });
-    if (order.status !== 'Received' && order.status !== 'Partially Received') {
-      return res.status(400).json({ error: 'Only a Received (or Partially Received) purchase order can have items returned to the supplier' });
-    }
-    orderSupplierId = order.supplierId.toString();
-    // Capped by what actually ARRIVED, not the full ordered quantity — a
-    // partial delivery can't have more returned against it than showed up.
-    sourceLineByPart = new Map(
-      order.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.unitCost, qty: effectiveReceivedQuantity(i, order.status) }])
-    );
-  }
+  if (sourceType === 'customer-invoice') {
+    const invoice = (await CustomerInvoice.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as CustomerInvoiceDoc | null;
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (invoice.status === 'Void') return res.status(400).json({ error: 'Cannot record a return against a voided invoice' });
 
-  const lines: { partId: string; name: string; quantity: number; unitPrice: number }[] = [];
-  let totalAmount = 0;
-  for (const line of items) {
-    const source = sourceLineByPart.get(line.partId!);
-    if (!source) return res.status(400).json({ error: `Part ${line.partId} was not part of this ${sourceType === 'sale' ? 'sale' : 'purchase order'}` });
-    const alreadyReturned = priorReturnedByPart.get(line.partId!) ?? 0;
-    if (alreadyReturned + line.quantity! > source.qty) {
-      return res.status(400).json({
-        error: `Cannot return ${line.quantity} of "${source.name}" — only ${Math.max(0, source.qty - alreadyReturned)} left returnable`,
-      });
+    // Dealer Credit Control roadmap Module 1 — a CustomerInvoice line has no
+    // Part reference to match against (see Return.ts's comment), so this is
+    // capped in aggregate against the invoice's own total minus whatever's
+    // already been returned (non-rejected) against it, rather than the
+    // per-part-quantity cap the sale/purchase-order branches use below.
+    const priorInvoiceReturns = (await Return.find({
+      clientId: session.clientId,
+      sourceId,
+      sourceType: 'customer-invoice',
+      status: { $ne: 'Rejected' },
+    }).lean()) as ReturnDoc[];
+    const alreadyReturned = priorInvoiceReturns.reduce((sum, r) => sum + r.totalAmount, 0);
+    const returnable = Math.round((invoice.total - alreadyReturned) * 100) / 100;
+
+    for (const line of items) {
+      lines.push({ name: line.description!.trim(), quantity: line.quantity!, unitPrice: line.unitPrice! });
+      totalAmount += line.quantity! * line.unitPrice!;
     }
-    lines.push({ partId: line.partId!, name: source.name, quantity: line.quantity!, unitPrice: source.unitPrice });
-    totalAmount += line.quantity! * source.unitPrice;
+    totalAmount = Math.round(totalAmount * 100) / 100;
+    if (totalAmount > returnable + 0.005) {
+      return res.status(400).json({ error: `Cannot return ${totalAmount.toFixed(2)} — only ${Math.max(0, returnable).toFixed(2)} left returnable on this invoice` });
+    }
+  } else {
+    // Cumulative check — a source document's own line quantity is the cap
+    // across every OTHER-THAN-REJECTED return ever made against it (Pending/
+    // Inspected returns reserve their quantity the same way Stock
+    // Reservation's provisional tally does — see stockReservation.ts — so two
+    // concurrent return requests against the same source can't both pass a
+    // check that together would over-return it).
+    const priorReturns = (await Return.find({ clientId: session.clientId, sourceId, sourceType, status: { $ne: 'Rejected' } }).lean()) as ReturnDoc[];
+    const priorReturnedByPart = new Map<string, number>();
+    for (const r of priorReturns) {
+      for (const line of r.items) {
+        if (!line.partId) continue;
+        const key = line.partId.toString();
+        priorReturnedByPart.set(key, (priorReturnedByPart.get(key) ?? 0) + line.quantity);
+      }
+    }
+
+    let sourceLineByPart: Map<string, { name: string; unitPrice: number; qty: number }>;
+
+    if (direction === 'customer') {
+      const sale = (await Sale.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as SaleDoc | null;
+      if (!sale) return res.status(404).json({ error: 'Sale not found' });
+      sourceLineByPart = new Map(sale.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.price, qty: i.qty }]));
+    } else {
+      const order = (await PurchaseOrder.findOne({ _id: sourceId, clientId: session.clientId }).lean()) as PurchaseOrderDoc | null;
+      if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+      if (order.status !== 'Received' && order.status !== 'Partially Received') {
+        return res.status(400).json({ error: 'Only a Received (or Partially Received) purchase order can have items returned to the supplier' });
+      }
+      orderSupplierId = order.supplierId.toString();
+      // Capped by what actually ARRIVED, not the full ordered quantity — a
+      // partial delivery can't have more returned against it than showed up.
+      sourceLineByPart = new Map(
+        order.items.map((i) => [i.partId.toString(), { name: i.name, unitPrice: i.unitCost, qty: effectiveReceivedQuantity(i, order.status) }])
+      );
+    }
+
+    for (const line of items) {
+      const source = sourceLineByPart.get(line.partId!);
+      if (!source) return res.status(400).json({ error: `Part ${line.partId} was not part of this ${sourceType === 'sale' ? 'sale' : 'purchase order'}` });
+      const alreadyReturned = priorReturnedByPart.get(line.partId!) ?? 0;
+      if (alreadyReturned + line.quantity! > source.qty) {
+        return res.status(400).json({
+          error: `Cannot return ${line.quantity} of "${source.name}" — only ${Math.max(0, source.qty - alreadyReturned)} left returnable`,
+        });
+      }
+      lines.push({ partId: line.partId!, name: source.name, quantity: line.quantity!, unitPrice: source.unitPrice });
+      totalAmount += line.quantity! * source.unitPrice;
+    }
+    totalAmount = Math.round(totalAmount * 100) / 100;
   }
-  totalAmount = Math.round(totalAmount * 100) / 100;
 
   // Resolved before the transaction starts — same "doesn't need
   // transactional consistency with the stock/Return writes, only the actual
@@ -401,6 +511,13 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
       if (order) {
         const supplier = (await Supplier.findById(order.supplierId).lean()) as SupplierDoc | null;
         party = supplier?.name;
+      }
+    } else if (sourceType === 'customer-invoice') {
+      const invoice = (await CustomerInvoice.findById(sourceId).lean()) as CustomerInvoiceDoc | null;
+      reference = invoice?.invoiceNumber;
+      if (invoice) {
+        const customer = (await Customer.findById(invoice.customerId).lean()) as CustomerDoc | null;
+        party = customer?.name;
       }
     }
 

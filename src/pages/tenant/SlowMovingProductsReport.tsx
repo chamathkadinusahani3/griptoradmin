@@ -9,8 +9,10 @@ import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SlowMovingProductsReport as SlowMovingProductsReportData } from '../../types/slowMovingProductsReport';
+import { Branch } from '../../types/branch';
 import { formatCurrency, formatDate, exportCsv } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
+import { Select } from '../../components/ui/Input';
 
 type RangeKey = '30' | '90' | '365' | 'custom';
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
@@ -27,19 +29,26 @@ export function SlowMovingProductsReport() {
   const [range, setRange] = useState<RangeKey>('90');
   const [customFrom, setCustomFrom] = useState(daysAgoIso(90));
   const [customTo, setCustomTo] = useState(todayIso());
+  const [branchFilter, setBranchFilter] = useState('');
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [data, setData] = useState<SlowMovingProductsReportData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get<{ branches: Branch[] }>('/branches').then(({ branches }) => setBranches(branches)).catch(() => setBranches([]));
+  }, []);
 
   useEffect(() => {
     if (range === 'custom' && (!customFrom || !customTo || customFrom > customTo)) return;
     setLoading(true);
     const rangeQuery = range === 'custom' ? `range=custom&from=${customFrom}&to=${customTo}` : `range=${range}`;
+    const branchQuery = branchFilter ? `&branchId=${branchFilter}` : '';
     api
-      .get<SlowMovingProductsReportData>(`/tenant/slow-moving-products-report?${rangeQuery}`)
+      .get<SlowMovingProductsReportData>(`/tenant/slow-moving-products-report?${rangeQuery}${branchQuery}`)
       .then(setData)
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load report'))
       .finally(() => setLoading(false));
-  }, [range, customFrom, customTo]);
+  }, [range, customFrom, customTo, branchFilter]);
 
   const topRows = data ? data.rows.slice(0, 50) : [];
 
@@ -58,6 +67,14 @@ export function SlowMovingProductsReport() {
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-lg border border-border-soft bg-white px-2.5 py-1.5 text-xs text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
             <span className="text-xs text-text-gray dark:text-slate-400">to</span>
             <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-lg border border-border-soft bg-white px-2.5 py-1.5 text-xs text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          </div>
+        )}
+        {branches.length > 1 && (
+          <div className="max-w-[200px]">
+            <Select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter by branch">
+              <option value="">All branches</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
           </div>
         )}
       </div>
@@ -95,6 +112,7 @@ export function SlowMovingProductsReport() {
                     <tr className="border-b border-border-soft text-xs uppercase tracking-wide text-slate-400 dark:border-slate-800">
                       <th className="px-5 py-3 font-bold">Part</th>
                       <th className="px-5 py-3 font-bold">Category</th>
+                      {branches.length > 1 && <th className="px-5 py-3 font-bold">Branch</th>}
                       <th className="px-5 py-3 text-right font-bold">Stock</th>
                       <th className="px-5 py-3 text-right font-bold">Sold in range</th>
                       <th className="px-5 py-3 font-bold">Last sold</th>
@@ -106,6 +124,7 @@ export function SlowMovingProductsReport() {
                       <tr key={r.id} className="border-b border-border-soft last:border-0 dark:border-slate-800">
                         <td className="px-5 py-3 font-semibold text-navy dark:text-slate-100">{r.name}</td>
                         <td className="px-5 py-3 text-text-gray dark:text-slate-400">{r.category}</td>
+                        {branches.length > 1 && <td className="px-5 py-3 text-text-gray dark:text-slate-400">{r.branchName ?? '—'}</td>}
                         <td className="px-5 py-3 text-right text-text-gray dark:text-slate-400">{r.stock}</td>
                         <td className="px-5 py-3 text-right">
                           {r.qtySoldInRange === 0 ? <Badge tone="red">0</Badge> : <span className="text-navy dark:text-slate-100">{r.qtySoldInRange}</span>}

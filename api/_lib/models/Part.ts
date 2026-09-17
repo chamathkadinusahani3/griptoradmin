@@ -7,6 +7,11 @@ const PartSchema = new Schema(
     sku: { type: String },
     barcode: { type: String },
     category: { type: String, required: true },
+    // Dealer Credit Control roadmap Module 4 — manufacturer/brand name
+    // (e.g. "ARIVO", "Michelin"), master data set once per part. A
+    // Purchase Order line's brandDiscountPct (PurchaseOrder.ts) refers to
+    // whatever brand is set here rather than re-entering it per order.
+    brand: { type: String },
     stock: { type: Number, default: 0 },
     reorderAt: { type: Number, default: 0 },
     price: { type: Number, default: 0 },

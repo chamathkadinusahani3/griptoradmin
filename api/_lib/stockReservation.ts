@@ -32,10 +32,20 @@ interface ReservationLine {
   isManualEntry?: boolean;
 }
 
-/** Reserved quantity per partId, summed across every open SalesOrder — optionally narrowed to a specific set of parts. */
-export async function getReservedQtyByPart(clientId: string, partIds?: string[]): Promise<Map<string, number>> {
+/**
+ * Reserved quantity per partId, summed across every open SalesOrder —
+ * optionally narrowed to a specific set of parts, and optionally excluding
+ * one specific order's own lines from the sum. That exclusion is for
+ * editing an existing Confirmed/Partially Fulfilled order (routes/
+ * sales-orders/[id].ts's edit action): the order's own current reservation
+ * must not count against itself when re-validating its (possibly changed)
+ * quantities, or a same-or-smaller edit could be incorrectly rejected as
+ * exceeding "available" stock.
+ */
+export async function getReservedQtyByPart(clientId: string, partIds?: string[], excludeOrderId?: string): Promise<Map<string, number>> {
   const filter: Record<string, unknown> = { clientId, status: { $in: RESERVING_STATUSES } };
   if (partIds && partIds.length > 0) filter['items.partId'] = { $in: partIds };
+  if (excludeOrderId) filter._id = { $ne: excludeOrderId };
 
   const orders = (await SalesOrder.find(filter).select('items').lean()) as unknown as { items: ReservationLine[] }[];
   const reservedByPart = new Map<string, number>();

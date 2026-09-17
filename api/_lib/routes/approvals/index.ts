@@ -5,7 +5,7 @@ import { User, UserDoc } from '../../models/User.js';
 import { requireTenant, requireTenantPermission } from '../../auth.js';
 import { serializeApproval } from '../../serializers.js';
 
-const APPROVAL_TYPES = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Warranty Claim', 'Other'] as const;
+const APPROVAL_TYPES = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Return Ratio Override', 'Warranty Claim', 'Other'] as const;
 
 interface CreateApprovalBody {
   type?: (typeof APPROVAL_TYPES)[number];

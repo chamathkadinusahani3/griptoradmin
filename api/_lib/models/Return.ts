@@ -57,9 +57,14 @@ export const RETURN_REFUND_STATUSES = ['Requested', 'Approved', 'Paid'] as const
 
 // Snapshotted at return time, same convention as Sale.items/PurchaseOrder.items
 // — the return still reads correctly even if the Part is later renamed/deleted.
+// partId is optional as of the 'customer-invoice' sourceType below —
+// CustomerInvoice line items are free-text (description/quantity/unitPrice,
+// see CustomerInvoice.ts's LineItemSchema) with no Part reference at all, so
+// a return against one has nothing to reverse Part.stock against for that
+// line. `name` doubles as that free-text description in that case.
 const ReturnLineSchema = new Schema(
   {
-    partId: { type: Schema.Types.ObjectId, ref: 'Part', required: true },
+    partId: { type: Schema.Types.ObjectId, ref: 'Part' },
     name: { type: String, required: true },
     quantity: { type: Number, required: true },
     unitPrice: { type: Number, required: true },
@@ -67,18 +72,27 @@ const ReturnLineSchema = new Schema(
   { _id: false }
 );
 
-// A single append-only record for both directions of "goods went back the
-// other way" — a customer returning something they bought (POS Sale), or
-// the garage returning something to a supplier (a Received PurchaseOrder).
-// Deliberately does NOT touch PurchaseOrder.balance/paidAmount — that math
-// is already real and tested (see purchaseOrderPayments.ts); a return is
-// independent record-keeping, not a payment. Only Part.stock is reversed
-// automatically (see routes/returns/index.ts's transaction).
+// A single append-only record for three source shapes: a customer returning
+// something bought via a POS Sale, a customer returning something billed on
+// a CustomerInvoice (Dealer Credit Control roadmap Module 1 — added so a
+// B2B dealer's returns, which happen through SalesOrder/CustomerInvoice
+// rather than a walk-in Sale, can be attributed to them at all for a return
+// ratio), or the garage returning something to a supplier (a Received
+// PurchaseOrder). Deliberately does NOT touch PurchaseOrder.balance/
+// paidAmount for the supplier direction — that math is already real and
+// tested (see purchaseOrderPayments.ts); a return is independent
+// record-keeping, not a payment. The customer-invoice direction is the one
+// exception: see routes/returns/index.ts's executeReturnEffects, which
+// auto-applies the CreditNote this always creates straight back against the
+// SAME invoice's balance (reusing utilizations/index.ts's applySource/
+// applyTarget) — a Sale-sourced return still stays pure record-keeping. Part
+// stock is reversed automatically only for lines that carry a partId (see
+// routes/returns/index.ts's transaction).
 const ReturnSchema = new Schema(
   {
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
     direction: { type: String, enum: ['customer', 'supplier'], required: true },
-    sourceType: { type: String, enum: ['sale', 'purchase-order'], required: true },
+    sourceType: { type: String, enum: ['sale', 'purchase-order', 'customer-invoice'], required: true },
     sourceId: { type: Schema.Types.ObjectId, required: true },
     returnNumber: { type: String, required: true },
     items: { type: [ReturnLineSchema], default: [] },

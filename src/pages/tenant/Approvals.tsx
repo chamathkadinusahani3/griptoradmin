@@ -14,7 +14,7 @@ import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useHasPermission } from '../../context/AuthContext';
 
-const TYPES: ApprovalType[] = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Warranty Claim', 'Other'];
+const TYPES: ApprovalType[] = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Return Ratio Override', 'Warranty Claim', 'Other'];
 const STATUS_TONE: Record<ApprovalStatus, 'amber' | 'green' | 'red'> = { Pending: 'amber', Approved: 'green', Rejected: 'red' };
 const emptyForm = { type: 'Discount Authorization' as ApprovalType, subject: '', amount: '' };
 

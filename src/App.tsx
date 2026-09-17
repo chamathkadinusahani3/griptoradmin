@@ -115,6 +115,7 @@ import { SupplierClaims } from './pages/tenant/SupplierClaims';
 import { SalesForceDashboard } from './pages/tenant/SalesForceDashboard';
 import { SalesDashboard } from './pages/tenant/SalesDashboard';
 import { Salespersons } from './pages/tenant/Salespersons';
+import { MyDealers } from './pages/tenant/MyDealers';
 import { Routes as SfRoutes } from './pages/tenant/Routes';
 import { FleetVehicles } from './pages/tenant/FleetVehicles';
 import { SalesVisits } from './pages/tenant/SalesVisits';
@@ -137,6 +138,7 @@ import { DebitNotes } from './pages/tenant/DebitNotes';
 import { CustomerDebitNotes } from './pages/tenant/CustomerDebitNotes';
 import { Receipts } from './pages/tenant/Receipts';
 import { AdvancePayments } from './pages/tenant/AdvancePayments';
+import { EffectiveNotes } from './pages/tenant/EffectiveNotes';
 import { CollectionTasks } from './pages/tenant/CollectionTasks';
 import { PriceLists } from './pages/tenant/PriceLists';
 import { Promotions } from './pages/tenant/Promotions';
@@ -327,6 +329,7 @@ export function App() {
                 <Route path="customer-debit-notes" element={<CustomerDebitNotes />} />
                 <Route path="receipts" element={<Receipts />} />
                 <Route path="advance-payments" element={<AdvancePayments />} />
+                <Route path="effective-notes" element={<EffectiveNotes />} />
                 <Route path="collection-tasks" element={<CollectionTasks />} />
                 <Route path="price-lists" element={<PriceLists />} />
                 <Route path="promotions" element={<Promotions />} />
@@ -380,6 +383,7 @@ export function App() {
                 <Route path="supplier-claims" element={<SupplierClaims />} />
                 <Route path="sf-dashboard" element={<SalesForceDashboard />} />
                 <Route path="salespersons" element={<Salespersons />} />
+                <Route path="my-dealers" element={<MyDealers />} />
                 <Route path="sf-routes" element={<SfRoutes />} />
                 <Route path="sf-vehicles" element={<FleetVehicles />} />
                 <Route path="sales-visits" element={<SalesVisits />} />

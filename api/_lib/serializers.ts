@@ -13,6 +13,7 @@ import { PartDoc } from './models/Part.js';
 import { BankAccountDoc } from './models/BankAccount.js';
 import { ChequeDoc } from './models/Cheque.js';
 import { CreditNoteDoc } from './models/CreditNote.js';
+import { EffectiveNoteDoc } from './models/EffectiveNote.js';
 import { DebitNoteDoc } from './models/DebitNote.js';
 import { CustomerDebitNoteDoc } from './models/CustomerDebitNote.js';
 import { ReceiptDoc } from './models/Receipt.js';
@@ -446,7 +447,7 @@ export function serializeReturn(ret: ReturnDoc, party?: string, reference?: stri
     sourceType: ret.sourceType,
     sourceId: ret.sourceId.toString(),
     returnNumber: ret.returnNumber,
-    items: ret.items.map((i) => ({ partId: i.partId.toString(), name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+    items: ret.items.map((i) => ({ partId: i.partId?.toString(), name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
     totalAmount: ret.totalAmount,
     reason: ret.reason,
     notes: ret.notes,
@@ -494,6 +495,28 @@ export function serializeCreditNote(note: CreditNoteDoc, returnNumber?: string) 
     creditNoteNumber: note.creditNoteNumber,
     returnId: note.returnId.toString(),
     returnNumber,
+    amount: note.amount,
+    appliedAmount: note.appliedAmount ?? 0,
+    remainingAmount: note.remainingAmount,
+    status: note.status,
+    reason: note.reason,
+    notes: note.notes,
+    voidedAt: note.voidedAt,
+    voidReason: note.voidReason,
+    createdAt: (note as unknown as { createdAt: Date }).createdAt,
+  };
+}
+
+export function serializeEffectiveNote(note: EffectiveNoteDoc, opts?: { customerName?: string; warrantyClaimNumber?: string }) {
+  return {
+    id: note._id.toString(),
+    effectiveNoteNumber: note.effectiveNoteNumber,
+    customerId: note.customerId.toString(),
+    customerName: opts?.customerName,
+    warrantyClaimId: note.warrantyClaimId?.toString(),
+    warrantyClaimNumber: opts?.warrantyClaimNumber,
+    claimedAmount: note.claimedAmount,
+    approvedAmount: note.approvedAmount,
     amount: note.amount,
     appliedAmount: note.appliedAmount ?? 0,
     remainingAmount: note.remainingAmount,
@@ -866,9 +889,18 @@ export function serializeSalesOrder(order: SalesOrderDoc, customerName?: string,
     departmentId: order.departmentId?.toString(),
     departmentName,
     creditPeriod: order.creditPeriod,
+    payType: order.payType ?? 'Credit',
     scheduledDeliveryDate: order.scheduledDeliveryDate,
+    deliveryMarkingDate: order.deliveryMarkingDate,
+    deliveryType: order.deliveryType ?? 'Normal',
     deliveryName: order.deliveryName,
     deliveryAddress: order.deliveryAddress,
+    customerAddress: order.customerAddress,
+    customerTel: order.customerTel,
+    vatType: order.vatType ?? 'Non Vat',
+    vatNumber: order.vatNumber,
+    svatNumber: order.svatNumber,
+    brand: order.brand,
     items: order.items.map((i) => ({
       partId: i.partId.toString(),
       name: i.name,
@@ -893,6 +925,7 @@ export function serializeSalesOrder(order: SalesOrderDoc, customerName?: string,
     total: order.total,
     status: order.status,
     notes: order.notes,
+    staffNote: order.staffNote,
     approvedBy: order.approvedBy?.toString(),
     approvedAt: order.approvedAt,
     rejectionReason: order.rejectionReason,
@@ -1354,11 +1387,17 @@ export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: s
       name: i.name,
       quantity: i.quantity,
       unitCost: i.unitCost,
+      // Dealer Credit Control roadmap Module 4 — backfilled for every line
+      // written before these fields existed, same "absent means predates
+      // this phase" convention as receivedQuantity below.
+      promisedPrice: i.promisedPrice ?? i.unitCost,
+      brandDiscountPct: i.brandDiscountPct ?? 0,
       receivedQuantity: effectiveReceivedQuantity(i, order.status),
     })),
     subtotal: order.subtotal,
     total: order.total,
     status: order.status,
+    creditPeriodDays: order.creditPeriodDays ?? 0,
     expectedDate: order.expectedDate,
     receivedAt: order.receivedAt,
     notes: order.notes,
@@ -1382,13 +1421,14 @@ export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: s
   };
 }
 
-export function serializePart(part: PartDoc, supplierName?: string, reservedQty = 0) {
+export function serializePart(part: PartDoc, supplierName?: string, reservedQty = 0, suggestedReorderQty?: number) {
   return {
     id: part._id.toString(),
     name: part.name,
     sku: part.sku,
     barcode: part.barcode,
     category: part.category,
+    brand: part.brand,
     stock: part.stock,
     // Sales Module Phase 4 — derived live (stockReservation.ts), only ever
     // populated by parts/index.ts's list handler; every other caller of
@@ -1397,6 +1437,11 @@ export function serializePart(part: PartDoc, supplierName?: string, reservedQty 
     reservedQty,
     availableQty: Math.max(0, part.stock - reservedQty),
     reorderAt: part.reorderAt,
+    // Dealer Credit Control roadmap Module 3 — only populated for a
+    // low-stock part by parts/index.ts's list handler (see
+    // reorderSuggestion.ts); undefined otherwise, same "safe default,
+    // caller decides if it needs this" convention as reservedQty above.
+    suggestedReorderQty,
     price: part.price,
     cost: part.cost ?? 0,
     minSellingPrice: part.minSellingPrice,
@@ -1533,6 +1578,8 @@ export function serializeClient(client: ClientDoc) {
     requireSalesOrderApproval: client.requireSalesOrderApproval ?? false,
     requireDeliveryConfirm: client.requireDeliveryConfirm ?? false,
     customerCreditLimitPolicy: client.customerCreditLimitPolicy ?? 'Off',
+    returnRatioPolicy: client.returnRatioPolicy ?? 'Off',
+    returnRatioThresholdPct: client.returnRatioThresholdPct ?? 20,
     priceListsEnabled: client.priceListsEnabled ?? false,
     maxDiscountPctBeforeApproval: client.maxDiscountPctBeforeApproval ?? 0,
     invoiceApprovalThresholdAmount: client.invoiceApprovalThresholdAmount ?? 0,

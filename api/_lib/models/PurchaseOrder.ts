@@ -1,5 +1,11 @@
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
 
+// Dealer Credit Control roadmap Module 4 — matches the spec's own dropdown
+// exactly. 'Other' is expected to lean on the payment record's existing
+// free-text `notes` field for elaboration, same convention as Return.ts's
+// RETURN_REASONS.
+export const SETTLEMENT_DISCOUNT_REASONS = ['Cash Discount', 'Quantity Discount', 'Incentive', 'Old Types', 'Company Offer', 'Other'] as const;
+
 const PurchaseOrderLineSchema = new Schema(
   {
     partId: { type: Schema.Types.ObjectId, ref: 'Part', required: true },
@@ -8,6 +14,18 @@ const PurchaseOrderLineSchema = new Schema(
     name: { type: String, required: true },
     quantity: { type: Number, required: true },
     unitCost: { type: Number, required: true },
+    // Dealer Credit Control roadmap Module 4 — the price originally agreed/
+    // quoted by the supplier, distinct from unitCost (what's actually being
+    // ordered at) so a procurement officer can spot a discrepancy between
+    // what was promised and what's being paid. Purely a data-capture field —
+    // does NOT feed into subtotal/total, which stay computed from unitCost
+    // exactly as before this existed.
+    promisedPrice: { type: Number, required: true },
+    // The manufacturer/brand-specific discount negotiated for this line —
+    // required (0 is a valid, explicit "no discount" answer) per the spec's
+    // own mandatory-fields list. Also purely informational, same reasoning
+    // as promisedPrice above.
+    brandDiscountPct: { type: Number, required: true },
     // How much of this line has actually arrived so far — a PO can now be
     // received across more than one delivery (see GoodsReceivedNote.ts).
     // Documents written before this field existed read as 0 here even
@@ -60,6 +78,13 @@ const PurchaseOrderSchema = new Schema(
     subtotal: { type: Number, required: true },
     total: { type: Number, required: true },
     status: { type: String, enum: ['Draft', 'Ordered', 'Partially Received', 'Received', 'Cancelled'], default: 'Draft' },
+    // Dealer Credit Control roadmap Module 4 — supplier payment terms for
+    // this order, mandatory per the spec. Mirrors Customer.creditPeriodDays'
+    // shape but on the purchase side, where nothing equivalent existed
+    // before this — purely informational (doesn't drive any payment gate
+    // today, matching how Customer.creditPeriodDays itself is just read by
+    // dealerMetrics.ts/cron reporting rather than blocking anything).
+    creditPeriodDays: { type: Number, required: true },
     expectedDate: { type: Date },
     receivedAt: { type: Date },
     notes: { type: String },

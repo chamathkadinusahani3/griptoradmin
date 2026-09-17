@@ -9,7 +9,8 @@ export interface PdfDocument {
   date: string;
   garageName?: string;
   customerName?: string;
-  vehicle: string;
+  /** Unset for a document with no vehicle concept (e.g. a Sales Order, a parts/counter order) — that line is simply omitted. */
+  vehicle?: string;
   plate?: string;
   items: LineItem[];
   subtotal: number;
@@ -34,10 +35,15 @@ export function downloadDocumentPdf(doc: PdfDocument) {
   pdf.text(`Date: ${formatDate(doc.date)}`, 14, 33);
 
   pdf.text(`Customer: ${doc.customerName ?? '—'}`, 14, 43);
-  pdf.text(`Vehicle: ${doc.vehicle}${doc.plate ? ` (${doc.plate})` : ''}`, 14, 49);
+  let tableStartY = 56;
+  if (doc.vehicle) {
+    pdf.text(`Vehicle: ${doc.vehicle}${doc.plate ? ` (${doc.plate})` : ''}`, 14, 49);
+  } else {
+    tableStartY = 49;
+  }
 
   autoTable(pdf, {
-    startY: 56,
+    startY: tableStartY,
     head: [['Description', 'Qty', 'Unit Price', 'Total']],
     body: doc.items.map((i) => [i.description, String(i.quantity), formatCurrency(i.unitPrice), formatCurrency(i.quantity * i.unitPrice)]),
   });

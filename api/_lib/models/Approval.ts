@@ -1,6 +1,6 @@
 import mongoose, { Schema, InferSchemaType } from 'mongoose';
 
-const APPROVAL_TYPES = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Warranty Claim', 'Other'] as const;
+const APPROVAL_TYPES = ['Discount Authorization', 'Refund Request', 'Credit Limit Override', 'Return Ratio Override', 'Warranty Claim', 'Other'] as const;
 
 const ApprovalSchema = new Schema(
   {

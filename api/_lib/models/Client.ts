@@ -93,6 +93,7 @@ const NumberingPrefixesSchema = new Schema(
     cashHandover: { type: String },
     utilization: { type: String },
     customerDebitNote: { type: String },
+    effectiveNote: { type: String },
   },
   { _id: false }
 );
@@ -199,6 +200,18 @@ const ClientSchema = new Schema(
     // Default 'Off': zero behavior change for tenants that haven't
     // configured this, same opt-in discipline as the two booleans above.
     customerCreditLimitPolicy: { type: String, enum: ['Off', 'Block', 'Warn', 'RequireApproval'], default: 'Off' },
+    // Dealer Credit Control roadmap Module 1 — same 4-state shape as
+    // customerCreditLimitPolicy above, but keyed on a dealer's return ratio
+    // (api/_lib/dealerMetrics.ts's returnRatioPct) instead of their credit
+    // limit, and checked only at CustomerInvoice creation (see
+    // returnRatioGate.ts) — "block invoice generation" specifically, per the
+    // spec, not every sales-document type. RequireApproval's override is
+    // gated to session.isOwner specifically (not the broader
+    // approvals:respond permission customerCreditLimitGate.ts's own
+    // RequireApproval uses) — the spec calls this "Director Approval",
+    // mapped to this app's single top-level-authority flag.
+    returnRatioPolicy: { type: String, enum: ['Off', 'Block', 'Warn', 'RequireApproval'], default: 'Off' },
+    returnRatioThresholdPct: { type: Number, default: 20 },
     // Sales Module Phase 6 — opt-in kill-switch, same shape/default as
     // requireSalesOrderApproval above. While off, a customer's
     // defaultPriceListId can't even be set (enforced in

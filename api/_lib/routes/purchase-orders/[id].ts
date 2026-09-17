@@ -14,6 +14,8 @@ interface UpdateLine {
   partId?: string;
   quantity?: number;
   unitCost?: number;
+  promisedPrice?: number;
+  brandDiscountPct?: number;
   // Only meaningful for the 'receive' action (Sales Module Phase 15) —
   // staff-entered at the moment this information is actually known.
   batchNumber?: string;
@@ -23,6 +25,7 @@ interface UpdateLine {
 
 interface UpdatePurchaseOrderBody {
   items?: UpdateLine[];
+  creditPeriodDays?: number;
   expectedDate?: string;
   notes?: string;
   action?: 'order' | 'receive' | 'cancel';
@@ -61,6 +64,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const update: Record<string, unknown> = {};
   if (body.notes !== undefined) update.notes = body.notes;
   if (body.expectedDate !== undefined) update.expectedDate = body.expectedDate ? new Date(body.expectedDate) : undefined;
+  if (body.creditPeriodDays !== undefined) {
+    if (typeof body.creditPeriodDays !== 'number' || body.creditPeriodDays < 0) {
+      return res.status(400).json({ error: 'creditPeriodDays must be a non-negative number' });
+    }
+    update.creditPeriodDays = body.creditPeriodDays;
+  }
 
   if (body.items !== undefined) {
     if (body.items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
@@ -68,15 +77,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!line.partId || !line.quantity || line.quantity <= 0 || line.unitCost == null || line.unitCost < 0) {
         return res.status(400).json({ error: 'Each item requires a partId, a positive quantity, and a non-negative unitCost' });
       }
+      if (line.promisedPrice == null || typeof line.promisedPrice !== 'number' || line.promisedPrice < 0) {
+        return res.status(400).json({ error: 'Each item requires a non-negative promisedPrice' });
+      }
+      if (line.brandDiscountPct == null || typeof line.brandDiscountPct !== 'number' || line.brandDiscountPct < 0 || line.brandDiscountPct > 100) {
+        return res.status(400).json({ error: 'Each item requires a brandDiscountPct between 0 and 100' });
+      }
     }
     const parts = await Part.find({ _id: { $in: body.items.map((i) => i.partId) }, clientId: session.clientId }).lean();
     const partById = new Map(parts.map((p) => [p._id.toString(), p]));
-    const lines: { partId: string; name: string; quantity: number; unitCost: number }[] = [];
+    const lines: { partId: string; name: string; quantity: number; unitCost: number; promisedPrice: number; brandDiscountPct: number }[] = [];
     let subtotal = 0;
     for (const line of body.items) {
       const part = partById.get(line.partId!);
       if (!part) return res.status(400).json({ error: `Unknown part: ${line.partId}` });
-      lines.push({ partId: part._id.toString(), name: part.name, quantity: line.quantity!, unitCost: line.unitCost! });
+      lines.push({
+        partId: part._id.toString(),
+        name: part.name,
+        quantity: line.quantity!,
+        unitCost: line.unitCost!,
+        promisedPrice: line.promisedPrice!,
+        brandDiscountPct: line.brandDiscountPct!,
+      });
       subtotal += line.quantity! * line.unitCost!;
     }
     update.items = lines;

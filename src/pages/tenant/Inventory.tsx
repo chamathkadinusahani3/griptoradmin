@@ -17,7 +17,7 @@ import { formatCurrency, formatDate, cn } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { downloadStockLabelsPdf } from '../../lib/stockLabels';
 
-const emptyForm = { name: '', sku: '', barcode: '', category: '', stock: '0', reorderAt: '0', price: '0', cost: '0', minSellingPrice: '', batchNumber: '', serialNumber: '', expiryDate: '', unitVolume: '', supplierId: '', branchId: '', warehouseId: '' };
+const emptyForm = { name: '', sku: '', barcode: '', category: '', brand: '', stock: '0', reorderAt: '0', price: '0', cost: '0', minSellingPrice: '', batchNumber: '', serialNumber: '', expiryDate: '', unitVolume: '', supplierId: '', branchId: '', warehouseId: '' };
 
 export function Inventory() {
   const [parts, setParts] = useState<Part[]>([]);
@@ -82,6 +82,7 @@ export function Inventory() {
         sku: form.sku,
         barcode: form.barcode,
         category: form.category,
+        brand: form.brand || undefined,
         stock: Number(form.stock) || 0,
         reorderAt: Number(form.reorderAt) || 0,
         price: Number(form.price) || 0,
@@ -275,6 +276,10 @@ export function Inventory() {
             <Input id="p-category" required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Brakes" />
           </div>
           <div>
+            <Label htmlFor="p-brand">Brand (optional)</Label>
+            <Input id="p-brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. ARIVO" />
+          </div>
+          <div>
             <Label htmlFor="p-sku">SKU</Label>
             <Input id="p-sku" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
           </div>
@@ -288,7 +293,7 @@ export function Inventory() {
           </div>
           <div>
             <Label htmlFor="p-reorder">Reorder at</Label>
-            <Input id="p-reorder" type="number" value={form.reorderAt} onChange={(e) => setForm({ ...form, reorderAt: e.target.value })} />
+            <Input id="p-reorder" type="number" required min={1} value={form.reorderAt} onChange={(e) => setForm({ ...form, reorderAt: e.target.value })} />
           </div>
           <div>
             <Label htmlFor="p-price">Price ($)</Label>

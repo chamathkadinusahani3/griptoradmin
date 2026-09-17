@@ -584,6 +584,7 @@ export function Customers() {
                   <StatCard label="Overdue" value={formatCurrency(statement.overdueAmount)} icon={AlertTriangleIcon} />
                   <StatCard label="On-time rate" value={statement.onTimePaymentRatePct === null || statement.onTimePaymentRatePct === undefined ? '—' : `${statement.onTimePaymentRatePct}%`} icon={WalletIcon} />
                   <StatCard label="Last purchase" value={statement.lastPurchaseDate ? formatDate(statement.lastPurchaseDate) : '—'} icon={WalletIcon} />
+                  <StatCard label="Return ratio" value={statement.returnRatioPct === null || statement.returnRatioPct === undefined ? '—' : `${statement.returnRatioPct}%`} icon={AlertTriangleIcon} />
                 </div>
                 {statement.creditLimit > 0 &&
             <div className="mt-3">

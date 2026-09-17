@@ -12,6 +12,7 @@ import { generateSequentialNumber } from '../../numbering.js';
 import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
 import { checkCustomerCreditLimitGate } from '../../customerCreditLimitGate.js';
+import { checkReturnRatioGate } from '../../returnRatioGate.js';
 import { checkInvoiceAmountThresholdGate } from '../../discountGovernance.js';
 
 interface CreateInvoiceBody {
@@ -79,9 +80,18 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const limitCheck = await checkCreditExposureLimit(session, customer, total);
   if (limitCheck.blocked) return res.status(400).json({ error: limitCheck.message });
 
-  const client = (await Client.findById(session.clientId).select('customerCreditLimitPolicy invoiceApprovalThresholdAmount').lean()) as ClientDoc | null;
+  const client = (await Client.findById(session.clientId)
+    .select('customerCreditLimitPolicy invoiceApprovalThresholdAmount returnRatioPolicy returnRatioThresholdPct')
+    .lean()) as ClientDoc | null;
   const creditLimitGate = await checkCustomerCreditLimitGate(session, client?.customerCreditLimitPolicy ?? 'Off', customer, total);
   if (creditLimitGate.blocked) return res.status(400).json({ error: creditLimitGate.message });
+
+  // Dealer Credit Control roadmap Module 1 — independent of the credit-limit
+  // gate just above (a different risk signal entirely), checked right after
+  // it so a customer failing both gets the credit-limit message first, same
+  // "each check stands alone" ordering as every other gate in this route.
+  const returnRatioGate = await checkReturnRatioGate(session, client?.returnRatioPolicy ?? 'Off', client?.returnRatioThresholdPct ?? 20, customer);
+  if (returnRatioGate.blocked) return res.status(400).json({ error: returnRatioGate.message });
 
   const invoiceAmountGate = await checkInvoiceAmountThresholdGate(session, client?.invoiceApprovalThresholdAmount ?? 0, total);
   if (invoiceAmountGate.blocked) return res.status(400).json({ error: invoiceAmountGate.message });
@@ -115,6 +125,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   return res.status(201).json({
     invoice: serializeCustomerInvoice(invoice.toObject(), (customer as CustomerDoc).name),
     creditWarning: creditLimitGate.warning,
+    returnRatioWarning: returnRatioGate.warning,
     discountWarning: invoiceAmountGate.warning,
   });
 }

@@ -8,8 +8,10 @@ import { Card, CardHeader } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { InventoryReport as InventoryReportData } from '../../types/inventoryReport';
+import { Branch } from '../../types/branch';
 import { formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
+import { Select } from '../../components/ui/Input';
 
 type RangeKey = '30' | '90' | '365' | 'custom';
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
@@ -32,19 +34,26 @@ export function InventoryReport() {
   const [range, setRange] = useState<RangeKey>('30');
   const [customFrom, setCustomFrom] = useState(daysAgoIso(30));
   const [customTo, setCustomTo] = useState(todayIso());
+  const [branchFilter, setBranchFilter] = useState('');
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [data, setData] = useState<InventoryReportData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get<{ branches: Branch[] }>('/branches').then(({ branches }) => setBranches(branches)).catch(() => setBranches([]));
+  }, []);
 
   useEffect(() => {
     if (range === 'custom' && (!customFrom || !customTo || customFrom > customTo)) return;
     setLoading(true);
     const query = range === 'custom' ? `range=custom&from=${customFrom}&to=${customTo}` : `range=${range}`;
+    const branchQuery = branchFilter ? `&branchId=${branchFilter}` : '';
     api
-      .get<InventoryReportData>(`/tenant/inventory-report?${query}`)
+      .get<InventoryReportData>(`/tenant/inventory-report?${query}${branchQuery}`)
       .then(setData)
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load inventory report'))
       .finally(() => setLoading(false));
-  }, [range, customFrom, customTo]);
+  }, [range, customFrom, customTo, branchFilter]);
 
   return (
     <div>
@@ -68,6 +77,14 @@ export function InventoryReport() {
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-lg border border-border-soft bg-white px-2.5 py-1.5 text-xs text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
             <span className="text-xs text-text-gray dark:text-slate-400">to</span>
             <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="rounded-lg border border-border-soft bg-white px-2.5 py-1.5 text-xs text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          </div>
+        )}
+        {branches.length > 1 && (
+          <div className="max-w-[200px] print:hidden">
+            <Select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter by branch">
+              <option value="">All branches</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
           </div>
         )}
       </div>

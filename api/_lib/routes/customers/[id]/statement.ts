@@ -4,7 +4,7 @@ import { Customer, CustomerDoc } from '../../../models/Customer.js';
 import { CustomerInvoice, CustomerInvoiceDoc } from '../../../models/CustomerInvoice.js';
 import { requireTenantPermission } from '../../../auth.js';
 import { serializeCustomerInvoice } from '../../../serializers.js';
-import { computeDealerMetrics } from '../../../dealerMetrics.js';
+import { computeDealerMetrics, getCustomerReturnedAmount } from '../../../dealerMetrics.js';
 import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../../creditDiscipline.js';
 
 // Everything here is computed live from real CustomerInvoice documents on
@@ -56,7 +56,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const roundedOutstanding = Math.round(totalOutstanding * 100) / 100;
 
   const dealerMetrics = CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])
-    ? computeDealerMetrics(invoices, creditLimit, roundedOutstanding, customer.creditPeriodDays ?? 30)
+    ? computeDealerMetrics(
+        invoices,
+        creditLimit,
+        roundedOutstanding,
+        customer.creditPeriodDays ?? 30,
+        now,
+        await getCustomerReturnedAmount(session.clientId, invoices.map((i) => i._id.toString()))
+      )
     : null;
 
   return res.status(200).json({
