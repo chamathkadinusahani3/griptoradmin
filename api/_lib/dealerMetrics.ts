@@ -39,6 +39,26 @@ export async function getCustomerReturnedAmount(clientId: string, invoiceIds: st
   return round2([...map.values()].reduce((sum, v) => sum + v, 0));
 }
 
+/**
+ * Total item quantity across the same 'customer-invoice'-sourced returns
+ * getCustomerReturnedAmount sums the value of — the "how many units came
+ * back" dimension alongside that function's "how much money" one. Used by
+ * My Dealers (salespersons/me/dealers.ts) so a sales rep sees both at a
+ * glance, not just the ratio.
+ */
+export async function getCustomerReturnedQuantity(clientId: string, invoiceIds: string[]): Promise<number> {
+  if (invoiceIds.length === 0) return 0;
+  const returns = (await Return.find({
+    clientId,
+    sourceType: 'customer-invoice',
+    sourceId: { $in: invoiceIds },
+    status: { $ne: 'Rejected' },
+  })
+    .select('items')
+    .lean()) as { items: { quantity: number }[] }[];
+  return returns.reduce((sum, r) => sum + r.items.reduce((s, i) => s + (i.quantity || 0), 0), 0);
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**

@@ -206,7 +206,12 @@ export function DealerFormModal({ open, onClose, onCreated, editing }: Props) {
       const { dealerProfile } = await api.post<{ dealerProfile: { documents: DealerDocument[] } }>(`/customers/${editing.id}/dealer-documents`, { documentType, ...uploaded });
       setDocuments(dealerProfile.documents);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : `Failed to upload ${file.name}`);
+      // Surface the real reason (e.g. Vercel Blob's own "no token
+      // configured" error) instead of a generic message that hides it —
+      // uploadSalesAttachment can throw a plain Error from the @vercel/blob
+      // client SDK, not just this app's own ApiError.
+      const message = err instanceof ApiError ? err.message : err instanceof Error ? err.message : `Failed to upload ${file.name}`;
+      toast.error(message);
     } finally {
       setUploadingType(null);
     }

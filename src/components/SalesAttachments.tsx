@@ -43,7 +43,12 @@ export function SalesAttachmentsButton({ docType, basePath, attachments, onChang
         const { attachments: updated } = await api.post<{ attachments: Attachment[] }>(basePath, uploaded);
         onChange(updated);
       } catch (err) {
-        toast.error(err instanceof ApiError ? err.message : `Failed to attach ${file.name}`);
+        // Surface the real reason (e.g. Vercel Blob's own "no token
+        // configured" error) instead of a generic message that hides it —
+        // uploadSalesAttachment can throw a plain Error from the
+        // @vercel/blob client SDK, not just this app's own ApiError.
+        const message = err instanceof ApiError ? err.message : err instanceof Error ? err.message : `Failed to attach ${file.name}`;
+        toast.error(message);
       }
     }
     setUploading(false);

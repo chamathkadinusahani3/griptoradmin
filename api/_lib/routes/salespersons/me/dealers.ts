@@ -4,8 +4,9 @@ import { Salesperson, SalespersonDoc } from '../../../models/Salesperson.js';
 import { Employee, EmployeeDoc } from '../../../models/Employee.js';
 import { SalespersonAssignment, SalespersonAssignmentDoc } from '../../../models/SalespersonAssignment.js';
 import { Customer, CustomerDoc } from '../../../models/Customer.js';
+import { Cheque } from '../../../models/Cheque.js';
 import { requireTenant } from '../../../auth.js';
-import { computeDealerMetrics, getCustomerInvoicesAndTotals, getCustomerReturnedAmount } from '../../../dealerMetrics.js';
+import { computeDealerMetrics, getCustomerInvoicesAndTotals, getCustomerReturnedAmount, getCustomerReturnedQuantity } from '../../../dealerMetrics.js';
 import { CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../../creditDiscipline.js';
 
 // Dealer Credit Control roadmap Module 1, Phase 1.1 — self-service "my
@@ -56,22 +57,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     customers.map(async (customer) => {
       const customerId = customer._id.toString();
       const { invoices, totalOutstanding } = await getCustomerInvoicesAndTotals(session.clientId, customerId);
+      const invoiceIds = invoices.map((i) => i._id.toString());
       const creditLimit = customer.creditLimit ?? 0;
+
+      // Goods-return figures — value, quantity, and (for credit-eligible
+      // types only, same scope computeDealerMetrics already uses) the
+      // ratio against total invoiced. Computed once here and reused for
+      // the ratio calc below rather than a second round-trip.
+      const [returnedAmount, returnedQuantity, chequeReturns] = await Promise.all([
+        getCustomerReturnedAmount(session.clientId, invoiceIds),
+        getCustomerReturnedQuantity(session.clientId, invoiceIds),
+        Cheque.find({ clientId: session.clientId, customerId, direction: 'incoming', status: 'Returned' })
+          .select('amount')
+          .lean() as Promise<{ amount: number }[]>,
+      ]);
+      const chequeReturnsCount = chequeReturns.length;
+      const chequeReturnedAmount = Math.round(chequeReturns.reduce((sum, c) => sum + c.amount, 0) * 100) / 100;
+
       const metrics = CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])
-        ? computeDealerMetrics(
-            invoices,
-            creditLimit,
-            totalOutstanding,
-            customer.creditPeriodDays ?? 30,
-            new Date(),
-            await getCustomerReturnedAmount(session.clientId, invoices.map((i) => i._id.toString()))
-          )
+        ? computeDealerMetrics(invoices, creditLimit, totalOutstanding, customer.creditPeriodDays ?? 30, new Date(), returnedAmount)
         : null;
       const assignment = assignmentByCustomerId.get(customerId)!;
 
       return {
         customerId,
         name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        contactPerson: customer.contactPerson,
+        billingAddress: customer.billingAddress,
         type: customer.type,
         status: customer.status,
         territory: assignment.territory,
@@ -83,6 +97,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isInViolation: metrics?.isInViolation ?? false,
         daysPastCreditPeriod: metrics?.daysPastCreditPeriod ?? 0,
         returnRatioPct: metrics?.returnRatioPct ?? null,
+        returnedAmount,
+        returnedQuantity,
+        chequeReturnsCount,
+        chequeReturnedAmount,
       };
     })
   );

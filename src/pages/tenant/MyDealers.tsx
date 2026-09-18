@@ -1,19 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { StoreIcon, UsersIcon, WalletIcon, AlertTriangleIcon } from 'lucide-react';
+import { StoreIcon, UsersIcon, WalletIcon, AlertTriangleIcon, MailIcon, PhoneIcon, UserIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { StatCard } from '../../components/ui/StatCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { Modal } from '../../components/ui/Modal';
 import { DueDateCalendar, DueDateCalendarItem } from '../../components/ui/DueDateCalendar';
-import { formatCurrency } from '../../lib/utils';
+import { CustomerStatement } from '../../types/statement';
+import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
 interface MyDealer {
   customerId: string;
   name: string;
+  email?: string;
+  phone?: string;
+  contactPerson?: string;
+  billingAddress?: string;
   type: string;
   status: 'Active' | 'Inactive' | 'Blocked';
   territory?: string;
@@ -25,6 +31,10 @@ interface MyDealer {
   isInViolation: boolean;
   daysPastCreditPeriod: number;
   returnRatioPct: number | null;
+  returnedAmount: number;
+  returnedQuantity: number;
+  chequeReturnsCount: number;
+  chequeReturnedAmount: number;
 }
 
 const PRIORITY_TONE: Record<string, 'red' | 'amber' | 'gray'> = { High: 'red', Medium: 'amber', Low: 'gray' };
@@ -35,6 +45,9 @@ export function MyDealers() {
   const [dealers, setDealers] = useState<MyDealer[]>([]);
   const [dueDates, setDueDates] = useState<DueDateCalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDealer, setSelectedDealer] = useState<MyDealer | null>(null);
+  const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
 
   useEffect(() => {
     api
@@ -52,6 +65,19 @@ export function MyDealers() {
       .then(({ dueDates }) => setDueDates(dueDates))
       .catch(() => setDueDates([]));
   }, []);
+
+  useEffect(() => {
+    if (!selectedDealer) {
+      setStatement(null);
+      return;
+    }
+    setStatementLoading(true);
+    api
+      .get<CustomerStatement>(`/customers/${selectedDealer.customerId}/statement`)
+      .then(setStatement)
+      .catch(() => setStatement(null))
+      .finally(() => setStatementLoading(false));
+  }, [selectedDealer]);
 
   const totalOutstanding = dealers.reduce((sum, d) => sum + d.totalOutstanding, 0);
   const inViolationCount = dealers.filter((d) => d.isInViolation).length;
@@ -86,7 +112,11 @@ export function MyDealers() {
           <Card>
             <ul className="divide-y divide-border-soft dark:divide-slate-800">
               {dealers.map((d) =>
-            <li key={d.customerId} className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <li
+              key={d.customerId}
+              onClick={() => setSelectedDealer(d)}
+              className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-soft-gray dark:hover:bg-slate-800/50">
+
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-navy dark:text-slate-100">{d.name}</p>
@@ -119,6 +149,18 @@ export function MyDealers() {
                         <p className={`font-semibold ${d.returnRatioPct >= 20 ? 'text-red-500' : 'text-navy dark:text-slate-100'}`}>{d.returnRatioPct}%</p>
                       </div>
                 }
+                    {d.returnedQuantity > 0 &&
+                <div>
+                        <p className="text-xs text-text-gray dark:text-slate-400">Goods returned</p>
+                        <p className="font-semibold text-navy dark:text-slate-100">{d.returnedQuantity} pcs · {formatCurrency(d.returnedAmount)}</p>
+                      </div>
+                }
+                    {d.chequeReturnsCount > 0 &&
+                <div>
+                        <p className="text-xs text-text-gray dark:text-slate-400">Cheque returns</p>
+                        <p className="font-semibold text-red-500">{d.chequeReturnsCount} · {formatCurrency(d.chequeReturnedAmount)}</p>
+                      </div>
+                }
                   </div>
                 </li>
             )}
@@ -126,6 +168,69 @@ export function MyDealers() {
           </Card>
         </>
       }
+
+      <Modal open={!!selectedDealer} onClose={() => setSelectedDealer(null)} title={selectedDealer?.name ?? ''} size="lg">
+        {selectedDealer &&
+        <div>
+            <div className="flex items-center gap-2">
+              <Badge tone={STATUS_TONE[selectedDealer.status]}>{selectedDealer.status}</Badge>
+              <Badge tone={PRIORITY_TONE[selectedDealer.priority]}>{selectedDealer.priority} priority</Badge>
+              {selectedDealer.isInViolation && <Badge tone="red">{selectedDealer.daysPastCreditPeriod}d overdue</Badge>}
+            </div>
+
+            <div className="mt-3 space-y-1 text-sm text-text-gray dark:text-slate-400">
+              {selectedDealer.email && <p className="flex items-center gap-1.5"><MailIcon className="h-3.5 w-3.5" /> {selectedDealer.email}</p>}
+              {selectedDealer.phone && <p className="flex items-center gap-1.5"><PhoneIcon className="h-3.5 w-3.5" /> {selectedDealer.phone}</p>}
+              {selectedDealer.contactPerson && <p className="flex items-center gap-1.5"><UserIcon className="h-3.5 w-3.5" /> {selectedDealer.contactPerson}</p>}
+              {selectedDealer.billingAddress && <p>{selectedDealer.billingAddress}</p>}
+              <p>{selectedDealer.territory ? `${selectedDealer.territory} · ` : ''}{selectedDealer.visitFrequency} visits</p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <StatCard label="Outstanding" value={formatCurrency(selectedDealer.totalOutstanding)} icon={WalletIcon} />
+              <StatCard label="Credit limit" value={selectedDealer.creditLimit > 0 ? formatCurrency(selectedDealer.creditLimit) : '—'} icon={WalletIcon} />
+              {selectedDealer.creditUtilizationPct != null &&
+            <StatCard label="Utilization" value={`${selectedDealer.creditUtilizationPct}%`} icon={WalletIcon} />
+            }
+              {selectedDealer.returnRatioPct != null &&
+            <StatCard label="Return ratio" value={`${selectedDealer.returnRatioPct}%`} icon={AlertTriangleIcon} />
+            }
+              {selectedDealer.returnedQuantity > 0 &&
+            <StatCard label="Goods returned" value={`${selectedDealer.returnedQuantity} pcs / ${formatCurrency(selectedDealer.returnedAmount)}`} icon={AlertTriangleIcon} />
+            }
+              {selectedDealer.chequeReturnsCount > 0 &&
+            <StatCard label="Cheque returns" value={`${selectedDealer.chequeReturnsCount} / ${formatCurrency(selectedDealer.chequeReturnedAmount)}`} icon={AlertTriangleIcon} />
+            }
+            </div>
+
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Recent invoices</p>
+              {statementLoading ?
+            <p className="text-sm text-text-gray dark:text-slate-400">Loading…</p> :
+            !statement || statement.invoices.length === 0 ?
+            <p className="text-sm text-text-gray dark:text-slate-400">No invoices yet.</p> :
+
+            <div className="max-h-64 overflow-y-auto">
+                  <ul className="divide-y divide-border-soft dark:divide-slate-800">
+                    {statement.invoices.slice(0, 20).map((inv) =>
+                <li key={inv.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-navy dark:text-slate-100">{inv.invoiceNumber}</p>
+                          <p className="text-xs text-text-gray dark:text-slate-400">{formatDate(inv.createdAt)}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-semibold text-navy dark:text-slate-100">{formatCurrency(inv.total)}</p>
+                          <p className="text-xs text-text-gray dark:text-slate-400">{inv.status}{inv.balance > 0 ? ` · ${formatCurrency(inv.balance)} due` : ''}</p>
+                        </div>
+                      </li>
+                )}
+                  </ul>
+                </div>
+            }
+            </div>
+          </div>
+        }
+      </Modal>
     </div>);
 
 }
