@@ -49,6 +49,7 @@ interface UpdateSettingsBody {
     utilization?: string;
     customerDebitNote?: string;
     effectiveNote?: string;
+    dealerCode?: string;
   };
   deliveryLoadRules?: { maxVolume: number; vehicleType: string }[];
   fuelPricePerLiter?: number;
@@ -92,6 +93,7 @@ const NUMBERING_KEYS = [
   'utilization',
   'customerDebitNote',
   'effectiveNote',
+  'dealerCode',
 ] as const;
 // A document number is embedded in a URL-safe-ish reference string
 // everywhere it's shown (invoice PDFs, PO printouts) — same conservative

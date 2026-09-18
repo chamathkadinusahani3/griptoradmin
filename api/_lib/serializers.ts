@@ -14,6 +14,7 @@ import { BankAccountDoc } from './models/BankAccount.js';
 import { ChequeDoc } from './models/Cheque.js';
 import { CreditNoteDoc } from './models/CreditNote.js';
 import { EffectiveNoteDoc } from './models/EffectiveNote.js';
+import { DealerProfileDoc } from './models/DealerProfile.js';
 import { DebitNoteDoc } from './models/DebitNote.js';
 import { CustomerDebitNoteDoc } from './models/CustomerDebitNote.js';
 import { ReceiptDoc } from './models/Receipt.js';
@@ -186,7 +187,7 @@ export function serializeTicket(ticket: TicketDoc, clientName?: string) {
   };
 }
 
-export function serializeCustomer(customer: CustomerDoc, defaultPriceListName?: string) {
+export function serializeCustomer(customer: CustomerDoc, defaultPriceListName?: string, dealerProfile?: ReturnType<typeof serializeDealerProfile>) {
   return {
     id: customer._id.toString(),
     defaultPriceListId: customer.defaultPriceListId?.toString(),
@@ -201,6 +202,11 @@ export function serializeCustomer(customer: CustomerDoc, defaultPriceListName?: 
     loyaltyPoints: customer.loyaltyPoints,
     totalSpend: customer.totalSpend,
     type: customer.type ?? 'individual',
+    // Customer/Dealer Registration roadmap Phase 1 — a UI discriminator
+    // only; every customer created before this field existed reads as
+    // 'customer' (the schema default), same as every other additive field
+    // in this codebase.
+    registrationType: customer.registrationType ?? 'customer',
     contactPerson: customer.contactPerson,
     creditLimit: customer.creditLimit ?? 0,
     discountPct: customer.discountPct ?? 0,
@@ -211,6 +217,60 @@ export function serializeCustomer(customer: CustomerDoc, defaultPriceListName?: 
     status: customer.status ?? 'Active',
     hasPortalAccount: !!customer.passwordHash,
     sourceModule: customer.sourceModule,
+    // Only present when this customer is a dealer AND its DealerProfile was
+    // joined in by the caller (see routes/customers/index.ts/[id].ts) —
+    // DealerProfile lives in its own collection, never embedded on Customer.
+    dealerProfile,
+  };
+}
+
+export function serializeDealerProfile(profile: DealerProfileDoc) {
+  return {
+    id: profile._id.toString(),
+    customerId: profile.customerId.toString(),
+    dealerCode: profile.dealerCode,
+    legalBusinessName: profile.legalBusinessName,
+    tradingName: profile.tradingName,
+    businessRegistrationNo: profile.businessRegistrationNo,
+    businessType: profile.businessType,
+    yearEstablished: profile.yearEstablished,
+    dealerCategory: profile.dealerCategory,
+    mainContact: profile.mainContact ?? {},
+    accountsContact: profile.accountsContact ?? {},
+    purchasingContact: profile.purchasingContact ?? {},
+    registeredAddress: profile.registeredAddress ?? {},
+    businessAddress: profile.businessAddress ?? {},
+    billingAddress: profile.billingAddress ?? {},
+    deliveryAddress: profile.deliveryAddress ?? {},
+    tin: profile.tin,
+    vatRegistered: !!profile.vatRegistered,
+    vatNumber: profile.vatNumber,
+    svatNumber: profile.svatNumber,
+    taxType: profile.taxType,
+    taxExemptionStatus: profile.taxExemptionStatus,
+    owners: profile.owners ?? [],
+    signatories: profile.signatories ?? [],
+    region: profile.region,
+    branchId: profile.branchId?.toString(),
+    dealerClass: profile.dealerClass,
+    dealerGroup: profile.dealerGroup,
+    paymentType: profile.paymentType,
+    dealerBankAccounts: profile.dealerBankAccounts ?? [],
+    businessProfile: profile.businessProfile ?? {},
+    documents: profile.documents ?? [],
+    // Undefined for a DealerProfile created before Phase 4 shipped — see
+    // DEALER_APPROVAL_STATUSES's own comment. The frontend treats a missing
+    // status as "grandfathered / already active", not as 'New Dealer'.
+    approvalStatus: profile.status,
+    requestedCreditLimit: profile.requestedCreditLimit,
+    recommendedCreditLimit: profile.recommendedCreditLimit,
+    approvedCreditLimit: profile.approvedCreditLimit,
+    creditTerms: profile.creditTerms,
+    approvedBy: profile.approvedBy?.toString(),
+    approvedAt: (profile as unknown as { approvedAt?: Date }).approvedAt,
+    reviewDate: (profile as unknown as { reviewDate?: Date }).reviewDate,
+    rejectionReason: profile.rejectionReason,
+    createdAt: (profile as unknown as { createdAt: Date }).createdAt,
   };
 }
 
@@ -696,6 +756,7 @@ export function serializeBankAccount(account: BankAccountDoc) {
     accountHolderName: account.accountHolderName,
     branch: account.branch,
     notes: account.notes,
+    cardSettlementDays: account.cardSettlementDays ?? 2,
     createdAt: (account as unknown as { createdAt: Date }).createdAt,
   };
 }
@@ -1194,12 +1255,19 @@ export function serializeSalesperson(sp: SalespersonDoc, employeeName?: string, 
   };
 }
 
-export function serializeSalespersonAssignment(a: SalespersonAssignmentDoc, opts?: { customerName?: string; salespersonName?: string; salespersonCode?: string; routeName?: string }) {
+export function serializeSalespersonAssignment(a: SalespersonAssignmentDoc, opts?: { customerName?: string; salespersonName?: string; salespersonCode?: string; salespersonUserId?: string; routeName?: string }) {
   return {
     id: a._id.toString(),
     salespersonId: a.salespersonId.toString(),
     salespersonName: opts?.salespersonName,
     salespersonCode: opts?.salespersonCode,
+    // The tenant User (login) this salesperson resolves to, via
+    // Salesperson.employeeId -> Employee.userId — undefined when this
+    // Salesperson has no linked Employee at all (pure master data, never
+    // provisioned through resolveOrCreateSalespersonForUser). Lets a caller
+    // that assigned "a login user" as the sales rep show the right user
+    // pre-selected again later without re-deriving the chain itself.
+    salespersonUserId: opts?.salespersonUserId,
     customerId: a.customerId.toString(),
     customerName: opts?.customerName,
     territory: a.territory,
@@ -1415,7 +1483,10 @@ export function serializePurchaseOrder(order: PurchaseOrderDoc, supplierName?: s
       bankAccountId: p.bankAccountId?.toString(),
       reconciled: !!p.reconciled,
       reconciledAt: p.reconciledAt,
+      settlementDate: p.settlementDate,
       discountAmount: p.discountAmount,
+      discountReason: p.discountReason,
+      lastPrice: p.lastPrice,
     })),
     createdAt: (order as unknown as { createdAt: Date }).createdAt,
   };
@@ -1690,6 +1761,7 @@ export function serializeCustomerInvoice(inv: CustomerInvoiceDoc, customerName?:
       payherePaymentId: p.payherePaymentId,
       chequeNumber: p.chequeNumber,
       bankAccountId: p.bankAccountId?.toString(),
+      settlementDate: p.settlementDate,
       reconciled: !!p.reconciled,
       reconciledAt: p.reconciledAt,
     })),

@@ -10,6 +10,7 @@ interface UpdateBankAccountBody {
   accountHolderName?: string;
   branch?: string;
   notes?: string;
+  cardSettlementDays?: number;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -31,11 +32,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (body.accountNumber !== undefined && !body.accountNumber.trim()) {
     return res.status(400).json({ error: 'accountNumber cannot be empty' });
   }
+  if (body.cardSettlementDays !== undefined && (typeof body.cardSettlementDays !== 'number' || body.cardSettlementDays < 0)) {
+    return res.status(400).json({ error: 'cardSettlementDays must be a non-negative number' });
+  }
 
   await connectToDatabase();
 
   const update: Record<string, unknown> = {};
-  for (const key of ['bankName', 'accountNumber', 'accountHolderName', 'branch', 'notes'] as const) {
+  for (const key of ['bankName', 'accountNumber', 'accountHolderName', 'branch', 'notes', 'cardSettlementDays'] as const) {
     if (body[key] !== undefined) update[key] = body[key];
   }
 

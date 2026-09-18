@@ -10,6 +10,7 @@ import { requireTenantPermission } from '../../auth.js';
 import { generateSequentialNumber } from '../../numbering.js';
 import { resolveSalesOrderLines, SalesOrderLineBody } from '../../salesOrderResolve.js';
 import { serializeSalesOrder } from '../../serializers.js';
+import { isDealerPendingApproval } from '../../creditDiscipline.js';
 
 interface CreateSalesOrderBody {
   customerId?: string;
@@ -107,6 +108,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const customer = (await Customer.findOne({ _id: customerId, clientId: session.clientId }).lean()) as CustomerDoc | null;
   if (!customer) return res.status(400).json({ error: 'Unknown customer' });
   if (customer.status === 'Blocked') return res.status(400).json({ error: 'This customer is blocked and cannot be ordered for' });
+  if (await isDealerPendingApproval(session.clientId, customer)) {
+    return res.status(400).json({ error: 'This dealer is still pending credit approval and cannot be ordered for yet' });
+  }
 
   if (salespersonId) {
     const salesperson = await Salesperson.findOne({ _id: salespersonId, clientId: session.clientId }).lean();

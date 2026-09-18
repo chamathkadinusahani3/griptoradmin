@@ -3,6 +3,18 @@ import autoTable from 'jspdf-autotable';
 import { LineItem } from '../types/quotation';
 import { formatCurrency, formatDate } from './utils';
 
+// Dealer Credit Control roadmap Module 7 — a Sales-facing document (Sales
+// Order, Quotation, Customer Invoice) and a Purchase-facing one (Purchase
+// Order, GRN) get distinct accent colors, so a printed stack of both is
+// visually sortable at a glance, per the spec's "instantly tell them
+// apart" requirement. Reuses this app's own brand blue (sales) and an
+// amber/brown (purchase) — not arbitrary, chosen for contrast against the
+// existing blue used throughout the UI.
+export const PDF_KIND_COLORS: Record<'sales' | 'purchase', [number, number, number]> = {
+  sales: [33, 100, 180],
+  purchase: [180, 95, 6],
+};
+
 export interface PdfDocument {
   title: string; // "Quotation" or "Invoice"
   number: string;
@@ -21,16 +33,21 @@ export interface PdfDocument {
   /** Extra label/value rows shown below the totals — e.g. status, paid, balance. */
   extraLines?: { label: string; value: string }[];
   notes?: string;
+  /** Sales vs Purchase color scheme. Defaults to 'sales' — every existing caller keeps its current look unchanged. */
+  kind?: 'sales' | 'purchase';
 }
 
 /** Client-side only, same approach as the Anura reference — no server-side PDF generation or storage. */
 export function downloadDocumentPdf(doc: PdfDocument) {
   const pdf = new jsPDF();
+  const accent = PDF_KIND_COLORS[doc.kind ?? 'sales'];
 
+  pdf.setTextColor(...accent);
   pdf.setFontSize(18);
   pdf.text(doc.garageName ?? 'Garage', 14, 18);
   pdf.setFontSize(12);
   pdf.text(`${doc.title} ${doc.number}`, 14, 26);
+  pdf.setTextColor(0, 0, 0);
   pdf.setFontSize(10);
   pdf.text(`Date: ${formatDate(doc.date)}`, 14, 33);
 
@@ -46,6 +63,7 @@ export function downloadDocumentPdf(doc: PdfDocument) {
     startY: tableStartY,
     head: [['Description', 'Qty', 'Unit Price', 'Total']],
     body: doc.items.map((i) => [i.description, String(i.quantity), formatCurrency(i.unitPrice), formatCurrency(i.quantity * i.unitPrice)]),
+    headStyles: { fillColor: accent },
   });
 
   const afterTableY = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;

@@ -13,6 +13,14 @@ const BankAccountSchema = new Schema(
     accountHolderName: { type: String },
     branch: { type: String },
     notes: { type: String },
+    // Dealer Credit Control roadmap Module 6 — how many days a Card
+    // payment takes to actually settle into THIS account, so the
+    // settlement date on a Card payment can be dynamically calculated
+    // per-bank rather than manually guessed. Configurable, not hard-coded
+    // (same "tenant-editable, not a fixed constant" discipline as
+    // deliveryLoadRules/fuelPricePerLiter elsewhere). Default 2 is a
+    // reasonable placeholder, not a business-day-aware calculation.
+    cardSettlementDays: { type: Number, default: 2 },
   },
   { timestamps: true }
 );

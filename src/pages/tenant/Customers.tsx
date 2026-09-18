@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { SearchIcon, UsersIcon, StarIcon, CarIcon, PhoneIcon, MailIcon, PlusIcon, BuildingIcon, TrashIcon, DownloadIcon, WalletIcon, AlertTriangleIcon, CopyIcon, PencilIcon } from 'lucide-react';
+import { SearchIcon, UsersIcon, StarIcon, CarIcon, PhoneIcon, MailIcon, PlusIcon, BuildingIcon, TrashIcon, DownloadIcon, WalletIcon, AlertTriangleIcon, CopyIcon, PencilIcon, CheckIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardHeader } from '../../components/ui/Card';
@@ -12,7 +12,8 @@ import { Modal } from '../../components/ui/Modal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import { StatCard } from '../../components/ui/StatCard';
-import { Customer, CustomerType, CustomerStatus, CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../types/customer';
+import { Customer, CustomerType, CustomerStatus, RegistrationType, CREDIT_ELIGIBLE_CUSTOMER_TYPES } from '../../types/customer';
+import { DealerFormModal } from './customers/DealerFormModal';
 import { MODULES } from '../../data/modules';
 import { Vehicle } from '../../types/vehicle';
 import { CustomerStatement } from '../../types/statement';
@@ -21,9 +22,11 @@ import { LoyaltyReward } from '../../types/loyaltyReward';
 import { Salesperson } from '../../types/salesperson';
 import { SalespersonAssignment } from '../../types/salespersonAssignment';
 import { PriceList } from '../../types/priceList';
+import { DealerPerformance } from '../../types/dealerPerformance';
+import { DEALER_APPROVAL_STATUSES } from '../../types/dealerProfile';
 import { formatDate, formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, useHasPermission } from '../../context/AuthContext';
 
 const TAG_TONE: Record<string, 'purple' | 'teal' | 'blue' | 'amber' | 'gray' | 'red' | 'green'> = {
   VIP: 'purple',
@@ -71,6 +74,7 @@ function exportStatementCsv(customer: Customer, statement: CustomerStatement) {
 export function Customers() {
   const { moduleId } = useParams();
   const { user } = useAuth();
+  const canRespondApprovals = useHasPermission('approvals:respond');
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +85,15 @@ export function Customers() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+  // Registration-type switch on the create modal — picking 'dealer' hands
+  // off to the full DealerFormModal wizard instead of continuing with this
+  // page's own simple form (per the "if customer keep that same form, if
+  // dealer add a dealer form" instruction). Also reused to route "Edit" on
+  // an existing dealer straight into that same wizard, since the simple
+  // edit form below has no dealer-profile fields at all.
+  const [registrationType, setRegistrationType] = useState<RegistrationType>('customer');
+  const [dealerModalOpen, setDealerModalOpen] = useState(false);
+  const [editingDealer, setEditingDealer] = useState<Customer | null>(null);
   const loyaltyEnabled = user?.addOns?.includes('crm-loyalty') ?? false;
   const fleetEnabled = user?.addOns?.includes('gms-fleet') ?? false;
 
@@ -100,6 +113,11 @@ export function Customers() {
   const [assignSalespersonId, setAssignSalespersonId] = useState('');
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [performance, setPerformance] = useState<DealerPerformance | null>(null);
+  const [approvalAction, setApprovalAction] = useState<'advance' | 'reject' | null>(null);
+  const [approvalForm, setApprovalForm] = useState({ requestedCreditLimit: '', recommendedCreditLimit: '', approvedCreditLimit: '', creditTerms: '', rejectionReason: '' });
+  const [approvalSaving, setApprovalSaving] = useState(false);
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
 
   const loadCustomers = () => {
     setLoading(true);
@@ -169,10 +187,17 @@ export function Customers() {
   const openCreate = () => {
     setForm(emptyForm);
     setEditingCustomerId(null);
+    setRegistrationType('customer');
     setAddOpen(true);
   };
 
   const openEdit = (customer: Customer) => {
+    if (customer.registrationType === 'dealer') {
+      setSelected(null);
+      setEditingDealer(customer);
+      setDealerModalOpen(true);
+      return;
+    }
     setForm({
       name: customer.name,
       email: customer.email,
@@ -197,6 +222,60 @@ export function Customers() {
   const closeModal = () => {
     setAddOpen(false);
     setEditingCustomerId(null);
+    setRegistrationType('customer');
+  };
+
+  const closeDealerModal = () => {
+    setDealerModalOpen(false);
+    setEditingDealer(null);
+  };
+
+  const handleDealerSaved = (customer: Customer) => {
+    setCustomers((prev) => (prev.some((c) => c.id === customer.id) ? prev.map((c) => (c.id === customer.id ? customer : c)) : [customer, ...prev]));
+  };
+
+  const handleDeleteCustomer = async (customer: Customer) => {
+    const label = customer.registrationType === 'dealer' ? 'dealer' : 'customer';
+    if (!window.confirm(`Delete ${label} "${customer.name}"? This cannot be undone.`)) return;
+    setDeletingCustomerId(customer.id);
+    try {
+      await api.delete(`/customers/${customer.id}`);
+      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+      if (selected?.id === customer.id) setSelected(null);
+      toast.success(`${label === 'dealer' ? 'Dealer' : 'Customer'} deleted`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : `Failed to delete ${label}`);
+    } finally {
+      setDeletingCustomerId(null);
+    }
+  };
+
+  const submitApprovalAction = async () => {
+    if (!selected || !approvalAction) return;
+    if (approvalAction === 'reject' && !approvalForm.rejectionReason.trim()) {
+      toast.error('A rejection reason is required');
+      return;
+    }
+    setApprovalSaving(true);
+    try {
+      const { dealerProfile } = await api.patch<{ dealerProfile: NonNullable<Customer['dealerProfile']> }>(`/customers/${selected.id}/dealer-approval`, {
+        action: approvalAction,
+        requestedCreditLimit: approvalForm.requestedCreditLimit ? Number(approvalForm.requestedCreditLimit) : undefined,
+        recommendedCreditLimit: approvalForm.recommendedCreditLimit ? Number(approvalForm.recommendedCreditLimit) : undefined,
+        approvedCreditLimit: approvalForm.approvedCreditLimit ? Number(approvalForm.approvedCreditLimit) : undefined,
+        creditTerms: approvalForm.creditTerms || undefined,
+        rejectionReason: approvalAction === 'reject' ? approvalForm.rejectionReason.trim() : undefined,
+      });
+      setSelected((prev) => (prev ? { ...prev, dealerProfile } : prev));
+      setCustomers((prev) => prev.map((c) => (c.id === selected.id ? { ...c, dealerProfile } : c)));
+      toast.success(approvalAction === 'reject' ? 'Dealer rejected' : `Advanced to ${dealerProfile.approvalStatus}`);
+      setApprovalAction(null);
+      setApprovalForm({ requestedCreditLimit: '', recommendedCreditLimit: '', approvedCreditLimit: '', creditTerms: '', rejectionReason: '' });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to update approval status');
+    } finally {
+      setApprovalSaving(false);
+    }
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -260,6 +339,7 @@ export function Customers() {
       setStatement(null);
       setHistory(null);
       setAssignment(null);
+      setPerformance(null);
       return;
     }
 
@@ -285,6 +365,15 @@ export function Customers() {
         .catch(() => setStatement(null));
     } else {
       setStatement(null);
+    }
+
+    if (selected.registrationType === 'dealer') {
+      api
+        .get<DealerPerformance>(`/customers/${selected.id}/dealer-performance`)
+        .then(setPerformance)
+        .catch(() => setPerformance(null));
+    } else {
+      setPerformance(null);
     }
 
     setHistoryLoading(true);
@@ -468,10 +557,97 @@ export function Customers() {
                   {selected.taxNumber && <p className="text-sm text-text-gray dark:text-slate-400">Tax No: {selected.taxNumber}</p>}
                 </div>
               </div>
-              <button type="button" onClick={() => openEdit(selected)} aria-label={`Edit ${selected.name}`} className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-soft-gray hover:text-navy dark:hover:bg-slate-800 dark:hover:text-slate-100">
-                <PencilIcon className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button type="button" onClick={() => openEdit(selected)} aria-label={`Edit ${selected.name}`} className="rounded-lg p-2 text-slate-400 transition hover:bg-soft-gray hover:text-navy dark:hover:bg-slate-800 dark:hover:text-slate-100">
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteCustomer(selected)}
+                  disabled={deletingCustomerId === selected.id}
+                  aria-label={`Delete ${selected.name}`}
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50 dark:hover:bg-red-500/10">
+
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
             </div>
+
+            {selected.registrationType === 'dealer' && selected.dealerProfile &&
+          <div className="mt-4 rounded-xl border border-border-soft p-3 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Dealer profile</p>
+                  <Badge tone="purple">{selected.dealerProfile.dealerCode}</Badge>
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-sm text-text-gray dark:text-slate-400 sm:grid-cols-2">
+                  {selected.dealerProfile.legalBusinessName && <p>Legal name: {selected.dealerProfile.legalBusinessName}</p>}
+                  {selected.dealerProfile.businessType && <p>Business type: {selected.dealerProfile.businessType}</p>}
+                  {selected.dealerProfile.dealerCategory && <p>Category: {selected.dealerProfile.dealerCategory}</p>}
+                  {selected.dealerProfile.mainContact?.person && <p>Main contact: {selected.dealerProfile.mainContact.person}</p>}
+                  {selected.dealerProfile.vatRegistered && <p>VAT: {selected.dealerProfile.vatNumber || 'Registered'}</p>}
+                </div>
+              </div>
+          }
+
+            {selected.registrationType === 'dealer' && selected.dealerProfile?.approvalStatus &&
+          <div className="mt-4 rounded-xl border border-border-soft p-3 dark:border-slate-800">
+                {(() => {
+              const approvalStatus = selected.dealerProfile?.approvalStatus as (typeof DEALER_APPROVAL_STATUSES)[number];
+              const currentIdx = DEALER_APPROVAL_STATUSES.indexOf(approvalStatus);
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Credit approval</p>
+                    <Badge tone={approvalStatus === 'Activated' ? 'green' : approvalStatus === 'Rejected' ? 'red' : 'amber'}>
+                      {approvalStatus}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {DEALER_APPROVAL_STATUSES.filter((s) => s !== 'Rejected').map((s) => {
+                      const stepIdx = DEALER_APPROVAL_STATUSES.indexOf(s);
+                      return <span key={s} className={`h-1.5 flex-1 rounded-full ${stepIdx <= currentIdx ? 'bg-griptor-gradient' : 'bg-slate-200 dark:bg-slate-700'}`} title={s} />;
+                    })}
+                  </div>
+                </>);
+
+            })()}
+                <div className="mt-2 space-y-0.5 text-xs text-text-gray dark:text-slate-400">
+                  {selected.dealerProfile.requestedCreditLimit !== undefined && <p>Requested: {formatCurrency(selected.dealerProfile.requestedCreditLimit)}</p>}
+                  {selected.dealerProfile.recommendedCreditLimit !== undefined && <p>Recommended: {formatCurrency(selected.dealerProfile.recommendedCreditLimit)}</p>}
+                  {selected.dealerProfile.approvedCreditLimit !== undefined && <p>Approved: {formatCurrency(selected.dealerProfile.approvedCreditLimit)}</p>}
+                  {selected.dealerProfile.creditTerms && <p>Terms: {selected.dealerProfile.creditTerms}</p>}
+                  {selected.dealerProfile.approvalStatus === 'Rejected' && selected.dealerProfile.rejectionReason && <p className="text-red-500">Rejected: {selected.dealerProfile.rejectionReason}</p>}
+                </div>
+                {canRespondApprovals && selected.dealerProfile.approvalStatus !== 'Activated' && selected.dealerProfile.approvalStatus !== 'Rejected' &&
+            <div className="mt-3 flex gap-2">
+                    <Button size="sm" onClick={() => setApprovalAction('advance')}><CheckIcon className="h-3.5 w-3.5" /> Advance</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setApprovalAction('reject')}><XIcon className="h-3.5 w-3.5" /> Reject</Button>
+                  </div>
+            }
+              </div>
+          }
+
+            {selected.registrationType === 'dealer' && performance &&
+          <div className="mt-4">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Performance (live from transactions)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard label="Total sales" value={formatCurrency(performance.totalSales)} icon={WalletIcon} />
+                  <StatCard label="Sales this month" value={formatCurrency(performance.salesThisMonth)} icon={WalletIcon} />
+                  <StatCard label="Outstanding" value={formatCurrency(performance.totalOutstanding)} icon={WalletIcon} />
+                  <StatCard label="Overdue" value={formatCurrency(performance.overdueAmount)} icon={AlertTriangleIcon} />
+                  <StatCard label="Credit utilization" value={performance.creditUtilizationPct === null ? '—' : `${performance.creditUtilizationPct}%`} icon={WalletIcon} />
+                  <StatCard label="Return ratio" value={performance.returnRatioPct === null ? '—' : `${performance.returnRatioPct}%`} icon={AlertTriangleIcon} />
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-gray dark:text-slate-400 sm:grid-cols-4">
+                  <p>Sales orders: {performance.salesOrderCount}</p>
+                  <p>Invoices: {performance.invoiceCount}</p>
+                  <p>Cheque returns: {performance.chequeReturnsCount}</p>
+                  <p>Returned invoices: {performance.returnedInvoiceCount}</p>
+                  <p>Credit notes: {performance.creditNotesCount === null ? 'not available' : performance.creditNotesCount}</p>
+                  <p>Debit notes: {performance.debitNotesCount === null ? 'not available' : performance.debitNotesCount}</p>
+                </div>
+              </div>
+          }
 
             {selected.status === 'Blocked' &&
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
@@ -661,6 +837,26 @@ export function Customers() {
           </>
         }>
         <form id="add-customer-form" onSubmit={handleAdd} className="space-y-4">
+          {!editingCustomerId &&
+          <div>
+            <Label htmlFor="cust-registration-type">Register as</Label>
+            <Select
+              id="cust-registration-type"
+              value={registrationType}
+              onChange={(e) => {
+                const next = e.target.value as RegistrationType;
+                setRegistrationType(next);
+                if (next === 'dealer') {
+                  setAddOpen(false);
+                  setDealerModalOpen(true);
+                }
+              }}>
+
+              <option value="customer">Customer</option>
+              <option value="dealer">Dealer</option>
+            </Select>
+          </div>
+          }
           <div>
             <Label htmlFor="cust-name">Full name</Label>
             <Input id="cust-name" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -691,7 +887,6 @@ export function Customers() {
               <>
                   <option value="corporate">Corporate</option>
                   <option value="wholesale">Wholesale</option>
-                  <option value="dealer">Dealer</option>
                 </>
               }
             </Select>
@@ -752,6 +947,53 @@ export function Customers() {
             </>
           }
         </form>
+      </Modal>
+
+      <DealerFormModal open={dealerModalOpen} onClose={closeDealerModal} onCreated={handleDealerSaved} editing={editingDealer} />
+
+      <Modal
+        open={!!approvalAction}
+        onClose={() => setApprovalAction(null)}
+        title={approvalAction === 'reject' ? 'Reject dealer' : 'Advance credit approval'}
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setApprovalAction(null)}>Cancel</Button>
+            <Button variant={approvalAction === 'reject' ? 'danger' : 'primary'} onClick={submitApprovalAction} loading={approvalSaving}>
+              {approvalAction === 'reject' ? 'Reject' : 'Advance'}
+            </Button>
+          </>
+        }>
+
+        <div className="space-y-4">
+          {approvalAction === 'reject' ?
+          <div>
+              <Label htmlFor="approval-reject-reason">Rejection reason</Label>
+              <Input id="approval-reject-reason" required value={approvalForm.rejectionReason} onChange={(e) => setApprovalForm((f) => ({ ...f, rejectionReason: e.target.value }))} />
+            </div> :
+
+          <>
+              <p className="text-sm text-text-gray dark:text-slate-400">These fields are optional — fill in whichever apply at this step.</p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="approval-requested">Requested credit limit</Label>
+                  <Input id="approval-requested" type="number" min={0} value={approvalForm.requestedCreditLimit} onChange={(e) => setApprovalForm((f) => ({ ...f, requestedCreditLimit: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="approval-recommended">Recommended credit limit</Label>
+                  <Input id="approval-recommended" type="number" min={0} value={approvalForm.recommendedCreditLimit} onChange={(e) => setApprovalForm((f) => ({ ...f, recommendedCreditLimit: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="approval-approved">Approved credit limit</Label>
+                  <Input id="approval-approved" type="number" min={0} value={approvalForm.approvedCreditLimit} onChange={(e) => setApprovalForm((f) => ({ ...f, approvedCreditLimit: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="approval-terms">Credit terms</Label>
+                  <Input id="approval-terms" placeholder="e.g. 30 Days" value={approvalForm.creditTerms} onChange={(e) => setApprovalForm((f) => ({ ...f, creditTerms: e.target.value }))} />
+                </div>
+              </div>
+            </>
+          }
+        </div>
       </Modal>
     </div>);
 

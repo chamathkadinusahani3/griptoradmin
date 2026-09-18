@@ -1,5 +1,6 @@
 import { CustomerInvoice } from './models/CustomerInvoice.js';
 import { CustomerDoc } from './models/Customer.js';
+import { DealerProfile } from './models/DealerProfile.js';
 
 // Sales Module Phase 1 — Wholesale/Dealer are new B2B customer types that
 // carry the same credit-relationship implications 'corporate' already did
@@ -50,4 +51,20 @@ export async function getEffectiveDiscountPct(customer: CustomerDoc, clientId: s
   if (stored <= 0 || !CREDIT_ELIGIBLE_CUSTOMER_TYPES.includes(customer.type as (typeof CREDIT_ELIGIBLE_CUSTOMER_TYPES)[number])) return stored;
   const violating = await isCustomerInViolation(clientId, customer._id.toString(), customer.creditPeriodDays ?? 30);
   return violating ? 0 : stored;
+}
+
+/**
+ * Customer/Dealer Registration roadmap Phase 4 — don't automatically give
+ * every new dealer a working credit account. True only while a dealer's own
+ * DealerProfile.status is a real, explicitly-set, non-'Activated' workflow
+ * state. A DealerProfile with no `status` field at all (created before this
+ * phase shipped) reads back `undefined` and is treated as already usable —
+ * this must never retroactively lock out a dealer that could already
+ * transact yesterday. Non-dealer customers are never affected.
+ */
+export async function isDealerPendingApproval(clientId: string, customer: CustomerDoc): Promise<boolean> {
+  if (customer.registrationType !== 'dealer') return false;
+  const profile = await DealerProfile.findOne({ clientId, customerId: customer._id }).select('status').lean();
+  if (!profile || profile.status === undefined) return false;
+  return profile.status !== 'Activated';
 }

@@ -11,7 +11,7 @@ import { CardSkeleton } from '../../components/ui/Skeleton';
 import { BankAccount } from '../../types/bankAccount';
 import { api, ApiError } from '../../lib/api';
 
-const emptyForm = { bankName: '', accountNumber: '', accountHolderName: '', branch: '', notes: '' };
+const emptyForm = { bankName: '', accountNumber: '', accountHolderName: '', branch: '', notes: '', cardSettlementDays: '2' };
 
 export function BankAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -46,6 +46,7 @@ export function BankAccounts() {
       accountHolderName: account.accountHolderName ?? '',
       branch: account.branch ?? '',
       notes: account.notes ?? '',
+      cardSettlementDays: String(account.cardSettlementDays ?? 2),
     });
     setModalOpen(true);
   };
@@ -54,12 +55,13 @@ export function BankAccounts() {
     e.preventDefault();
     setSaving(true);
     try {
+      const body = { ...form, cardSettlementDays: Number(form.cardSettlementDays) || 0 };
       if (editingId) {
-        const { bankAccount } = await api.patch<{ bankAccount: BankAccount }>(`/bank-accounts/${editingId}`, form);
+        const { bankAccount } = await api.patch<{ bankAccount: BankAccount }>(`/bank-accounts/${editingId}`, body);
         setAccounts((prev) => prev.map((a) => (a.id === bankAccount.id ? bankAccount : a)));
         toast.success('Bank account updated');
       } else {
-        const { bankAccount } = await api.post<{ bankAccount: BankAccount }>('/bank-accounts', form);
+        const { bankAccount } = await api.post<{ bankAccount: BankAccount }>('/bank-accounts', body);
         setAccounts((prev) => [...prev, bankAccount]);
         toast.success('Bank account added');
       }
@@ -106,6 +108,7 @@ export function BankAccounts() {
                 {[a.accountHolderName, a.branch].filter(Boolean).join(' · ')}
               </p>
           }
+            <p className="mt-2 text-xs text-text-gray dark:text-slate-400">Card settlement: {a.cardSettlementDays} day{a.cardSettlementDays === 1 ? '' : 's'}</p>
             {a.notes && <p className="mt-1 text-xs text-text-gray dark:text-slate-500">{a.notes}</p>}
           </Card>
         )}
@@ -138,6 +141,11 @@ export function BankAccounts() {
           <div>
             <Label htmlFor="ba-branch">Branch (optional)</Label>
             <Input id="ba-branch" value={form.branch} onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="ba-card-settlement">Card settlement days</Label>
+            <Input id="ba-card-settlement" type="number" min={0} value={form.cardSettlementDays} onChange={(e) => setForm((f) => ({ ...f, cardSettlementDays: e.target.value }))} />
+            <p className="mt-1 text-xs text-text-gray dark:text-slate-400">How many days a Card payment through this account takes to settle — used to calculate a Card payment's settlement date.</p>
           </div>
           <div>
             <Label htmlFor="ba-notes">Notes (optional)</Label>

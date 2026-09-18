@@ -6,7 +6,7 @@
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   MenuIcon,
@@ -29,11 +29,26 @@ const NOTIFICATIONS = [
 { id: 'n2', title: 'Invoice INV-2037 payment failed', time: '2026-07-16T09:10:00' },
 { id: 'n3', title: 'Ticket T-3010 marked urgent', time: '2026-07-15T17:40:00' }];
 
+// One-letter quick-access shortcuts for the ERP module's header — jumps
+// straight to the most frequently used screens without going through the
+// sidebar. `to` is a bare slug under the current /app/:moduleId/ prefix;
+// ModuleLayout only checks that the module itself is active, not that the
+// slug appears in that module's own navGroup, so linking to a page owned by
+// another module's nav (Invoices lives under the Accounting module's own
+// sidebar entry) still resolves correctly.
+const ERP_SHORTCUTS = [
+{ key: 'L', label: 'Live Stock', to: 'inventory' },
+{ key: 'S', label: 'Sales Order', to: 'sales-orders' },
+{ key: 'I', label: 'Invoice', to: 'invoices' },
+{ key: 'R', label: 'Receipt Multi (Dealer Payment)', to: 'receipts' },
+{ key: 'C', label: 'Customer Register', to: 'customers' }] as const;
+
 
 export function Topbar({ onOpenMobile }: {onOpenMobile: () => void;}) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { moduleId } = useParams();
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -72,6 +87,22 @@ export function Topbar({ onOpenMobile }: {onOpenMobile: () => void;}) {
           className="h-10 w-full rounded-xl border border-border-soft bg-soft-gray pl-9 pr-3 text-sm text-navy placeholder:text-slate-400 transition focus:border-bright-blue focus:bg-white focus:ring-2 focus:ring-bright-blue/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
         
       </div>
+
+      {moduleId === 'erp' &&
+      <div className="hidden items-center gap-1 md:flex">
+          {ERP_SHORTCUTS.map((s) =>
+        <button
+          key={s.key}
+          onClick={() => navigate(`/app/erp/${s.to}`)}
+          title={s.label}
+          aria-label={s.label}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-soft text-sm font-bold text-text-gray transition hover:border-bright-blue hover:text-bright-blue dark:border-slate-700 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300">
+
+            {s.key}
+          </button>
+        )}
+        </div>
+      }
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <button

@@ -12,6 +12,8 @@ export interface SalespersonAssignment {
   salespersonId: string;
   salespersonName?: string;
   salespersonCode?: string;
+  /** The tenant User (login) this salesperson resolves to, when it has one — see api/_lib/salespersonUserLink.ts. */
+  salespersonUserId?: string;
   customerId: string;
   customerName?: string;
   territory?: string;

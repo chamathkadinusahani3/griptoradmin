@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { StoreIcon, UsersIcon, WalletIcon, AlertTriangleIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { Card } from '../../components/ui/Card';
+import { Card, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { StatCard } from '../../components/ui/StatCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { DueDateCalendar, DueDateCalendarItem } from '../../components/ui/DueDateCalendar';
 import { formatCurrency } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 
@@ -32,6 +33,7 @@ const STATUS_TONE: Record<string, 'red' | 'gray' | 'green'> = { Blocked: 'red', 
 export function MyDealers() {
   const [salesperson, setSalesperson] = useState<{ id: string; name: string; code: string } | null | undefined>(undefined);
   const [dealers, setDealers] = useState<MyDealer[]>([]);
+  const [dueDates, setDueDates] = useState<DueDateCalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,6 +45,12 @@ export function MyDealers() {
       })
       .catch((err) => toast.error(err instanceof ApiError ? err.message : 'Failed to load your dealers'))
       .finally(() => setLoading(false));
+    // Dealer Credit Control roadmap Module 5 — scoped server-side to this
+    // rep's own dealers automatically (see due-dates.ts's own comment).
+    api
+      .get<{ dueDates: DueDateCalendarItem[] }>('/customer-invoices/due-dates')
+      .then(({ dueDates }) => setDueDates(dueDates))
+      .catch(() => setDueDates([]));
   }, []);
 
   const totalOutstanding = dealers.reduce((sum, d) => sum + d.totalOutstanding, 0);
@@ -65,6 +73,15 @@ export function MyDealers() {
             <StatCard label="Total outstanding" value={formatCurrency(totalOutstanding)} icon={WalletIcon} />
             <StatCard label="Past credit period" value={String(inViolationCount)} icon={AlertTriangleIcon} hint={inViolationCount > 0 ? 'dealers overdue' : undefined} />
           </div>
+
+          {dueDates.length > 0 &&
+        <Card className="mb-6">
+              <CardHeader title="Due dates" subtitle="When your dealers' invoices come due" />
+              <div className="p-5">
+                <DueDateCalendar items={dueDates} />
+              </div>
+            </Card>
+        }
 
           <Card>
             <ul className="divide-y divide-border-soft dark:divide-slate-800">

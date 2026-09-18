@@ -1,6 +1,8 @@
 export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partially Received' | 'Received' | 'Cancelled';
 export type SupplierPaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type SupplierPaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Cheque' | 'Other';
+export const SETTLEMENT_DISCOUNT_REASONS = ['Cash Discount', 'Quantity Discount', 'Incentive', 'Old Types', 'Company Offer', 'Other'] as const;
+export type SettlementDiscountReason = (typeof SETTLEMENT_DISCOUNT_REASONS)[number];
 
 export interface PurchaseOrderLine {
   partId: string;
@@ -25,6 +27,8 @@ export interface SupplierPaymentRecord {
   reconciled?: boolean;
   reconciledAt?: string;
   discountAmount?: number;
+  discountReason?: SettlementDiscountReason;
+  lastPrice?: number;
 }
 
 export interface PurchaseOrder {

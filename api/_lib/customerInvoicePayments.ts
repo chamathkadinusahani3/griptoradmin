@@ -1,6 +1,7 @@
 import { CustomerInvoice, CustomerInvoiceDoc } from './models/CustomerInvoice.js';
 import { Cheque } from './models/Cheque.js';
 import { Customer, CustomerDoc } from './models/Customer.js';
+import { BankAccount, BankAccountDoc } from './models/BankAccount.js';
 import { hasAddOn } from './entitlements.js';
 import { awardPoints } from './loyalty.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
@@ -49,6 +50,20 @@ export async function recordCustomerInvoicePayment(
   const balance = Math.round((existing.total - paidAmount) * 100) / 100;
   const paymentStatus = balance <= 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid';
 
+  const paymentDate = input.date ?? new Date();
+  // Dealer Credit Control roadmap Module 6 — dynamically calculated
+  // (never manually entered) from the chosen bank's own cardSettlementDays,
+  // "bank-wise" per the spec since different banks settle at different
+  // speeds. Unset if no bank account was named (Card payments not routed
+  // through a Cheque/Bank Transfer-style tracked account).
+  let settlementDate: Date | undefined;
+  if (input.method === 'Card' && input.bankAccountId) {
+    const bankAccount = (await BankAccount.findOne({ _id: input.bankAccountId, clientId }).lean()) as BankAccountDoc | null;
+    if (bankAccount) {
+      settlementDate = new Date(paymentDate.getTime() + (bankAccount.cardSettlementDays ?? 2) * 24 * 60 * 60 * 1000);
+    }
+  }
+
   // Mongo rejects an update object that mixes a top-level $push with plain
   // (non-$) fields — wrap the plain fields in $set too (same gotcha hit
   // during the original Support Tickets work).
@@ -65,11 +80,12 @@ export async function recordCustomerInvoicePayment(
         paymentHistory: {
           amount: appliedAmount,
           method: input.method,
-          date: input.date ?? new Date(),
+          date: paymentDate,
           notes: input.notes,
           payherePaymentId: input.payherePaymentId,
           chequeNumber: input.chequeNumber,
           bankAccountId: input.bankAccountId,
+          settlementDate,
         },
       },
     },
@@ -119,7 +135,7 @@ export async function recordCustomerInvoicePayment(
         method: (input.method === 'PayHere' ? 'Other' : input.method) as AdvancePaymentMethod,
         chequeNumber: input.chequeNumber,
         bankAccountId: input.bankAccountId,
-        date: input.date ?? new Date(),
+        date: paymentDate,
         notes: `Overpayment on invoice ${invoice.invoiceNumber}`,
       });
     } catch (err) {

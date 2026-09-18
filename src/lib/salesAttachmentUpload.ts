@@ -1,6 +1,6 @@
 import { upload } from '@vercel/blob/client';
 
-export type SalesAttachmentDocType = 'quotations' | 'sales-orders' | 'customer-invoices' | 'returns';
+export type SalesAttachmentDocType = 'quotations' | 'sales-orders' | 'customer-invoices' | 'returns' | 'dealer-documents';
 
 export interface UploadedAttachment {
   url: string;

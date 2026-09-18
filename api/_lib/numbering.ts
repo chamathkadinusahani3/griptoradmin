@@ -26,7 +26,8 @@ export type DocumentType =
   | 'cashHandover'
   | 'utilization'
   | 'customerDebitNote'
-  | 'effectiveNote';
+  | 'effectiveNote'
+  | 'dealerCode';
 
 // The literal prefixes every route hardcoded before per-tenant Numbering
 // settings existed — kept as the fallback so an unconfigured tenant (or an
@@ -63,6 +64,7 @@ export const DEFAULT_NUMBERING_PREFIXES: Record<DocumentType, string> = {
   // shouldn't share a number series with the supplier-direction one.
   customerDebitNote: 'CDN',
   effectiveNote: 'EFN',
+  dealerCode: 'DLR',
 };
 
 /**

@@ -21,6 +21,13 @@ const CustomerSchema = new Schema(
     // [id].ts, not here). `individual`/`retail` stay ungated — both are
     // walk-in/end-consumer classifications with no credit terms attached.
     type: { type: String, enum: ['individual', 'corporate', 'retail', 'wholesale', 'dealer'], default: 'individual' },
+    // Customer/Dealer Registration roadmap Phase 1 — a UI-level discriminator
+    // only: picking 'dealer' at registration time forces `type: 'dealer'`
+    // too (see routes/customers/index.ts), and drives whether a DealerProfile
+    // document exists for this customer (joined by customerId, never
+    // embedded here — see DealerProfile.ts's own comment for why). Default
+    // 'customer' means every existing Customer document reads unchanged.
+    registrationType: { type: String, enum: ['customer', 'dealer'], default: 'customer' },
     contactPerson: { type: String },
     creditLimit: { type: Number, default: 0 },
     discountPct: { type: Number, default: 0 },

@@ -2,13 +2,21 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { connectToDatabase } from '../../db.js';
 import { SalespersonAssignment, SalespersonAssignmentDoc, VISIT_FREQUENCIES, ASSIGNMENT_PRIORITIES, VISIT_DAYS } from '../../models/SalespersonAssignment.js';
 import { Salesperson, SalespersonDoc } from '../../models/Salesperson.js';
+import { Employee, EmployeeDoc } from '../../models/Employee.js';
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { RouteModel, RouteDoc } from '../../models/Route.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeSalespersonAssignment } from '../../serializers.js';
+import { resolveOrCreateSalespersonForUser } from '../../salespersonUserLink.js';
 
 interface CreateAssignmentBody {
   salespersonId?: string;
+  // Assign by tenant login instead of an existing Salesperson master-data
+  // record — resolveOrCreateSalespersonForUser provisions whatever's
+  // missing in the User -> Employee -> Salesperson chain so this specific
+  // login reliably sees the dealer under "My Dealers". Only used when
+  // salespersonId is omitted.
+  userId?: string;
   customerId?: string;
   territory?: string;
   routeId?: string;
@@ -40,14 +48,20 @@ async function withNames(clientId: string, assignments: SalespersonAssignmentDoc
   const custById = new Map(customers.map((c) => [c._id.toString(), c]));
   const routeById = new Map(routes.map((r) => [r._id.toString(), r.name]));
 
-  return assignments.map((a) =>
-    serializeSalespersonAssignment(a, {
-      salespersonName: spById.get(a.salespersonId.toString())?.name,
-      salespersonCode: spById.get(a.salespersonId.toString())?.code,
+  const employeeIds = [...new Set(salespersons.map((s) => s.employeeId?.toString()).filter((id): id is string => !!id))];
+  const employees = employeeIds.length > 0 ? ((await Employee.find({ _id: { $in: employeeIds }, clientId }).lean()) as EmployeeDoc[]) : [];
+  const userIdByEmployeeId = new Map(employees.map((e) => [e._id.toString(), e.userId.toString()]));
+
+  return assignments.map((a) => {
+    const sp = spById.get(a.salespersonId.toString());
+    return serializeSalespersonAssignment(a, {
+      salespersonName: sp?.name,
+      salespersonCode: sp?.code,
+      salespersonUserId: sp?.employeeId ? userIdByEmployeeId.get(sp.employeeId.toString()) : undefined,
       customerName: custById.get(a.customerId.toString())?.name,
       routeName: a.routeId ? routeById.get(a.routeId.toString()) : undefined,
-    })
-  );
+    });
+  });
 }
 
 async function handleList(req: VercelRequest, res: VercelResponse) {
@@ -70,8 +84,8 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   if (!session) return;
 
   const body = (req.body ?? {}) as CreateAssignmentBody;
-  if (!body.salespersonId || !body.customerId) {
-    return res.status(400).json({ error: 'salespersonId and customerId are required' });
+  if ((!body.salespersonId && !body.userId) || !body.customerId) {
+    return res.status(400).json({ error: 'salespersonId (or userId) and customerId are required' });
   }
   if (body.visitFrequency && !VISIT_FREQUENCIES.includes(body.visitFrequency)) {
     return res.status(400).json({ error: 'Invalid visitFrequency' });
@@ -85,8 +99,15 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   await connectToDatabase();
 
+  let salespersonId = body.salespersonId;
+  if (!salespersonId && body.userId) {
+    const resolved = await resolveOrCreateSalespersonForUser(session.clientId, body.userId);
+    if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+    salespersonId = resolved.salespersonId;
+  }
+
   const [salesperson, customer] = await Promise.all([
-    Salesperson.findOne({ _id: body.salespersonId, clientId: session.clientId }).lean(),
+    Salesperson.findOne({ _id: salespersonId, clientId: session.clientId }).lean(),
     Customer.findOne({ _id: body.customerId, clientId: session.clientId }).lean(),
   ]);
   if (!salesperson) return res.status(400).json({ error: 'Salesperson not found' });
@@ -98,7 +119,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 
   const existing = await SalespersonAssignment.findOne({
     clientId: session.clientId,
-    salespersonId: body.salespersonId,
+    salespersonId,
     customerId: body.customerId,
   }).lean();
   if (existing) return res.status(400).json({ error: 'This salesperson is already assigned to this customer' });
@@ -106,7 +127,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const assignment = await SalespersonAssignment.create({
     clientId: session.clientId,
     routeId: body.routeId || undefined,
-    salespersonId: body.salespersonId,
+    salespersonId,
     customerId: body.customerId,
     territory: body.territory,
     visitFrequency: body.visitFrequency ?? 'Weekly',

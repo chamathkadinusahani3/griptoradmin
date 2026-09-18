@@ -43,23 +43,9 @@ import { Ticket } from '../../types/ticket';
 import { PricingTier } from '../../types/pricingTier';
 import { TenantUser } from '../../types/tenantUser';
 import { Role } from '../../types/role';
+import { PermissionMatrix } from '../../components/PermissionMatrix';
 
 /** Downscales an uploaded logo to a small square before it's stored as a base64 data URL on the Client doc — keeps documents small since there's no dedicated object storage in this project. */
-function titleCase(word: string): string {
-  return word.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
-}
-
-function groupPermissions(permissions: string[]): { resource: string; keys: string[] }[] {
-  const byResource = new Map<string, string[]>();
-  for (const p of permissions) {
-    const [resource] = p.split(':');
-    byResource.set(resource, [...(byResource.get(resource) ?? []), p]);
-  }
-  return [...byResource.entries()]
-    .map(([resource, keys]) => ({ resource, keys: keys.sort() }))
-    .sort((a, b) => a.resource.localeCompare(b.resource));
-}
-
 function resizeImageToDataUrl(file: File, maxDim = 256): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -291,6 +277,13 @@ export function ClientDetail() {
 
   const togglePermission = (key: string) => {
     setPermSelection((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
+  };
+
+  const toggleManyPermissions = (keys: string[], checked: boolean) => {
+    setPermSelection((prev) => {
+      const withoutKeys = prev.filter((p) => !keys.includes(p));
+      return checked ? [...withoutKeys, ...keys] : withoutKeys;
+    });
   };
 
   const savePermissions = async () => {
@@ -904,29 +897,7 @@ export function ClientDetail() {
         <p className="mb-3 text-sm text-text-gray dark:text-slate-400">
           Saving here gives <strong>{permTargetUser?.name}</strong> exactly this set of permissions, independent of their <strong>{permTargetUser?.roleName}</strong> role's defaults.
         </p>
-        <div className="grid max-h-96 grid-cols-1 gap-4 overflow-y-auto rounded-xl border border-border-soft p-4 dark:border-slate-800 sm:grid-cols-2">
-          {groupPermissions(permissionsCatalog).map((g) =>
-          <div key={g.resource}>
-              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">{titleCase(g.resource)}</p>
-              <div className="space-y-1">
-                {g.keys.map((k) => {
-                const action = k.split(':')[1];
-                return (
-                  <label key={k} className="flex items-center gap-2 text-sm text-navy dark:text-slate-200">
-                      <input
-                      type="checkbox"
-                      checked={permSelection.includes(k)}
-                      onChange={() => togglePermission(k)}
-                      className="h-4 w-4 rounded border-border-soft text-teal focus:ring-teal dark:border-slate-700" />
-
-                      {titleCase(action)}
-                    </label>);
-
-              })}
-              </div>
-            </div>
-          )}
-        </div>
+        <PermissionMatrix allPermissions={permissionsCatalog} selected={permSelection} onToggle={togglePermission} onToggleMany={toggleManyPermissions} />
       </Modal>
     </div>);
 

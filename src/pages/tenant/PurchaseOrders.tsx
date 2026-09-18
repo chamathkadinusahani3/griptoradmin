@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ShoppingCartIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, PencilIcon } from 'lucide-react';
+import { ShoppingCartIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, PencilIcon, DownloadIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -11,11 +11,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Input, Select, Textarea, Label } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { PurchaseOrder, PurchaseOrderStatus, SupplierPaymentMethod } from '../../types/purchaseOrder';
+import { PurchaseOrder, PurchaseOrderStatus, SupplierPaymentMethod, SettlementDiscountReason, SETTLEMENT_DISCOUNT_REASONS } from '../../types/purchaseOrder';
 import { Supplier } from '../../types/supplier';
 import { Part } from '../../types/part';
 import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { downloadDocumentPdf } from '../../lib/pdf';
 import { api, ApiError } from '../../lib/api';
 
 const STATUS_FILTERS: ('All' | PurchaseOrderStatus)[] = ['All', 'Draft', 'Ordered', 'Partially Received', 'Received', 'Cancelled'];
@@ -52,6 +53,8 @@ export function PurchaseOrders() {
   const [payChequeNumber, setPayChequeNumber] = useState('');
   const [payBankAccountId, setPayBankAccountId] = useState('');
   const [payDiscountAmount, setPayDiscountAmount] = useState('');
+  const [payDiscountReason, setPayDiscountReason] = useState<SettlementDiscountReason>(SETTLEMENT_DISCOUNT_REASONS[0]);
+  const [payLastPrice, setPayLastPrice] = useState('');
   const [paying, setPaying] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [receiveTarget, setReceiveTarget] = useState<PurchaseOrder | null>(null);
@@ -242,6 +245,8 @@ export function PurchaseOrders() {
     setPayChequeNumber('');
     setPayBankAccountId('');
     setPayDiscountAmount('');
+    setPayDiscountReason(SETTLEMENT_DISCOUNT_REASONS[0]);
+    setPayLastPrice('');
   };
 
   const recordPayment = async () => {
@@ -260,6 +265,10 @@ export function PurchaseOrders() {
       toast.error('Enter a valid settlement discount');
       return;
     }
+    if (discountAmount && discountAmount > 0 && (!payLastPrice || Number(payLastPrice) < 0)) {
+      toast.error('Enter the price before the discount (last price)');
+      return;
+    }
     setPaying(true);
     try {
       const { purchaseOrder } = await api.post<{ purchaseOrder: PurchaseOrder }>(`/purchase-orders/${payTarget.id}/payment`, {
@@ -268,6 +277,8 @@ export function PurchaseOrders() {
         chequeNumber: payMethod === 'Cheque' ? payChequeNumber.trim() : undefined,
         bankAccountId: payBankAccountId || undefined,
         discountAmount,
+        discountReason: discountAmount && discountAmount > 0 ? payDiscountReason : undefined,
+        lastPrice: discountAmount && discountAmount > 0 ? Number(payLastPrice) : undefined,
       });
       setOrders((prev) => prev.map((o) => (o.id === purchaseOrder.id ? purchaseOrder : o)));
       toast.success('Payment recorded');
@@ -277,6 +288,25 @@ export function PurchaseOrders() {
     } finally {
       setPaying(false);
     }
+  };
+
+  const printOrder = (order: PurchaseOrder) => {
+    downloadDocumentPdf({
+      title: 'Purchase Order',
+      number: order.poNumber,
+      date: order.createdAt,
+      customerName: order.supplier,
+      items: order.items.map((l) => ({ description: l.name, quantity: l.quantity, unitPrice: l.unitCost })),
+      subtotal: order.subtotal,
+      taxAmount: 0,
+      total: order.total,
+      extraLines: [
+        { label: 'Credit Period', value: `${order.creditPeriodDays} days` },
+        { label: 'Status', value: order.status },
+      ],
+      notes: order.notes,
+      kind: 'purchase',
+    });
   };
 
   const filtered = orders
@@ -325,7 +355,7 @@ export function PurchaseOrders() {
       <Card>
           <ul className="divide-y divide-border-soft dark:divide-slate-800">
             {filtered.map((o) =>
-          <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-amber-600 p-4 dark:border-l-amber-500">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{o.poNumber}</p>
@@ -348,6 +378,7 @@ export function PurchaseOrders() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="teal">{formatCurrency(o.total)}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => printOrder(o)}><DownloadIcon className="h-3.5 w-3.5" /> Print</Button>
                   {(o.status === 'Ordered' || o.status === 'Partially Received' || o.status === 'Received') && o.balance > 0 &&
               <Button size="sm" variant="secondary" onClick={() => openPay(o)}>Record payment</Button>
               }
@@ -540,6 +571,20 @@ export function PurchaseOrders() {
             <Label htmlFor="pay-discount">Settlement discount (optional)</Label>
             <Input id="pay-discount" type="number" min={0} value={payDiscountAmount} onChange={(e) => setPayDiscountAmount(e.target.value)} placeholder="e.g. an early-payment discount the supplier offered" />
           </div>
+          {payDiscountAmount && Number(payDiscountAmount) > 0 &&
+          <div className="grid grid-cols-2 gap-4 rounded-xl border border-border-soft p-3 dark:border-slate-800">
+              <div>
+                <Label htmlFor="pay-discount-reason">Discount reason</Label>
+                <Select id="pay-discount-reason" value={payDiscountReason} onChange={(e) => setPayDiscountReason(e.target.value as SettlementDiscountReason)}>
+                  {SETTLEMENT_DISCOUNT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="pay-last-price">Last price</Label>
+                <Input id="pay-last-price" type="number" min={0} required value={payLastPrice} onChange={(e) => setPayLastPrice(e.target.value)} placeholder="Price before this discount" />
+              </div>
+            </div>
+          }
           <div>
             <Label htmlFor="pay-method">Method</Label>
             <Select id="pay-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as SupplierPaymentMethod)}>
@@ -556,13 +601,25 @@ export function PurchaseOrders() {
               <Input id="pay-cheque" value={payChequeNumber} onChange={(e) => setPayChequeNumber(e.target.value)} placeholder="e.g. 000123" />
             </div>
           }
-          {(payMethod === 'Cheque' || payMethod === 'Bank Transfer') && bankAccounts.length > 0 &&
+          {(payMethod === 'Cheque' || payMethod === 'Bank Transfer' || payMethod === 'Card') && bankAccounts.length > 0 &&
           <div>
-              <Label htmlFor="pay-bank">Bank account (optional)</Label>
+              <Label htmlFor="pay-bank">Bank account {payMethod === 'Card' ? '' : '(optional)'}</Label>
               <Select id="pay-bank" value={payBankAccountId} onChange={(e) => setPayBankAccountId(e.target.value)}>
                 <option value="">— none —</option>
                 {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNumber}</option>)}
               </Select>
+              {payMethod === 'Card' && payBankAccountId &&
+          (() => {
+            const bank = bankAccounts.find((b) => b.id === payBankAccountId);
+            if (!bank) return null;
+            const settleDate = new Date(Date.now() + bank.cardSettlementDays * 24 * 60 * 60 * 1000);
+            return (
+              <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                  Estimated settlement: {formatDate(settleDate.toISOString())} ({bank.cardSettlementDays} day{bank.cardSettlementDays === 1 ? '' : 's'})
+                </p>);
+
+          })()
+          }
             </div>
           }
         </div>

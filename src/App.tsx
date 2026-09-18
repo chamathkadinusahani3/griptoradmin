@@ -66,6 +66,7 @@ import { Transactions } from './pages/tenant/Transactions';
 import { Returns } from './pages/tenant/Returns';
 import { Complaints } from './pages/tenant/Complaints';
 import { FinancialOverview } from './pages/tenant/FinancialOverview';
+import { AccountsDashboard } from './pages/tenant/AccountsDashboard';
 import { Sales } from './pages/tenant/Sales';
 import { JobReport } from './pages/tenant/JobReport';
 import { InventoryReport } from './pages/tenant/InventoryReport';
@@ -114,6 +115,7 @@ import { WarrantyClaims } from './pages/tenant/WarrantyClaims';
 import { SupplierClaims } from './pages/tenant/SupplierClaims';
 import { SalesForceDashboard } from './pages/tenant/SalesForceDashboard';
 import { SalesDashboard } from './pages/tenant/SalesDashboard';
+import { CrmDashboard } from './pages/tenant/CrmDashboard';
 import { Salespersons } from './pages/tenant/Salespersons';
 import { MyDealers } from './pages/tenant/MyDealers';
 import { Routes as SfRoutes } from './pages/tenant/Routes';
@@ -339,9 +341,11 @@ export function App() {
                 <Route path="returns" element={<Returns />} />
                 <Route path="complaints" element={<Complaints />} />
                 <Route path="financial-overview" element={<FinancialOverview />} />
+                <Route path="accounts-dashboard" element={<AccountsDashboard />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="payroll" element={<Payroll />} />
                 <Route path="sales-dashboard" element={<SalesDashboard />} />
+                <Route path="crm-dashboard" element={<CrmDashboard />} />
                 <Route path="sales" element={<Sales />} />
                 <Route path="employees" element={<Employees />} />
                 <Route path="leave-requests" element={<LeaveRequests />} />

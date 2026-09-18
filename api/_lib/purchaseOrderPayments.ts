@@ -1,5 +1,6 @@
-import { PurchaseOrder, PurchaseOrderDoc } from './models/PurchaseOrder.js';
+import { PurchaseOrder, PurchaseOrderDoc, SETTLEMENT_DISCOUNT_REASONS } from './models/PurchaseOrder.js';
 import { Cheque } from './models/Cheque.js';
+import { BankAccount, BankAccountDoc } from './models/BankAccount.js';
 import { postJournalEntry, getAccountIdsByNames, cashOrBankAccountName } from './journal.js';
 
 export interface RecordSupplierPaymentInput {
@@ -17,6 +18,12 @@ export interface RecordSupplierPaymentInput {
   // account exists to net a "purchase discount" against). The discount is
   // fully visible at the document level via settlementDiscountTotal/balance.
   discountAmount?: number;
+  // Dealer Credit Control roadmap Module 4 — required by the calling route
+  // whenever discountAmount > 0; passed through unvalidated here since this
+  // function has no HTTP context of its own (same division of
+  // responsibility as every other input field on this interface).
+  discountReason?: (typeof SETTLEMENT_DISCOUNT_REASONS)[number];
+  lastPrice?: number;
 }
 
 /**
@@ -43,6 +50,17 @@ export async function recordPurchaseOrderPayment(
   const balance = Math.round((existing.total - paidAmount - settlementDiscountTotal) * 100) / 100;
   const paymentStatus = balance <= 0 ? 'Paid' : paidAmount + settlementDiscountTotal > 0 ? 'Partial' : 'Unpaid';
 
+  const paymentDate = input.date ?? new Date();
+  // Dealer Credit Control roadmap Module 6 — same dynamic, bank-wise
+  // calculation as customerInvoicePayments.ts's identical block.
+  let settlementDate: Date | undefined;
+  if (input.method === 'Card' && input.bankAccountId) {
+    const bankAccount = (await BankAccount.findOne({ _id: input.bankAccountId, clientId }).lean()) as BankAccountDoc | null;
+    if (bankAccount) {
+      settlementDate = new Date(paymentDate.getTime() + (bankAccount.cardSettlementDays ?? 2) * 24 * 60 * 60 * 1000);
+    }
+  }
+
   // Same $push + $set split as recordCustomerInvoicePayment — Mongo rejects
   // mixing a top-level $push with plain fields in one update object.
   const order = (await PurchaseOrder.findOneAndUpdate(
@@ -53,11 +71,14 @@ export async function recordPurchaseOrderPayment(
         paymentHistory: {
           amount: input.amount,
           method: input.method,
-          date: input.date ?? new Date(),
+          date: paymentDate,
           notes: input.notes,
           chequeNumber: input.chequeNumber,
           bankAccountId: input.bankAccountId,
+          settlementDate,
           discountAmount: discountAmount > 0 ? discountAmount : undefined,
+          discountReason: discountAmount > 0 ? input.discountReason : undefined,
+          lastPrice: discountAmount > 0 ? input.lastPrice : undefined,
         },
       },
     },

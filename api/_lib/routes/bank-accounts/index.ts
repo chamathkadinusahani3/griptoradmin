@@ -10,6 +10,7 @@ interface CreateBankAccountBody {
   accountHolderName?: string;
   branch?: string;
   notes?: string;
+  cardSettlementDays?: number;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -32,9 +33,12 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'bank-accounts:manage');
   if (!session) return;
 
-  const { bankName, accountNumber, accountHolderName, branch, notes } = (req.body ?? {}) as CreateBankAccountBody;
+  const { bankName, accountNumber, accountHolderName, branch, notes, cardSettlementDays } = (req.body ?? {}) as CreateBankAccountBody;
   if (!bankName || !accountNumber) {
     return res.status(400).json({ error: 'bankName and accountNumber are required' });
+  }
+  if (cardSettlementDays !== undefined && (typeof cardSettlementDays !== 'number' || cardSettlementDays < 0)) {
+    return res.status(400).json({ error: 'cardSettlementDays must be a non-negative number' });
   }
 
   await connectToDatabase();
@@ -45,6 +49,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     accountHolderName,
     branch,
     notes,
+    cardSettlementDays: cardSettlementDays ?? 2,
   });
 
   return res.status(201).json({ bankAccount: serializeBankAccount(account.toObject()) });

@@ -158,6 +158,7 @@ export function Quotations() {
       total: q.total,
       extraLines: [{ label: 'Status', value: q.status }],
       notes: q.notes,
+      kind: 'sales',
     });
   };
 
@@ -196,7 +197,7 @@ export function Quotations() {
       <Card>
           <ul className="divide-y divide-border-soft dark:divide-slate-800">
             {filtered.map((q) =>
-          <li key={q.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <li key={q.id} className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-blue-500 p-4 dark:border-l-blue-400">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{q.quoteNumber}</p>

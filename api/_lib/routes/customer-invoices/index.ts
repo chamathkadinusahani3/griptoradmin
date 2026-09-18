@@ -9,7 +9,7 @@ import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomerInvoice } from '../../serializers.js';
 import { computeTotals, getTaxRatePct, LineItemInput } from '../../accounting.js';
 import { generateSequentialNumber } from '../../numbering.js';
-import { getEffectiveDiscountPct } from '../../creditDiscipline.js';
+import { getEffectiveDiscountPct, isDealerPendingApproval } from '../../creditDiscipline.js';
 import { checkCreditExposureLimit } from '../../salesExecCredit.js';
 import { checkCustomerCreditLimitGate } from '../../customerCreditLimitGate.js';
 import { checkReturnRatioGate } from '../../returnRatioGate.js';
@@ -60,6 +60,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const customer = (await Customer.findOne({ _id: customerId, clientId: session.clientId }).lean()) as CustomerDoc | null;
   if (!customer) return res.status(400).json({ error: 'Unknown customer' });
   if (customer.status === 'Blocked') return res.status(400).json({ error: 'This customer is blocked and cannot be invoiced' });
+  if (await isDealerPendingApproval(session.clientId, customer)) {
+    return res.status(400).json({ error: 'This dealer is still pending credit approval and cannot be invoiced yet' });
+  }
 
   // Same job-card-derived vehicle fields as api/quotations/index.ts.
   let vehicleFields = { vehicle, plate, vehicleId: undefined as string | undefined };
@@ -101,6 +104,15 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   // Best-effort attribution — see SalesOrder's identical lookup.
   const assignment = await SalespersonAssignment.findOne({ clientId: session.clientId, customerId, active: true }).lean();
 
+  // Dealer Credit Control roadmap Module 5 — auto-computed from the
+  // customer's own creditPeriodDays when not explicitly overridden, same
+  // "default from the record, editable per document" snapshot convention
+  // as customerAddress/customerTel elsewhere in this codebase. Previously
+  // dueDate was purely manual with no real computation behind it at all.
+  const now = new Date();
+  const autoDueDate =
+    customer.creditPeriodDays > 0 ? new Date(now.getTime() + customer.creditPeriodDays * 24 * 60 * 60 * 1000) : undefined;
+
   const invoice = await CustomerInvoice.create({
     clientId: session.clientId,
     customerId,
@@ -118,7 +130,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     paidAmount: 0,
     balance: total,
     paymentStatus: 'Unpaid',
-    dueDate: dueDate ? new Date(dueDate) : undefined,
+    dueDate: dueDate ? new Date(dueDate) : autoDueDate,
     notes,
   });
 

@@ -1,5 +1,8 @@
+import { DealerProfile } from './dealerProfile';
+
 export type CustomerType = 'individual' | 'corporate' | 'retail' | 'wholesale' | 'dealer';
 export type CustomerStatus = 'Active' | 'Inactive' | 'Blocked';
+export type RegistrationType = 'customer' | 'dealer';
 // Types that carry the same credit-relationship implications 'corporate'
 // always did (credit limit/discount/period, dealer metrics) — mirrors
 // api/_lib/creditDiscipline.ts's CREDIT_ELIGIBLE_CUSTOMER_TYPES.
@@ -17,6 +20,9 @@ export interface Customer {
   loyaltyPoints: number;
   totalSpend: number;
   type: CustomerType;
+  registrationType: RegistrationType;
+  /** Only present when registrationType is 'dealer'. */
+  dealerProfile?: DealerProfile;
   contactPerson?: string;
   creditLimit: number;
   discountPct: number;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ShieldIcon, PlusIcon, PencilIcon, Trash2Icon, LockIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -11,25 +11,11 @@ import { Toggle } from '../../components/ui/Toggle';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import { Role } from '../../types/role';
+import { PermissionMatrix } from '../../components/PermissionMatrix';
 import { api, ApiError } from '../../lib/api';
 import { useHasPermission } from '../../context/AuthContext';
 
 const emptyForm = { name: '', permissions: [] as string[], branchPinned: false, requiresCreditLimit: false };
-
-function titleCase(word: string): string {
-  return word.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
-}
-
-function groupPermissions(permissions: string[]): { resource: string; keys: string[] }[] {
-  const byResource = new Map<string, string[]>();
-  for (const p of permissions) {
-    const [resource] = p.split(':');
-    byResource.set(resource, [...(byResource.get(resource) ?? []), p]);
-  }
-  return [...byResource.entries()]
-    .map(([resource, keys]) => ({ resource, keys: keys.sort() }))
-    .sort((a, b) => a.resource.localeCompare(b.resource));
-}
 
 export function RolesPermissions() {
   const canManage = useHasPermission('roles:manage');
@@ -40,8 +26,6 @@ export function RolesPermissions() {
   const [editing, setEditing] = useState<Role | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-
-  const grouped = useMemo(() => groupPermissions(allPermissions), [allPermissions]);
 
   const load = () => {
     setLoading(true);
@@ -73,6 +57,13 @@ export function RolesPermissions() {
       ...f,
       permissions: f.permissions.includes(key) ? f.permissions.filter((p) => p !== key) : [...f.permissions, key],
     }));
+  };
+
+  const toggleManyPermissions = (keys: string[], checked: boolean) => {
+    setForm((f) => {
+      const withoutKeys = f.permissions.filter((p) => !keys.includes(p));
+      return { ...f, permissions: checked ? [...withoutKeys, ...keys] : withoutKeys };
+    });
   };
 
   const save = async () => {
@@ -203,28 +194,8 @@ export function RolesPermissions() {
 
           <div>
             <Label>Permissions</Label>
-            <div className="mt-2 grid max-h-96 grid-cols-1 gap-4 overflow-y-auto rounded-xl border border-border-soft p-4 dark:border-slate-800 sm:grid-cols-2">
-              {grouped.map((g) =>
-              <div key={g.resource}>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">{titleCase(g.resource)}</p>
-                  <div className="space-y-1">
-                    {g.keys.map((k) => {
-                    const action = k.split(':')[1];
-                    return (
-                      <label key={k} className="flex items-center gap-2 text-sm text-navy dark:text-slate-200">
-                          <input
-                          type="checkbox"
-                          checked={form.permissions.includes(k)}
-                          onChange={() => togglePermission(k)}
-                          className="h-4 w-4 rounded border-border-soft text-teal focus:ring-teal dark:border-slate-700" />
-
-                          {titleCase(action)}
-                        </label>);
-
-                  })}
-                  </div>
-                </div>
-              )}
+            <div className="mt-2">
+              <PermissionMatrix allPermissions={allPermissions} selected={form.permissions} onToggle={togglePermission} onToggleMany={toggleManyPermissions} />
             </div>
           </div>
         </div>

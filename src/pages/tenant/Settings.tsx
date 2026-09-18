@@ -81,7 +81,7 @@ export function Settings() {
   const [numberingPrefixes, setNumberingPrefixes] = useState({
     invoice: '', quotation: '', purchaseOrder: '', complaint: '', expense: '', return: '',
     purchaseRequisition: '', rfq: '', supplierQuotation: '', grn: '', purchaseInvoice: '',
-    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '', creditNote: '', debitNote: '', receipt: '', advancePayment: '', stockIssue: '', cashHandover: '', utilization: '', customerDebitNote: '', effectiveNote: '',
+    salesOrder: '', deliveryNote: '', salaryAdvance: '', warrantyClaim: '', supplierClaim: '', creditNote: '', debitNote: '', receipt: '', advancePayment: '', stockIssue: '', cashHandover: '', utilization: '', customerDebitNote: '', effectiveNote: '', dealerCode: '',
   });
   const [savingNumbering, setSavingNumbering] = useState(false);
   const [deliveryLoadRules, setDeliveryLoadRules] = useState<{ maxVolume: string; vehicleType: string }[]>([]);
@@ -150,6 +150,7 @@ export function Settings() {
           utilization: client.numberingPrefixes.utilization ?? '',
           customerDebitNote: client.numberingPrefixes.customerDebitNote ?? '',
           effectiveNote: client.numberingPrefixes.effectiveNote ?? '',
+          dealerCode: client.numberingPrefixes.dealerCode ?? '',
         });
         setDeliveryLoadRules(client.deliveryLoadRules.map((r) => ({ maxVolume: String(r.maxVolume), vehicleType: r.vehicleType })));
         setFuelPricePerLiter(String(client.fuelPricePerLiter));
@@ -247,6 +248,7 @@ export function Settings() {
         utilization: updated.numberingPrefixes.utilization ?? '',
         customerDebitNote: updated.numberingPrefixes.customerDebitNote ?? '',
         effectiveNote: updated.numberingPrefixes.effectiveNote ?? '',
+        dealerCode: updated.numberingPrefixes.dealerCode ?? '',
       });
       toast.success('Document numbering updated');
     } catch (err) {
@@ -749,6 +751,7 @@ export function Settings() {
               ['utilization', 'Utilizations'],
               ['customerDebitNote', 'Customer debit notes'],
               ['effectiveNote', 'Effective notes'],
+              ['dealerCode', 'Dealer codes'],
             ] as const).map(([key, label]) => (
               <div key={key}>
                 <Label htmlFor={`numbering-${key}`}>{label}</Label>

@@ -31,6 +31,11 @@ const PaymentRecordSchema = new Schema(
     // (and typically PayHere, which settles to whatever account is on file
     // with the gateway, not tracked here).
     bankAccountId: { type: Schema.Types.ObjectId, ref: 'BankAccount' },
+    // Dealer Credit Control roadmap Module 6 — only meaningful for method:
+    // 'Card'. Dynamically calculated (not manually entered) from the
+    // chosen BankAccount's own cardSettlementDays at the moment this
+    // payment is recorded — see customerInvoicePayments.ts.
+    settlementDate: { type: Date },
     // Reconciliation is deliberately a simple manual flag (not statement
     // import/matching) — flipped once this payment shows up on the actual
     // bank statement. See PurchaseOrder.ts's identical fields for the other

@@ -109,6 +109,7 @@ export const MODULES: ModuleDef[] = [
   navGroup: {
     heading: 'Customer CRM',
     items: [
+    { label: 'CRM Dashboard', to: 'crm-dashboard', icon: 'LayoutDashboardIcon' },
     { label: 'Customers', to: 'customers', icon: 'UsersIcon' },
     { label: 'Prospects', to: 'prospects', icon: 'UserPlusIcon' },
     { label: 'Corporate Accounts', to: 'corporate-accounts', icon: 'BuildingIcon' },
@@ -266,6 +267,7 @@ export const MODULES: ModuleDef[] = [
     {
       label: 'Accounts',
       items: [
+      { label: 'Accounts Dashboard', to: 'accounts-dashboard', icon: 'LayoutDashboardIcon' },
       { label: 'Chart of Accounts', to: 'chart-of-accounts', icon: 'LibraryIcon' },
       { label: 'General Ledger', to: 'general-ledger', icon: 'BookOpenIcon' },
       { label: 'Cash Sessions', to: 'cash-sessions', icon: 'WalletIcon' },

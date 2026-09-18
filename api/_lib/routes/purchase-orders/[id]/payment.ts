@@ -4,6 +4,7 @@ import { Supplier, SupplierDoc } from '../../../models/Supplier.js';
 import { requireTenantPermission } from '../../../auth.js';
 import { serializePurchaseOrder } from '../../../serializers.js';
 import { recordPurchaseOrderPayment } from '../../../purchaseOrderPayments.js';
+import { SETTLEMENT_DISCOUNT_REASONS } from '../../../models/PurchaseOrder.js';
 
 interface RecordPaymentBody {
   amount?: number;
@@ -13,6 +14,8 @@ interface RecordPaymentBody {
   chequeNumber?: string;
   bankAccountId?: string;
   discountAmount?: number;
+  discountReason?: (typeof SETTLEMENT_DISCOUNT_REASONS)[number];
+  lastPrice?: number;
 }
 
 // Manual payment recording against a supplier's purchase order — the
@@ -29,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id } = req.query;
   if (typeof id !== 'string') return res.status(400).json({ error: 'Missing purchase order id' });
 
-  const { amount, method, date, notes, chequeNumber, bankAccountId, discountAmount } = (req.body ?? {}) as RecordPaymentBody;
+  const { amount, method, date, notes, chequeNumber, bankAccountId, discountAmount, discountReason, lastPrice } = (req.body ?? {}) as RecordPaymentBody;
   if (!amount || amount <= 0 || !method) {
     return res.status(400).json({ error: 'A positive amount and a payment method are required' });
   }
@@ -38,6 +41,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (discountAmount !== undefined && (typeof discountAmount !== 'number' || discountAmount < 0)) {
     return res.status(400).json({ error: 'discountAmount must be a non-negative number' });
+  }
+  // Dealer Credit Control roadmap Module 4 — a settlement discount requires
+  // stating why (a closed dropdown, matching the spec) and the price before
+  // the discount, for reference.
+  if (discountAmount && discountAmount > 0) {
+    if (!discountReason || !(SETTLEMENT_DISCOUNT_REASONS as readonly string[]).includes(discountReason)) {
+      return res.status(400).json({ error: `discountReason must be one of: ${SETTLEMENT_DISCOUNT_REASONS.join(', ')}` });
+    }
+    if (lastPrice == null || typeof lastPrice !== 'number' || lastPrice < 0) {
+      return res.status(400).json({ error: 'lastPrice is required (and must be a non-negative number) when a discount is applied' });
+    }
   }
 
   await connectToDatabase();
@@ -50,6 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     chequeNumber: method === 'Cheque' ? chequeNumber : undefined,
     bankAccountId,
     discountAmount,
+    discountReason,
+    lastPrice,
   });
   if (!order) return res.status(400).json({ error: 'This purchase order was not found or is not payable (must be Ordered, Partially Received, or Received)' });
 

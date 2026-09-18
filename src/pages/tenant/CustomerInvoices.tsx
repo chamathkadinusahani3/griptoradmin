@@ -251,6 +251,7 @@ export function CustomerInvoices() {
         { label: 'Balance', value: formatCurrency(inv.balance) },
       ],
       notes: inv.notes,
+      kind: 'sales',
     });
   };
 
@@ -294,7 +295,7 @@ export function CustomerInvoices() {
       <Card>
           <ul className="divide-y divide-border-soft dark:divide-slate-800">
             {filtered.map((inv) =>
-          <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-blue-500 p-4 dark:border-l-blue-400">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{inv.invoiceNumber}</p>
@@ -362,7 +363,8 @@ export function CustomerInvoices() {
           </div>
           <div>
             <Label htmlFor="inv-due">Due date (optional)</Label>
-            <Input id="inv-due" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <Input id="inv-due" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} placeholder="Auto-calculated from the customer's credit period" />
+            <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Left blank, this is calculated automatically from the customer's credit period.</p>
           </div>
           <div>
             <Label htmlFor="inv-vehicle">Vehicle</Label>
@@ -498,13 +500,25 @@ export function CustomerInvoices() {
                 <Input id="pay-cheque" value={payChequeNumber} onChange={(e) => setPayChequeNumber(e.target.value)} placeholder="e.g. 000123" />
               </div>
           }
-            {(payMethod === 'Cheque' || payMethod === 'Bank Transfer') && bankAccounts.length > 0 &&
+            {(payMethod === 'Cheque' || payMethod === 'Bank Transfer' || payMethod === 'Card') && bankAccounts.length > 0 &&
           <div>
-                <Label htmlFor="pay-bank">Bank account (optional)</Label>
+                <Label htmlFor="pay-bank">Bank account {payMethod === 'Card' ? '' : '(optional)'}</Label>
                 <Select id="pay-bank" value={payBankAccountId} onChange={(e) => setPayBankAccountId(e.target.value)}>
                   <option value="">— none —</option>
                   {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNumber}</option>)}
                 </Select>
+                {payMethod === 'Card' && payBankAccountId &&
+            (() => {
+              const bank = bankAccounts.find((b) => b.id === payBankAccountId);
+              if (!bank) return null;
+              const settleDate = new Date(Date.now() + bank.cardSettlementDays * 24 * 60 * 60 * 1000);
+              return (
+                <p className="mt-1 text-xs text-text-gray dark:text-slate-400">
+                  Estimated settlement: {formatDate(settleDate.toISOString())} ({bank.cardSettlementDays} day{bank.cardSettlementDays === 1 ? '' : 's'})
+                </p>);
+
+            })()
+            }
               </div>
           }
           </div>

@@ -20,6 +20,8 @@ import { JobCard } from '../../types/jobCard';
 import { Salesperson } from '../../types/salesperson';
 import { Department } from '../../types/department';
 import { PriceList } from '../../types/priceList';
+import { CustomerStatement } from '../../types/statement';
+import { Client } from '../../types/client';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { downloadDocumentPdf } from '../../lib/pdf';
 import { api, ApiError } from '../../lib/api';
@@ -110,6 +112,16 @@ export function SalesOrders() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
 
+  // Return ratio for whichever customer is currently selected in the
+  // create/edit modal — same live-computed figure (dealerMetrics.ts's
+  // computeDealerMetrics, via the customer's own statement endpoint) that
+  // returnRatioGate.ts checks at invoice creation. Shown here purely as an
+  // early heads-up while placing the order — the actual block/warn still
+  // only fires later, at Customer Invoice creation.
+  const [returnRatioThresholdPct, setReturnRatioThresholdPct] = useState(20);
+  const [customerReturnRatio, setCustomerReturnRatio] = useState<number | null>(null);
+  const [returnRatioLoading, setReturnRatioLoading] = useState(false);
+
   const loadOrders = () => {
     api
       .get<{ salesOrders: SalesOrder[] }>('/sales-orders')
@@ -128,7 +140,25 @@ export function SalesOrders() {
     // Silently empty when Price Lists are disabled or the caller lacks
     // price-lists:view — the resolver below just falls back to part.price.
     api.get<{ priceLists: PriceList[] }>('/price-lists').then(({ priceLists }) => setPriceLists(priceLists)).catch(() => setPriceLists([]));
+    api.get<{ client: Client }>('/tenant/me').then(({ client }) => setReturnRatioThresholdPct(client.returnRatioThresholdPct)).catch(() => undefined);
   }, []);
+
+  // Refetched every time the selected customer changes while the modal is
+  // open — statement.ts only computes a return ratio for credit-eligible
+  // types (corporate/wholesale/dealer), so it comes back undefined/null for
+  // an individual/retail customer.
+  useEffect(() => {
+    if (!modalOpen || !form.customerId) {
+      setCustomerReturnRatio(null);
+      return;
+    }
+    setReturnRatioLoading(true);
+    api
+      .get<CustomerStatement>(`/customers/${form.customerId}/statement`)
+      .then((statement) => setCustomerReturnRatio(statement.returnRatioPct ?? null))
+      .catch(() => setCustomerReturnRatio(null))
+      .finally(() => setReturnRatioLoading(false));
+  }, [modalOpen, form.customerId]);
 
   // Mirrors api/_lib/priceListResolver.ts: the selected customer's assigned
   // price list overrides a part's catalog price when one exists, otherwise
@@ -436,6 +466,7 @@ export function SalesOrders() {
         ...(order.brand ? [{ label: 'Brand', value: order.brand }] : []),
       ],
       notes: order.notes,
+      kind: 'sales',
     });
   };
 
@@ -486,7 +517,7 @@ export function SalesOrders() {
       <Card>
           <ul className="divide-y divide-border-soft dark:divide-slate-800">
             {filtered.map((o) =>
-          <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-blue-500 p-4 dark:border-l-blue-400">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-navy dark:text-slate-100">{o.salesOrderNumber}</p>
@@ -563,6 +594,19 @@ export function SalesOrders() {
 
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
+            {form.customerId &&
+            <p className="mt-1 text-xs">
+                {returnRatioLoading ?
+              <span className="text-text-gray dark:text-slate-400">Loading return ratio…</span> :
+              customerReturnRatio === null ?
+              <span className="text-text-gray dark:text-slate-400">Return ratio: no history yet</span> :
+
+              <span className={customerReturnRatio > returnRatioThresholdPct ? 'font-semibold text-red-500' : 'text-text-gray dark:text-slate-400'}>
+                    Return ratio: {customerReturnRatio}%{customerReturnRatio > returnRatioThresholdPct ? ` (exceeds this tenant's ${returnRatioThresholdPct}% threshold)` : ''}
+                  </span>
+              }
+              </p>
+            }
           </div>
           <div>
             <Label htmlFor="so-jobcard">Job No (optional)</Label>

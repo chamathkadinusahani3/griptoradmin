@@ -1,4 +1,9 @@
-export const SALES_ATTACHMENT_DOC_TYPES = ['quotations', 'sales-orders', 'customer-invoices', 'returns'] as const;
+// 'dealer-documents' (Customer/Dealer Registration roadmap Phase 3) reuses
+// this same upload-token endpoint and content-type/size policy for a
+// dealer's credit-application documents (business registration, TIN/VAT
+// certificates, owner NIC, bank statements) — deliberately not a new
+// endpoint, just one more allowed path segment.
+export const SALES_ATTACHMENT_DOC_TYPES = ['quotations', 'sales-orders', 'customer-invoices', 'returns', 'dealer-documents'] as const;
 export type SalesAttachmentDocType = (typeof SALES_ATTACHMENT_DOC_TYPES)[number];
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];

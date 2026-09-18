@@ -51,11 +51,23 @@ const PaymentRecordSchema = new Schema(
     chequeNumber: { type: String },
     // Which BankAccount this cheque/transfer was drawn from — unset for Cash.
     bankAccountId: { type: Schema.Types.ObjectId, ref: 'BankAccount' },
+    // Dealer Credit Control roadmap Module 6 — same as CustomerInvoice's
+    // identical field: only meaningful for method 'Card', dynamically
+    // calculated from the chosen BankAccount's cardSettlementDays.
+    settlementDate: { type: Date },
     // ERP-Phase 6 "Settlement Discount" — a discount the supplier offered
     // for settling this specific payment (e.g. early-payment terms). Not
     // cash paid, but it still counts toward closing the PO's balance — see
     // PurchaseOrder.settlementDiscountTotal below.
     discountAmount: { type: Number },
+    // Dealer Credit Control roadmap Module 4 — required whenever
+    // discountAmount > 0 (enforced at the route, not here — this is a
+    // sub-document, Mongoose can't easily cross-validate two of its own
+    // sibling fields). lastPrice is the price before this discount, kept
+    // for reference so the settlement's own justification is self-contained
+    // without needing to look up history elsewhere.
+    discountReason: { type: String, enum: SETTLEMENT_DISCOUNT_REASONS },
+    lastPrice: { type: Number },
     // Simple manual reconciliation flag — see CustomerInvoice.ts's identical
     // fields (the other direction of money) for the full reasoning.
     reconciled: { type: Boolean, default: false },

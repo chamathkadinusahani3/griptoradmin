@@ -55,6 +55,7 @@ export interface Client {
     utilization?: string;
     customerDebitNote?: string;
     effectiveNote?: string;
+    dealerCode?: string;
   };
   deliveryLoadRules: { maxVolume: number; vehicleType: string }[];
   fuelPricePerLiter: number;

@@ -94,6 +94,7 @@ const NumberingPrefixesSchema = new Schema(
     utilization: { type: String },
     customerDebitNote: { type: String },
     effectiveNote: { type: String },
+    dealerCode: { type: String },
   },
   { _id: false }
 );
