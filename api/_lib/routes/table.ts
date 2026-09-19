@@ -128,153 +128,154 @@ import route112 from './loyalty-rewards/[id].js';
 import route113 from './loyalty-rewards/index.js';
 import route114 from './message-templates/[id].js';
 import route115 from './message-templates/index.js';
-import route116 from './parts/index.js';
-import route117 from './payroll-runs/[id].js';
-import route118 from './payroll-runs/index.js';
-import route119 from './payslips/index.js';
-import route120 from './pending-deliveries/[salesOrderId].js';
-import route121 from './pending-deliveries/index.js';
-import route122 from './performance-reviews/index.js';
-import route123 from './permissions/index.js';
-import route124 from './price-lists/[id].js';
-import route125 from './price-lists/index.js';
-import route126 from './pricing-tiers/[tierId].js';
-import route127 from './pricing-tiers/index.js';
-import route128 from './promotions/[id].js';
-import route129 from './promotions/index.js';
-import route130 from './prospects/[id].js';
-import route131 from './prospects/[id]/convert.js';
-import route132 from './prospects/index.js';
-import route133 from './public/bookings/[slug]/availability.js';
-import route134 from './public/bookings/[slug]/index.js';
-import route135 from './public/inspections/[token].js';
-import route136 from './public/invoices/[id]/status.js';
-import route137 from './public/pay/[token].js';
-import route138 from './public/payhere-notify.js';
-import route139 from './public/portal/[slug]/login.js';
-import route140 from './public/portal/[slug]/logout.js';
-import route141 from './public/portal/[slug]/register.js';
-import route142 from './public/pricing-tiers.js';
-import route143 from './public/tenant-branding/[slug].js';
-import route144 from './purchase-invoices/index.js';
-import route145 from './purchase-orders/[id].js';
-import route146 from './purchase-orders/[id]/payment.js';
-import route147 from './purchase-orders/[id]/reconcile.js';
-import route148 from './purchase-orders/index.js';
-import route149 from './purchase-requisitions/[id].js';
-import route150 from './purchase-requisitions/[id]/convert-to-rfq.js';
-import route151 from './purchase-requisitions/index.js';
-import route152 from './quotations/[id].js';
-import route153 from './quotations/[id]/attachments.js';
-import route154 from './quotations/[id]/convert-to-job.js';
-import route155 from './quotations/[id]/convert.js';
-import route156 from './quotations/index.js';
-import route157 from './receipts/index.js';
-import route158 from './reminders/[id].js';
-import route159 from './reminders/index.js';
-import route160 from './returns/[id].js';
-import route161 from './returns/[id]/attachments.js';
-import route162 from './returns/[id]/reconcile.js';
-import route163 from './returns/index.js';
-import route164 from './rfqs/[id].js';
-import route165 from './rfqs/index.js';
-import route166 from './roles/[id].js';
-import route167 from './roles/index.js';
-import route168 from './salary-advances/[id].js';
-import route169 from './salary-advances/index.js';
-import route170 from './sales-attachments/upload-token.js';
-import route171 from './sales-orders/[id].js';
-import route172 from './sales-orders/[id]/attachments.js';
-import route173 from './sales-orders/[id]/fulfill.js';
-import route174 from './sales-orders/index.js';
-import route175 from './sales-targets/[id].js';
-import route176 from './sales-targets/index.js';
-import route177 from './sales-visits/[id].js';
-import route178 from './sales-visits/index.js';
-import route179 from './sales/index.js';
-import route180 from './salesperson-assignments/[id].js';
-import route181 from './salesperson-assignments/index.js';
-import route182 from './salespersons/[id].js';
-import route183 from './salespersons/index.js';
-import route184 from './salespersons/me/dealers.js';
-import route185 from './services/[id].js';
-import route186 from './services/index.js';
-import route187 from './settings/notifications.js';
-import route188 from './sf-routes/[id].js';
-import route189 from './sf-routes/index.js';
-import route190 from './sf-vehicles/[id].js';
-import route191 from './sf-vehicles/index.js';
-import route192 from './sms/logs.js';
-import route193 from './sms/send.js';
-import route194 from './staff/[id].js';
-import route195 from './staff/index.js';
-import route196 from './stock-adjustments/index.js';
-import route197 from './stock-counts/[id].js';
-import route198 from './stock-counts/index.js';
-import route199 from './stock-issues/index.js';
-import route200 from './stock-transfers/index.js';
-import route201 from './supplier-claims/[id].js';
-import route202 from './supplier-claims/index.js';
-import route203 from './supplier-quotations/[id]/select.js';
-import route204 from './supplier-quotations/index.js';
-import route205 from './suppliers/index.js';
-import route206 from './team/[id].js';
-import route207 from './team/index.js';
-import route208 from './technicians/[id].js';
-import route209 from './technicians/[id]/attendance-history.js';
-import route210 from './technicians/[id]/attendance.js';
-import route211 from './technicians/index.js';
-import route212 from './tenant/accounting-report.js';
-import route213 from './tenant/accounts-dashboard.js';
-import route214 from './tenant/ap-aging.js';
-import route215 from './tenant/ar-aging.js';
-import route216 from './tenant/bank-transactions.js';
-import route217 from './tenant/booking-report.js';
-import route218 from './tenant/crm-dashboard.js';
-import route219 from './tenant/customer-report.js';
-import route220 from './tenant/dashboard.js';
-import route221 from './tenant/financial-overview.js';
-import route222 from './tenant/gross-profit-report.js';
-import route223 from './tenant/hr-report.js';
-import route224 from './tenant/inspection-report.js';
-import route225 from './tenant/inventory-report.js';
-import route226 from './tenant/job-report.js';
-import route227 from './tenant/me.js';
-import route228 from './tenant/purchase-report.js';
-import route229 from './tenant/purchase.js';
-import route230 from './tenant/reports.js';
-import route231 from './tenant/sales-by-report.js';
-import route232 from './tenant/sales-dashboard.js';
-import route233 from './tenant/sales-report.js';
-import route234 from './tenant/sales-return-report.js';
-import route235 from './tenant/settings.js';
-import route236 from './tenant/setup-payment.js';
-import route237 from './tenant/sf-activity-report.js';
-import route238 from './tenant/sf-collection-report.js';
-import route239 from './tenant/sf-dashboard.js';
-import route240 from './tenant/sf-geo-visit-report.js';
-import route241 from './tenant/sf-pending-delivery-report.js';
-import route242 from './tenant/sf-route-report.js';
-import route243 from './tenant/sf-salesperson-report.js';
-import route244 from './tenant/sf-target-report.js';
-import route245 from './tenant/sf-trip-report.js';
-import route246 from './tenant/sf-vehicle-report.js';
-import route247 from './tenant/sf-visit-report.js';
-import route248 from './tenant/slow-moving-products-report.js';
-import route249 from './tenant/sms-config.js';
-import route250 from './tenant/supplier-report.js';
-import route251 from './tenant/top-customers-report.js';
-import route252 from './tenant/workshop-report.js';
-import route253 from './tenants/register.js';
-import route254 from './tickets/[id].js';
-import route255 from './tickets/index.js';
-import route256 from './timesheets/[id].js';
-import route257 from './timesheets/index.js';
-import route258 from './utilizations/index.js';
-import route259 from './warehouses/[id].js';
-import route260 from './warehouses/index.js';
-import route261 from './warranty-claims/[id].js';
-import route262 from './warranty-claims/index.js';
+import route116 from './parts/[id].js';
+import route117 from './parts/index.js';
+import route118 from './payroll-runs/[id].js';
+import route119 from './payroll-runs/index.js';
+import route120 from './payslips/index.js';
+import route121 from './pending-deliveries/[salesOrderId].js';
+import route122 from './pending-deliveries/index.js';
+import route123 from './performance-reviews/index.js';
+import route124 from './permissions/index.js';
+import route125 from './price-lists/[id].js';
+import route126 from './price-lists/index.js';
+import route127 from './pricing-tiers/[tierId].js';
+import route128 from './pricing-tiers/index.js';
+import route129 from './promotions/[id].js';
+import route130 from './promotions/index.js';
+import route131 from './prospects/[id].js';
+import route132 from './prospects/[id]/convert.js';
+import route133 from './prospects/index.js';
+import route134 from './public/bookings/[slug]/availability.js';
+import route135 from './public/bookings/[slug]/index.js';
+import route136 from './public/inspections/[token].js';
+import route137 from './public/invoices/[id]/status.js';
+import route138 from './public/pay/[token].js';
+import route139 from './public/payhere-notify.js';
+import route140 from './public/portal/[slug]/login.js';
+import route141 from './public/portal/[slug]/logout.js';
+import route142 from './public/portal/[slug]/register.js';
+import route143 from './public/pricing-tiers.js';
+import route144 from './public/tenant-branding/[slug].js';
+import route145 from './purchase-invoices/index.js';
+import route146 from './purchase-orders/[id].js';
+import route147 from './purchase-orders/[id]/payment.js';
+import route148 from './purchase-orders/[id]/reconcile.js';
+import route149 from './purchase-orders/index.js';
+import route150 from './purchase-requisitions/[id].js';
+import route151 from './purchase-requisitions/[id]/convert-to-rfq.js';
+import route152 from './purchase-requisitions/index.js';
+import route153 from './quotations/[id].js';
+import route154 from './quotations/[id]/attachments.js';
+import route155 from './quotations/[id]/convert-to-job.js';
+import route156 from './quotations/[id]/convert.js';
+import route157 from './quotations/index.js';
+import route158 from './receipts/index.js';
+import route159 from './reminders/[id].js';
+import route160 from './reminders/index.js';
+import route161 from './returns/[id].js';
+import route162 from './returns/[id]/attachments.js';
+import route163 from './returns/[id]/reconcile.js';
+import route164 from './returns/index.js';
+import route165 from './rfqs/[id].js';
+import route166 from './rfqs/index.js';
+import route167 from './roles/[id].js';
+import route168 from './roles/index.js';
+import route169 from './salary-advances/[id].js';
+import route170 from './salary-advances/index.js';
+import route171 from './sales-attachments/upload-token.js';
+import route172 from './sales-orders/[id].js';
+import route173 from './sales-orders/[id]/attachments.js';
+import route174 from './sales-orders/[id]/fulfill.js';
+import route175 from './sales-orders/index.js';
+import route176 from './sales-targets/[id].js';
+import route177 from './sales-targets/index.js';
+import route178 from './sales-visits/[id].js';
+import route179 from './sales-visits/index.js';
+import route180 from './sales/index.js';
+import route181 from './salesperson-assignments/[id].js';
+import route182 from './salesperson-assignments/index.js';
+import route183 from './salespersons/[id].js';
+import route184 from './salespersons/index.js';
+import route185 from './salespersons/me/dealers.js';
+import route186 from './services/[id].js';
+import route187 from './services/index.js';
+import route188 from './settings/notifications.js';
+import route189 from './sf-routes/[id].js';
+import route190 from './sf-routes/index.js';
+import route191 from './sf-vehicles/[id].js';
+import route192 from './sf-vehicles/index.js';
+import route193 from './sms/logs.js';
+import route194 from './sms/send.js';
+import route195 from './staff/[id].js';
+import route196 from './staff/index.js';
+import route197 from './stock-adjustments/index.js';
+import route198 from './stock-counts/[id].js';
+import route199 from './stock-counts/index.js';
+import route200 from './stock-issues/index.js';
+import route201 from './stock-transfers/index.js';
+import route202 from './supplier-claims/[id].js';
+import route203 from './supplier-claims/index.js';
+import route204 from './supplier-quotations/[id]/select.js';
+import route205 from './supplier-quotations/index.js';
+import route206 from './suppliers/index.js';
+import route207 from './team/[id].js';
+import route208 from './team/index.js';
+import route209 from './technicians/[id].js';
+import route210 from './technicians/[id]/attendance-history.js';
+import route211 from './technicians/[id]/attendance.js';
+import route212 from './technicians/index.js';
+import route213 from './tenant/accounting-report.js';
+import route214 from './tenant/accounts-dashboard.js';
+import route215 from './tenant/ap-aging.js';
+import route216 from './tenant/ar-aging.js';
+import route217 from './tenant/bank-transactions.js';
+import route218 from './tenant/booking-report.js';
+import route219 from './tenant/crm-dashboard.js';
+import route220 from './tenant/customer-report.js';
+import route221 from './tenant/dashboard.js';
+import route222 from './tenant/financial-overview.js';
+import route223 from './tenant/gross-profit-report.js';
+import route224 from './tenant/hr-report.js';
+import route225 from './tenant/inspection-report.js';
+import route226 from './tenant/inventory-report.js';
+import route227 from './tenant/job-report.js';
+import route228 from './tenant/me.js';
+import route229 from './tenant/purchase-report.js';
+import route230 from './tenant/purchase.js';
+import route231 from './tenant/reports.js';
+import route232 from './tenant/sales-by-report.js';
+import route233 from './tenant/sales-dashboard.js';
+import route234 from './tenant/sales-report.js';
+import route235 from './tenant/sales-return-report.js';
+import route236 from './tenant/settings.js';
+import route237 from './tenant/setup-payment.js';
+import route238 from './tenant/sf-activity-report.js';
+import route239 from './tenant/sf-collection-report.js';
+import route240 from './tenant/sf-dashboard.js';
+import route241 from './tenant/sf-geo-visit-report.js';
+import route242 from './tenant/sf-pending-delivery-report.js';
+import route243 from './tenant/sf-route-report.js';
+import route244 from './tenant/sf-salesperson-report.js';
+import route245 from './tenant/sf-target-report.js';
+import route246 from './tenant/sf-trip-report.js';
+import route247 from './tenant/sf-vehicle-report.js';
+import route248 from './tenant/sf-visit-report.js';
+import route249 from './tenant/slow-moving-products-report.js';
+import route250 from './tenant/sms-config.js';
+import route251 from './tenant/supplier-report.js';
+import route252 from './tenant/top-customers-report.js';
+import route253 from './tenant/workshop-report.js';
+import route254 from './tenants/register.js';
+import route255 from './tickets/[id].js';
+import route256 from './tickets/index.js';
+import route257 from './timesheets/[id].js';
+import route258 from './timesheets/index.js';
+import route259 from './utilizations/index.js';
+import route260 from './warehouses/[id].js';
+import route261 from './warehouses/index.js';
+import route262 from './warranty-claims/[id].js';
+import route263 from './warranty-claims/index.js';
 
 export const ROUTES: RouteDef[] = [
   { segments: ['advance-payments', { param: 'id' }], handler: route0 }, // advance-payments/[id].ts
@@ -393,151 +394,152 @@ export const ROUTES: RouteDef[] = [
   { segments: ['loyalty-rewards'], handler: route113 }, // loyalty-rewards/index.ts
   { segments: ['message-templates', { param: 'id' }], handler: route114 }, // message-templates/[id].ts
   { segments: ['message-templates'], handler: route115 }, // message-templates/index.ts
-  { segments: ['parts'], handler: route116 }, // parts/index.ts
-  { segments: ['payroll-runs', { param: 'id' }], handler: route117 }, // payroll-runs/[id].ts
-  { segments: ['payroll-runs'], handler: route118 }, // payroll-runs/index.ts
-  { segments: ['payslips'], handler: route119 }, // payslips/index.ts
-  { segments: ['pending-deliveries', { param: 'salesOrderId' }], handler: route120 }, // pending-deliveries/[salesOrderId].ts
-  { segments: ['pending-deliveries'], handler: route121 }, // pending-deliveries/index.ts
-  { segments: ['performance-reviews'], handler: route122 }, // performance-reviews/index.ts
-  { segments: ['permissions'], handler: route123 }, // permissions/index.ts
-  { segments: ['price-lists', { param: 'id' }], handler: route124 }, // price-lists/[id].ts
-  { segments: ['price-lists'], handler: route125 }, // price-lists/index.ts
-  { segments: ['pricing-tiers', { param: 'tierId' }], handler: route126 }, // pricing-tiers/[tierId].ts
-  { segments: ['pricing-tiers'], handler: route127 }, // pricing-tiers/index.ts
-  { segments: ['promotions', { param: 'id' }], handler: route128 }, // promotions/[id].ts
-  { segments: ['promotions'], handler: route129 }, // promotions/index.ts
-  { segments: ['prospects', { param: 'id' }], handler: route130 }, // prospects/[id].ts
-  { segments: ['prospects', { param: 'id' }, 'convert'], handler: route131 }, // prospects/[id]/convert.ts
-  { segments: ['prospects'], handler: route132 }, // prospects/index.ts
-  { segments: ['public', 'bookings', { param: 'slug' }, 'availability'], handler: route133 }, // public/bookings/[slug]/availability.ts
-  { segments: ['public', 'bookings', { param: 'slug' }], handler: route134 }, // public/bookings/[slug]/index.ts
-  { segments: ['public', 'inspections', { param: 'token' }], handler: route135 }, // public/inspections/[token].ts
-  { segments: ['public', 'invoices', { param: 'id' }, 'status'], handler: route136 }, // public/invoices/[id]/status.ts
-  { segments: ['public', 'pay', { param: 'token' }], handler: route137 }, // public/pay/[token].ts
-  { segments: ['public', 'payhere-notify'], handler: route138 }, // public/payhere-notify.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'login'], handler: route139 }, // public/portal/[slug]/login.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'logout'], handler: route140 }, // public/portal/[slug]/logout.ts
-  { segments: ['public', 'portal', { param: 'slug' }, 'register'], handler: route141 }, // public/portal/[slug]/register.ts
-  { segments: ['public', 'pricing-tiers'], handler: route142 }, // public/pricing-tiers.ts
-  { segments: ['public', 'tenant-branding', { param: 'slug' }], handler: route143 }, // public/tenant-branding/[slug].ts
-  { segments: ['purchase-invoices'], handler: route144 }, // purchase-invoices/index.ts
-  { segments: ['purchase-orders', { param: 'id' }], handler: route145 }, // purchase-orders/[id].ts
-  { segments: ['purchase-orders', { param: 'id' }, 'payment'], handler: route146 }, // purchase-orders/[id]/payment.ts
-  { segments: ['purchase-orders', { param: 'id' }, 'reconcile'], handler: route147 }, // purchase-orders/[id]/reconcile.ts
-  { segments: ['purchase-orders'], handler: route148 }, // purchase-orders/index.ts
-  { segments: ['purchase-requisitions', { param: 'id' }], handler: route149 }, // purchase-requisitions/[id].ts
-  { segments: ['purchase-requisitions', { param: 'id' }, 'convert-to-rfq'], handler: route150 }, // purchase-requisitions/[id]/convert-to-rfq.ts
-  { segments: ['purchase-requisitions'], handler: route151 }, // purchase-requisitions/index.ts
-  { segments: ['quotations', { param: 'id' }], handler: route152 }, // quotations/[id].ts
-  { segments: ['quotations', { param: 'id' }, 'attachments'], handler: route153 }, // quotations/[id]/attachments.ts
-  { segments: ['quotations', { param: 'id' }, 'convert-to-job'], handler: route154 }, // quotations/[id]/convert-to-job.ts
-  { segments: ['quotations', { param: 'id' }, 'convert'], handler: route155 }, // quotations/[id]/convert.ts
-  { segments: ['quotations'], handler: route156 }, // quotations/index.ts
-  { segments: ['receipts'], handler: route157 }, // receipts/index.ts
-  { segments: ['reminders', { param: 'id' }], handler: route158 }, // reminders/[id].ts
-  { segments: ['reminders'], handler: route159 }, // reminders/index.ts
-  { segments: ['returns', { param: 'id' }], handler: route160 }, // returns/[id].ts
-  { segments: ['returns', { param: 'id' }, 'attachments'], handler: route161 }, // returns/[id]/attachments.ts
-  { segments: ['returns', { param: 'id' }, 'reconcile'], handler: route162 }, // returns/[id]/reconcile.ts
-  { segments: ['returns'], handler: route163 }, // returns/index.ts
-  { segments: ['rfqs', { param: 'id' }], handler: route164 }, // rfqs/[id].ts
-  { segments: ['rfqs'], handler: route165 }, // rfqs/index.ts
-  { segments: ['roles', { param: 'id' }], handler: route166 }, // roles/[id].ts
-  { segments: ['roles'], handler: route167 }, // roles/index.ts
-  { segments: ['salary-advances', { param: 'id' }], handler: route168 }, // salary-advances/[id].ts
-  { segments: ['salary-advances'], handler: route169 }, // salary-advances/index.ts
-  { segments: ['sales-attachments', 'upload-token'], handler: route170 }, // sales-attachments/upload-token.ts
-  { segments: ['sales-orders', { param: 'id' }], handler: route171 }, // sales-orders/[id].ts
-  { segments: ['sales-orders', { param: 'id' }, 'attachments'], handler: route172 }, // sales-orders/[id]/attachments.ts
-  { segments: ['sales-orders', { param: 'id' }, 'fulfill'], handler: route173 }, // sales-orders/[id]/fulfill.ts
-  { segments: ['sales-orders'], handler: route174 }, // sales-orders/index.ts
-  { segments: ['sales-targets', { param: 'id' }], handler: route175 }, // sales-targets/[id].ts
-  { segments: ['sales-targets'], handler: route176 }, // sales-targets/index.ts
-  { segments: ['sales-visits', { param: 'id' }], handler: route177 }, // sales-visits/[id].ts
-  { segments: ['sales-visits'], handler: route178 }, // sales-visits/index.ts
-  { segments: ['sales'], handler: route179 }, // sales/index.ts
-  { segments: ['salesperson-assignments', { param: 'id' }], handler: route180 }, // salesperson-assignments/[id].ts
-  { segments: ['salesperson-assignments'], handler: route181 }, // salesperson-assignments/index.ts
-  { segments: ['salespersons', { param: 'id' }], handler: route182 }, // salespersons/[id].ts
-  { segments: ['salespersons'], handler: route183 }, // salespersons/index.ts
-  { segments: ['salespersons', 'me', 'dealers'], handler: route184 }, // salespersons/me/dealers.ts
-  { segments: ['services', { param: 'id' }], handler: route185 }, // services/[id].ts
-  { segments: ['services'], handler: route186 }, // services/index.ts
-  { segments: ['settings', 'notifications'], handler: route187 }, // settings/notifications.ts
-  { segments: ['sf-routes', { param: 'id' }], handler: route188 }, // sf-routes/[id].ts
-  { segments: ['sf-routes'], handler: route189 }, // sf-routes/index.ts
-  { segments: ['sf-vehicles', { param: 'id' }], handler: route190 }, // sf-vehicles/[id].ts
-  { segments: ['sf-vehicles'], handler: route191 }, // sf-vehicles/index.ts
-  { segments: ['sms', 'logs'], handler: route192 }, // sms/logs.ts
-  { segments: ['sms', 'send'], handler: route193 }, // sms/send.ts
-  { segments: ['staff', { param: 'id' }], handler: route194 }, // staff/[id].ts
-  { segments: ['staff'], handler: route195 }, // staff/index.ts
-  { segments: ['stock-adjustments'], handler: route196 }, // stock-adjustments/index.ts
-  { segments: ['stock-counts', { param: 'id' }], handler: route197 }, // stock-counts/[id].ts
-  { segments: ['stock-counts'], handler: route198 }, // stock-counts/index.ts
-  { segments: ['stock-issues'], handler: route199 }, // stock-issues/index.ts
-  { segments: ['stock-transfers'], handler: route200 }, // stock-transfers/index.ts
-  { segments: ['supplier-claims', { param: 'id' }], handler: route201 }, // supplier-claims/[id].ts
-  { segments: ['supplier-claims'], handler: route202 }, // supplier-claims/index.ts
-  { segments: ['supplier-quotations', { param: 'id' }, 'select'], handler: route203 }, // supplier-quotations/[id]/select.ts
-  { segments: ['supplier-quotations'], handler: route204 }, // supplier-quotations/index.ts
-  { segments: ['suppliers'], handler: route205 }, // suppliers/index.ts
-  { segments: ['team', { param: 'id' }], handler: route206 }, // team/[id].ts
-  { segments: ['team'], handler: route207 }, // team/index.ts
-  { segments: ['technicians', { param: 'id' }], handler: route208 }, // technicians/[id].ts
-  { segments: ['technicians', { param: 'id' }, 'attendance-history'], handler: route209 }, // technicians/[id]/attendance-history.ts
-  { segments: ['technicians', { param: 'id' }, 'attendance'], handler: route210 }, // technicians/[id]/attendance.ts
-  { segments: ['technicians'], handler: route211 }, // technicians/index.ts
-  { segments: ['tenant', 'accounting-report'], handler: route212 }, // tenant/accounting-report.ts
-  { segments: ['tenant', 'accounts-dashboard'], handler: route213 }, // tenant/accounts-dashboard.ts
-  { segments: ['tenant', 'ap-aging'], handler: route214 }, // tenant/ap-aging.ts
-  { segments: ['tenant', 'ar-aging'], handler: route215 }, // tenant/ar-aging.ts
-  { segments: ['tenant', 'bank-transactions'], handler: route216 }, // tenant/bank-transactions.ts
-  { segments: ['tenant', 'booking-report'], handler: route217 }, // tenant/booking-report.ts
-  { segments: ['tenant', 'crm-dashboard'], handler: route218 }, // tenant/crm-dashboard.ts
-  { segments: ['tenant', 'customer-report'], handler: route219 }, // tenant/customer-report.ts
-  { segments: ['tenant', 'dashboard'], handler: route220 }, // tenant/dashboard.ts
-  { segments: ['tenant', 'financial-overview'], handler: route221 }, // tenant/financial-overview.ts
-  { segments: ['tenant', 'gross-profit-report'], handler: route222 }, // tenant/gross-profit-report.ts
-  { segments: ['tenant', 'hr-report'], handler: route223 }, // tenant/hr-report.ts
-  { segments: ['tenant', 'inspection-report'], handler: route224 }, // tenant/inspection-report.ts
-  { segments: ['tenant', 'inventory-report'], handler: route225 }, // tenant/inventory-report.ts
-  { segments: ['tenant', 'job-report'], handler: route226 }, // tenant/job-report.ts
-  { segments: ['tenant', 'me'], handler: route227 }, // tenant/me.ts
-  { segments: ['tenant', 'purchase-report'], handler: route228 }, // tenant/purchase-report.ts
-  { segments: ['tenant', 'purchase'], handler: route229 }, // tenant/purchase.ts
-  { segments: ['tenant', 'reports'], handler: route230 }, // tenant/reports.ts
-  { segments: ['tenant', 'sales-by-report'], handler: route231 }, // tenant/sales-by-report.ts
-  { segments: ['tenant', 'sales-dashboard'], handler: route232 }, // tenant/sales-dashboard.ts
-  { segments: ['tenant', 'sales-report'], handler: route233 }, // tenant/sales-report.ts
-  { segments: ['tenant', 'sales-return-report'], handler: route234 }, // tenant/sales-return-report.ts
-  { segments: ['tenant', 'settings'], handler: route235 }, // tenant/settings.ts
-  { segments: ['tenant', 'setup-payment'], handler: route236 }, // tenant/setup-payment.ts
-  { segments: ['tenant', 'sf-activity-report'], handler: route237 }, // tenant/sf-activity-report.ts
-  { segments: ['tenant', 'sf-collection-report'], handler: route238 }, // tenant/sf-collection-report.ts
-  { segments: ['tenant', 'sf-dashboard'], handler: route239 }, // tenant/sf-dashboard.ts
-  { segments: ['tenant', 'sf-geo-visit-report'], handler: route240 }, // tenant/sf-geo-visit-report.ts
-  { segments: ['tenant', 'sf-pending-delivery-report'], handler: route241 }, // tenant/sf-pending-delivery-report.ts
-  { segments: ['tenant', 'sf-route-report'], handler: route242 }, // tenant/sf-route-report.ts
-  { segments: ['tenant', 'sf-salesperson-report'], handler: route243 }, // tenant/sf-salesperson-report.ts
-  { segments: ['tenant', 'sf-target-report'], handler: route244 }, // tenant/sf-target-report.ts
-  { segments: ['tenant', 'sf-trip-report'], handler: route245 }, // tenant/sf-trip-report.ts
-  { segments: ['tenant', 'sf-vehicle-report'], handler: route246 }, // tenant/sf-vehicle-report.ts
-  { segments: ['tenant', 'sf-visit-report'], handler: route247 }, // tenant/sf-visit-report.ts
-  { segments: ['tenant', 'slow-moving-products-report'], handler: route248 }, // tenant/slow-moving-products-report.ts
-  { segments: ['tenant', 'sms-config'], handler: route249 }, // tenant/sms-config.ts
-  { segments: ['tenant', 'supplier-report'], handler: route250 }, // tenant/supplier-report.ts
-  { segments: ['tenant', 'top-customers-report'], handler: route251 }, // tenant/top-customers-report.ts
-  { segments: ['tenant', 'workshop-report'], handler: route252 }, // tenant/workshop-report.ts
-  { segments: ['tenants', 'register'], handler: route253 }, // tenants/register.ts
-  { segments: ['tickets', { param: 'id' }], handler: route254 }, // tickets/[id].ts
-  { segments: ['tickets'], handler: route255 }, // tickets/index.ts
-  { segments: ['timesheets', { param: 'id' }], handler: route256 }, // timesheets/[id].ts
-  { segments: ['timesheets'], handler: route257 }, // timesheets/index.ts
-  { segments: ['utilizations'], handler: route258 }, // utilizations/index.ts
-  { segments: ['warehouses', { param: 'id' }], handler: route259 }, // warehouses/[id].ts
-  { segments: ['warehouses'], handler: route260 }, // warehouses/index.ts
-  { segments: ['warranty-claims', { param: 'id' }], handler: route261 }, // warranty-claims/[id].ts
-  { segments: ['warranty-claims'], handler: route262 }, // warranty-claims/index.ts
+  { segments: ['parts', { param: 'id' }], handler: route116 }, // parts/[id].ts
+  { segments: ['parts'], handler: route117 }, // parts/index.ts
+  { segments: ['payroll-runs', { param: 'id' }], handler: route118 }, // payroll-runs/[id].ts
+  { segments: ['payroll-runs'], handler: route119 }, // payroll-runs/index.ts
+  { segments: ['payslips'], handler: route120 }, // payslips/index.ts
+  { segments: ['pending-deliveries', { param: 'salesOrderId' }], handler: route121 }, // pending-deliveries/[salesOrderId].ts
+  { segments: ['pending-deliveries'], handler: route122 }, // pending-deliveries/index.ts
+  { segments: ['performance-reviews'], handler: route123 }, // performance-reviews/index.ts
+  { segments: ['permissions'], handler: route124 }, // permissions/index.ts
+  { segments: ['price-lists', { param: 'id' }], handler: route125 }, // price-lists/[id].ts
+  { segments: ['price-lists'], handler: route126 }, // price-lists/index.ts
+  { segments: ['pricing-tiers', { param: 'tierId' }], handler: route127 }, // pricing-tiers/[tierId].ts
+  { segments: ['pricing-tiers'], handler: route128 }, // pricing-tiers/index.ts
+  { segments: ['promotions', { param: 'id' }], handler: route129 }, // promotions/[id].ts
+  { segments: ['promotions'], handler: route130 }, // promotions/index.ts
+  { segments: ['prospects', { param: 'id' }], handler: route131 }, // prospects/[id].ts
+  { segments: ['prospects', { param: 'id' }, 'convert'], handler: route132 }, // prospects/[id]/convert.ts
+  { segments: ['prospects'], handler: route133 }, // prospects/index.ts
+  { segments: ['public', 'bookings', { param: 'slug' }, 'availability'], handler: route134 }, // public/bookings/[slug]/availability.ts
+  { segments: ['public', 'bookings', { param: 'slug' }], handler: route135 }, // public/bookings/[slug]/index.ts
+  { segments: ['public', 'inspections', { param: 'token' }], handler: route136 }, // public/inspections/[token].ts
+  { segments: ['public', 'invoices', { param: 'id' }, 'status'], handler: route137 }, // public/invoices/[id]/status.ts
+  { segments: ['public', 'pay', { param: 'token' }], handler: route138 }, // public/pay/[token].ts
+  { segments: ['public', 'payhere-notify'], handler: route139 }, // public/payhere-notify.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'login'], handler: route140 }, // public/portal/[slug]/login.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'logout'], handler: route141 }, // public/portal/[slug]/logout.ts
+  { segments: ['public', 'portal', { param: 'slug' }, 'register'], handler: route142 }, // public/portal/[slug]/register.ts
+  { segments: ['public', 'pricing-tiers'], handler: route143 }, // public/pricing-tiers.ts
+  { segments: ['public', 'tenant-branding', { param: 'slug' }], handler: route144 }, // public/tenant-branding/[slug].ts
+  { segments: ['purchase-invoices'], handler: route145 }, // purchase-invoices/index.ts
+  { segments: ['purchase-orders', { param: 'id' }], handler: route146 }, // purchase-orders/[id].ts
+  { segments: ['purchase-orders', { param: 'id' }, 'payment'], handler: route147 }, // purchase-orders/[id]/payment.ts
+  { segments: ['purchase-orders', { param: 'id' }, 'reconcile'], handler: route148 }, // purchase-orders/[id]/reconcile.ts
+  { segments: ['purchase-orders'], handler: route149 }, // purchase-orders/index.ts
+  { segments: ['purchase-requisitions', { param: 'id' }], handler: route150 }, // purchase-requisitions/[id].ts
+  { segments: ['purchase-requisitions', { param: 'id' }, 'convert-to-rfq'], handler: route151 }, // purchase-requisitions/[id]/convert-to-rfq.ts
+  { segments: ['purchase-requisitions'], handler: route152 }, // purchase-requisitions/index.ts
+  { segments: ['quotations', { param: 'id' }], handler: route153 }, // quotations/[id].ts
+  { segments: ['quotations', { param: 'id' }, 'attachments'], handler: route154 }, // quotations/[id]/attachments.ts
+  { segments: ['quotations', { param: 'id' }, 'convert-to-job'], handler: route155 }, // quotations/[id]/convert-to-job.ts
+  { segments: ['quotations', { param: 'id' }, 'convert'], handler: route156 }, // quotations/[id]/convert.ts
+  { segments: ['quotations'], handler: route157 }, // quotations/index.ts
+  { segments: ['receipts'], handler: route158 }, // receipts/index.ts
+  { segments: ['reminders', { param: 'id' }], handler: route159 }, // reminders/[id].ts
+  { segments: ['reminders'], handler: route160 }, // reminders/index.ts
+  { segments: ['returns', { param: 'id' }], handler: route161 }, // returns/[id].ts
+  { segments: ['returns', { param: 'id' }, 'attachments'], handler: route162 }, // returns/[id]/attachments.ts
+  { segments: ['returns', { param: 'id' }, 'reconcile'], handler: route163 }, // returns/[id]/reconcile.ts
+  { segments: ['returns'], handler: route164 }, // returns/index.ts
+  { segments: ['rfqs', { param: 'id' }], handler: route165 }, // rfqs/[id].ts
+  { segments: ['rfqs'], handler: route166 }, // rfqs/index.ts
+  { segments: ['roles', { param: 'id' }], handler: route167 }, // roles/[id].ts
+  { segments: ['roles'], handler: route168 }, // roles/index.ts
+  { segments: ['salary-advances', { param: 'id' }], handler: route169 }, // salary-advances/[id].ts
+  { segments: ['salary-advances'], handler: route170 }, // salary-advances/index.ts
+  { segments: ['sales-attachments', 'upload-token'], handler: route171 }, // sales-attachments/upload-token.ts
+  { segments: ['sales-orders', { param: 'id' }], handler: route172 }, // sales-orders/[id].ts
+  { segments: ['sales-orders', { param: 'id' }, 'attachments'], handler: route173 }, // sales-orders/[id]/attachments.ts
+  { segments: ['sales-orders', { param: 'id' }, 'fulfill'], handler: route174 }, // sales-orders/[id]/fulfill.ts
+  { segments: ['sales-orders'], handler: route175 }, // sales-orders/index.ts
+  { segments: ['sales-targets', { param: 'id' }], handler: route176 }, // sales-targets/[id].ts
+  { segments: ['sales-targets'], handler: route177 }, // sales-targets/index.ts
+  { segments: ['sales-visits', { param: 'id' }], handler: route178 }, // sales-visits/[id].ts
+  { segments: ['sales-visits'], handler: route179 }, // sales-visits/index.ts
+  { segments: ['sales'], handler: route180 }, // sales/index.ts
+  { segments: ['salesperson-assignments', { param: 'id' }], handler: route181 }, // salesperson-assignments/[id].ts
+  { segments: ['salesperson-assignments'], handler: route182 }, // salesperson-assignments/index.ts
+  { segments: ['salespersons', { param: 'id' }], handler: route183 }, // salespersons/[id].ts
+  { segments: ['salespersons'], handler: route184 }, // salespersons/index.ts
+  { segments: ['salespersons', 'me', 'dealers'], handler: route185 }, // salespersons/me/dealers.ts
+  { segments: ['services', { param: 'id' }], handler: route186 }, // services/[id].ts
+  { segments: ['services'], handler: route187 }, // services/index.ts
+  { segments: ['settings', 'notifications'], handler: route188 }, // settings/notifications.ts
+  { segments: ['sf-routes', { param: 'id' }], handler: route189 }, // sf-routes/[id].ts
+  { segments: ['sf-routes'], handler: route190 }, // sf-routes/index.ts
+  { segments: ['sf-vehicles', { param: 'id' }], handler: route191 }, // sf-vehicles/[id].ts
+  { segments: ['sf-vehicles'], handler: route192 }, // sf-vehicles/index.ts
+  { segments: ['sms', 'logs'], handler: route193 }, // sms/logs.ts
+  { segments: ['sms', 'send'], handler: route194 }, // sms/send.ts
+  { segments: ['staff', { param: 'id' }], handler: route195 }, // staff/[id].ts
+  { segments: ['staff'], handler: route196 }, // staff/index.ts
+  { segments: ['stock-adjustments'], handler: route197 }, // stock-adjustments/index.ts
+  { segments: ['stock-counts', { param: 'id' }], handler: route198 }, // stock-counts/[id].ts
+  { segments: ['stock-counts'], handler: route199 }, // stock-counts/index.ts
+  { segments: ['stock-issues'], handler: route200 }, // stock-issues/index.ts
+  { segments: ['stock-transfers'], handler: route201 }, // stock-transfers/index.ts
+  { segments: ['supplier-claims', { param: 'id' }], handler: route202 }, // supplier-claims/[id].ts
+  { segments: ['supplier-claims'], handler: route203 }, // supplier-claims/index.ts
+  { segments: ['supplier-quotations', { param: 'id' }, 'select'], handler: route204 }, // supplier-quotations/[id]/select.ts
+  { segments: ['supplier-quotations'], handler: route205 }, // supplier-quotations/index.ts
+  { segments: ['suppliers'], handler: route206 }, // suppliers/index.ts
+  { segments: ['team', { param: 'id' }], handler: route207 }, // team/[id].ts
+  { segments: ['team'], handler: route208 }, // team/index.ts
+  { segments: ['technicians', { param: 'id' }], handler: route209 }, // technicians/[id].ts
+  { segments: ['technicians', { param: 'id' }, 'attendance-history'], handler: route210 }, // technicians/[id]/attendance-history.ts
+  { segments: ['technicians', { param: 'id' }, 'attendance'], handler: route211 }, // technicians/[id]/attendance.ts
+  { segments: ['technicians'], handler: route212 }, // technicians/index.ts
+  { segments: ['tenant', 'accounting-report'], handler: route213 }, // tenant/accounting-report.ts
+  { segments: ['tenant', 'accounts-dashboard'], handler: route214 }, // tenant/accounts-dashboard.ts
+  { segments: ['tenant', 'ap-aging'], handler: route215 }, // tenant/ap-aging.ts
+  { segments: ['tenant', 'ar-aging'], handler: route216 }, // tenant/ar-aging.ts
+  { segments: ['tenant', 'bank-transactions'], handler: route217 }, // tenant/bank-transactions.ts
+  { segments: ['tenant', 'booking-report'], handler: route218 }, // tenant/booking-report.ts
+  { segments: ['tenant', 'crm-dashboard'], handler: route219 }, // tenant/crm-dashboard.ts
+  { segments: ['tenant', 'customer-report'], handler: route220 }, // tenant/customer-report.ts
+  { segments: ['tenant', 'dashboard'], handler: route221 }, // tenant/dashboard.ts
+  { segments: ['tenant', 'financial-overview'], handler: route222 }, // tenant/financial-overview.ts
+  { segments: ['tenant', 'gross-profit-report'], handler: route223 }, // tenant/gross-profit-report.ts
+  { segments: ['tenant', 'hr-report'], handler: route224 }, // tenant/hr-report.ts
+  { segments: ['tenant', 'inspection-report'], handler: route225 }, // tenant/inspection-report.ts
+  { segments: ['tenant', 'inventory-report'], handler: route226 }, // tenant/inventory-report.ts
+  { segments: ['tenant', 'job-report'], handler: route227 }, // tenant/job-report.ts
+  { segments: ['tenant', 'me'], handler: route228 }, // tenant/me.ts
+  { segments: ['tenant', 'purchase-report'], handler: route229 }, // tenant/purchase-report.ts
+  { segments: ['tenant', 'purchase'], handler: route230 }, // tenant/purchase.ts
+  { segments: ['tenant', 'reports'], handler: route231 }, // tenant/reports.ts
+  { segments: ['tenant', 'sales-by-report'], handler: route232 }, // tenant/sales-by-report.ts
+  { segments: ['tenant', 'sales-dashboard'], handler: route233 }, // tenant/sales-dashboard.ts
+  { segments: ['tenant', 'sales-report'], handler: route234 }, // tenant/sales-report.ts
+  { segments: ['tenant', 'sales-return-report'], handler: route235 }, // tenant/sales-return-report.ts
+  { segments: ['tenant', 'settings'], handler: route236 }, // tenant/settings.ts
+  { segments: ['tenant', 'setup-payment'], handler: route237 }, // tenant/setup-payment.ts
+  { segments: ['tenant', 'sf-activity-report'], handler: route238 }, // tenant/sf-activity-report.ts
+  { segments: ['tenant', 'sf-collection-report'], handler: route239 }, // tenant/sf-collection-report.ts
+  { segments: ['tenant', 'sf-dashboard'], handler: route240 }, // tenant/sf-dashboard.ts
+  { segments: ['tenant', 'sf-geo-visit-report'], handler: route241 }, // tenant/sf-geo-visit-report.ts
+  { segments: ['tenant', 'sf-pending-delivery-report'], handler: route242 }, // tenant/sf-pending-delivery-report.ts
+  { segments: ['tenant', 'sf-route-report'], handler: route243 }, // tenant/sf-route-report.ts
+  { segments: ['tenant', 'sf-salesperson-report'], handler: route244 }, // tenant/sf-salesperson-report.ts
+  { segments: ['tenant', 'sf-target-report'], handler: route245 }, // tenant/sf-target-report.ts
+  { segments: ['tenant', 'sf-trip-report'], handler: route246 }, // tenant/sf-trip-report.ts
+  { segments: ['tenant', 'sf-vehicle-report'], handler: route247 }, // tenant/sf-vehicle-report.ts
+  { segments: ['tenant', 'sf-visit-report'], handler: route248 }, // tenant/sf-visit-report.ts
+  { segments: ['tenant', 'slow-moving-products-report'], handler: route249 }, // tenant/slow-moving-products-report.ts
+  { segments: ['tenant', 'sms-config'], handler: route250 }, // tenant/sms-config.ts
+  { segments: ['tenant', 'supplier-report'], handler: route251 }, // tenant/supplier-report.ts
+  { segments: ['tenant', 'top-customers-report'], handler: route252 }, // tenant/top-customers-report.ts
+  { segments: ['tenant', 'workshop-report'], handler: route253 }, // tenant/workshop-report.ts
+  { segments: ['tenants', 'register'], handler: route254 }, // tenants/register.ts
+  { segments: ['tickets', { param: 'id' }], handler: route255 }, // tickets/[id].ts
+  { segments: ['tickets'], handler: route256 }, // tickets/index.ts
+  { segments: ['timesheets', { param: 'id' }], handler: route257 }, // timesheets/[id].ts
+  { segments: ['timesheets'], handler: route258 }, // timesheets/index.ts
+  { segments: ['utilizations'], handler: route259 }, // utilizations/index.ts
+  { segments: ['warehouses', { param: 'id' }], handler: route260 }, // warehouses/[id].ts
+  { segments: ['warehouses'], handler: route261 }, // warehouses/index.ts
+  { segments: ['warranty-claims', { param: 'id' }], handler: route262 }, // warranty-claims/[id].ts
+  { segments: ['warranty-claims'], handler: route263 }, // warranty-claims/index.ts
 ];

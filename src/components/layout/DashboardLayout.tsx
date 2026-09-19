@@ -32,7 +32,7 @@ export function DashboardLayout({
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-soft-gray dark:bg-slate-950 print:h-auto print:overflow-visible print:bg-white">
-      <div className="print:hidden">
+      <div className="flex overflow-hidden print:hidden">
         <Sidebar
           groups={navGroups}
           collapsed={collapsed}

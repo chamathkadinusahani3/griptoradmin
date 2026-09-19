@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { SearchIcon, BoxesIcon, ScanBarcodeIcon, AlertTriangleIcon, PlusIcon, TagIcon } from 'lucide-react';
+import { SearchIcon, BoxesIcon, ScanBarcodeIcon, AlertTriangleIcon, PlusIcon, TagIcon, TrashIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Input, Select, Label } from '../../components/ui/Input';
@@ -34,6 +34,7 @@ export function Inventory() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
+  const [deletingPartId, setDeletingPartId] = useState<string | null>(null);
 
   const loadParts = () => {
     setLoading(true);
@@ -104,6 +105,20 @@ export function Inventory() {
       toast.error(err instanceof ApiError ? err.message : 'Failed to add part');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeletePart = async (part: Part) => {
+    if (!window.confirm(`Delete "${part.name}"? This cannot be undone.`)) return;
+    setDeletingPartId(part.id);
+    try {
+      await api.delete(`/parts/${part.id}`);
+      setParts((prev) => prev.filter((p) => p.id !== part.id));
+      toast.success('Part deleted');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to delete part');
+    } finally {
+      setDeletingPartId(null);
     }
   };
 
@@ -203,6 +218,7 @@ export function Inventory() {
                   <th className="px-5 py-3 text-center font-bold">Stock</th>
                   <th className="px-5 py-3 text-center font-bold">Available</th>
                   <th className="px-5 py-3 text-right font-bold">Price</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody>
@@ -246,6 +262,17 @@ export function Inventory() {
                         }
                       </td>
                       <td className="px-5 py-3 text-right font-semibold text-navy dark:text-slate-100">{formatCurrency(p.price)}</td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                        type="button"
+                        onClick={() => handleDeletePart(p)}
+                        disabled={deletingPartId === p.id}
+                        aria-label={`Delete ${p.name}`}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:opacity-50 dark:hover:bg-red-500/10">
+
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </td>
                     </tr>);
 
               })}
