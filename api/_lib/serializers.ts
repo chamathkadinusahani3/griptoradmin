@@ -1738,6 +1738,7 @@ export function serializeCustomerInvoice(inv: CustomerInvoiceDoc, customerName?:
     customer: customerName,
     jobCardId: inv.jobCardId?.toString(),
     quotationId: inv.quotationId?.toString(),
+    salesOrderId: inv.salesOrderId?.toString(),
     salespersonId: inv.salespersonId?.toString(),
     vehicle: inv.vehicle,
     plate: inv.plate,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FileTextIcon, PlusIcon, TrashIcon, PackageCheckIcon, XIcon, CheckIcon, PencilIcon, SearchIcon, DownloadIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -82,6 +83,7 @@ function lineTotal(l: DraftLine): number {
 
 export function SalesOrders() {
   const canApprove = useHasPermission('approvals:respond');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
@@ -188,6 +190,21 @@ export function SalesOrders() {
     setLines([]);
     setModalOpen(true);
   };
+
+  // Deep-link support from Customer Invoices' "New sales order" button
+  // (?create=1) — waits for customers to actually load (openCreate needs
+  // them to default the customer field) before opening, then drops the
+  // param so a later refresh doesn't reopen it.
+  useEffect(() => {
+    if (searchParams.get('create') !== '1' || customers.length === 0) return;
+    openCreate();
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customers, searchParams]);
 
   // Only offered for statuses the backend's own EDITABLE_STATUSES accepts —
   // matches routes/sales-orders/[id].ts's handleEdit guard exactly, so a

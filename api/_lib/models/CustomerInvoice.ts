@@ -62,6 +62,12 @@ const CustomerInvoiceSchema = new Schema(
     // bug (see SF-Phase 6 completion notes).
     salespersonId: { type: Schema.Types.ObjectId, ref: 'Salesperson' },
     quotationId: { type: Schema.Types.ObjectId, ref: 'Quotation' },
+    // Optional informational reference to the SalesOrder this invoice was
+    // raised from — same "reference only, no derived-field forcing" role as
+    // jobCardId/quotationId above. Unlike the job-card fill (which snapshots
+    // vehicle/plate), SalesOrder has no vehicle concept at all, so this link
+    // carries no vehicle-field side effects.
+    salesOrderId: { type: Schema.Types.ObjectId, ref: 'SalesOrder' },
     invoiceNumber: { type: String, required: true },
     vehicle: { type: String, required: true },
     plate: { type: String },

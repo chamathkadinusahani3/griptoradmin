@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon, LinkIcon, PencilIcon } from 'lucide-react';
+import { ReceiptIcon, PlusIcon, TrashIcon, DownloadIcon, DollarSignIcon, WalletIcon, LinkIcon, PencilIcon, UserPlusIcon, ExternalLinkIcon } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -16,22 +17,31 @@ import { CustomerInvoice, InvoiceStatus, PaymentMethod } from '../../types/custo
 import { LineItem } from '../../types/quotation';
 import { Customer } from '../../types/customer';
 import { JobCard } from '../../types/jobCard';
+import { SalesOrder } from '../../types/salesOrder';
 import { BankAccount } from '../../types/bankAccount';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { downloadDocumentPdf } from '../../lib/pdf';
 
+// Sales orders eligible to raise an invoice from — a Pending Approval order
+// isn't a real commitment yet, and a Cancelled one never will be.
+const INVOICEABLE_SALES_ORDER_STATUSES = ['Confirmed', 'Partially Fulfilled', 'Fulfilled'];
+
 const STATUS_FILTERS: ('All' | InvoiceStatus)[] = ['All', 'Draft', 'Issued', 'Paid', 'Void'];
 const PAYMENT_METHODS: PaymentMethod[] = ['Cash', 'Card', 'Bank Transfer', 'Cheque', 'Other'];
 const emptyItem: LineItem = { description: '', quantity: 1, unitPrice: 0 };
-const emptyForm = { customerId: '', jobCardId: '', vehicle: '', plate: '', notes: '', dueDate: '' };
+const emptyForm = { customerId: '', jobCardId: '', salesOrderId: '', vehicle: '', plate: '', notes: '', dueDate: '' };
+const emptyQuickCustomer = { name: '', email: '', phone: '' };
 
 export function CustomerInvoices() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { moduleId } = useParams();
   const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [jobCards, setJobCards] = useState<JobCard[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'All' | InvoiceStatus>('All');
 
@@ -39,6 +49,14 @@ export function CustomerInvoices() {
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState<LineItem[]>([{ ...emptyItem }]);
   const [saving, setSaving] = useState(false);
+
+  // Quick-add-customer, reachable directly from the invoice form when the
+  // customer/dealer you need isn't in the list yet — a minimal subset of
+  // Customers.tsx's own create form (name + email required, matching that
+  // page's own validation), not a full duplicate of it.
+  const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
+  const [quickCustomerForm, setQuickCustomerForm] = useState(emptyQuickCustomer);
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
 
   const [editTarget, setEditTarget] = useState<CustomerInvoice | null>(null);
   const [editForm, setEditForm] = useState({ vehicle: '', plate: '', dueDate: '', notes: '' });
@@ -64,9 +82,17 @@ export function CustomerInvoices() {
 
   useEffect(loadInvoices, []);
 
-  useEffect(() => {
+  const loadCustomers = () => {
     api.get<{ customers: Customer[] }>('/customers').then(({ customers }) => setCustomers(customers)).catch(() => setCustomers([]));
+  };
+
+  useEffect(() => {
+    loadCustomers();
     api.get<{ jobCards: JobCard[] }>('/job-cards').then(({ jobCards }) => setJobCards(jobCards.filter((j) => j.status === 'Completed'))).catch(() => setJobCards([]));
+    api
+      .get<{ salesOrders: SalesOrder[] }>('/sales-orders')
+      .then(({ salesOrders }) => setSalesOrders(salesOrders.filter((o) => INVOICEABLE_SALES_ORDER_STATUSES.includes(o.status))))
+      .catch(() => setSalesOrders([]));
     api.get<{ bankAccounts: BankAccount[] }>('/bank-accounts').then(({ bankAccounts }) => setBankAccounts(bankAccounts)).catch(() => setBankAccounts([]));
   }, []);
 
@@ -88,8 +114,55 @@ export function CustomerInvoices() {
 
   const fillFromJobCard = (jobCardId: string) => {
     const job = jobCards.find((j) => j.id === jobCardId);
-    setForm((f) => ({ ...f, jobCardId, customerId: job?.customerId ?? f.customerId, vehicle: job?.vehicle ?? f.vehicle, plate: job?.plate ?? f.plate }));
+    setForm((f) => ({ ...f, jobCardId, salesOrderId: '', customerId: job?.customerId ?? f.customerId, vehicle: job?.vehicle ?? f.vehicle, plate: job?.plate ?? f.plate }));
     if (job) setItems([{ description: job.service || 'Service', quantity: 1, unitPrice: job.estimate }]);
+  };
+
+  // SalesOrder has no vehicle concept at all (it's a parts/counter order),
+  // so unlike fillFromJobCard this never touches vehicle/plate — those stay
+  // whatever the user already typed, still fully editable.
+  const fillFromSalesOrder = (salesOrderId: string) => {
+    const order = salesOrders.find((o) => o.id === salesOrderId);
+    setForm((f) => ({ ...f, salesOrderId, jobCardId: '', customerId: order?.customerId ?? f.customerId }));
+    if (order) setItems(order.items.map((it) => ({ description: it.name, quantity: it.quantity, unitPrice: it.unitPrice })));
+  };
+
+  const openNewSalesOrder = () => {
+    // Sales Order creation is a large, separate form (customer, salesperson,
+    // department, delivery info, per-line discounts…) — not worth
+    // duplicating inline here. Navigating there and back preserves this
+    // codebase's "one real form per document" convention; ?create=1 tells
+    // that page to open its own create modal immediately on arrival.
+    navigate(`/app/${moduleId}/sales-orders?create=1`);
+  };
+
+  const openQuickAddCustomer = () => {
+    setQuickCustomerForm(emptyQuickCustomer);
+    setQuickCustomerOpen(true);
+  };
+
+  const saveQuickCustomer = async () => {
+    if (!quickCustomerForm.name.trim() || !quickCustomerForm.email.trim()) {
+      toast.error('Name and email are required');
+      return;
+    }
+    setQuickCustomerSaving(true);
+    try {
+      const { customer } = await api.post<{ customer: Customer }>('/customers', {
+        name: quickCustomerForm.name.trim(),
+        email: quickCustomerForm.email.trim(),
+        phone: quickCustomerForm.phone || undefined,
+        sourceModule: moduleId,
+      });
+      setCustomers((prev) => [customer, ...prev]);
+      setForm((f) => ({ ...f, customerId: customer.id }));
+      toast.success(`${customer.name} added`);
+      setQuickCustomerOpen(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to add customer');
+    } finally {
+      setQuickCustomerSaving(false);
+    }
   };
 
   const updateItem = (i: number, patch: Partial<LineItem>) => {
@@ -98,7 +171,8 @@ export function CustomerInvoices() {
   const addItem = () => setItems((prev) => [...prev, { ...emptyItem }]);
   const removeItem = (i: number) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const previewSubtotal = items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
-  const selectedCustomerDiscountPct = customers.find((c) => c.id === form.customerId)?.discountPct ?? 0;
+  const selectedCustomer = customers.find((c) => c.id === form.customerId);
+  const selectedCustomerDiscountPct = selectedCustomer?.discountPct ?? 0;
 
   const save = async () => {
     if (!form.customerId || !form.vehicle.trim() || items.every((it) => !it.description.trim())) {
@@ -355,11 +429,36 @@ export function CustomerInvoices() {
               {jobCards.map((j) => <option key={j.id} value={j.id}>{j.id} — {j.vehicle} ({formatCurrency(j.estimate)})</option>)}
             </Select>
           </div>
-          <div>
-            <Label htmlFor="inv-customer">Customer</Label>
-            <Select id="inv-customer" value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="inv-sales-order">Fill from a sales order (optional)</Label>
+              <button type="button" onClick={openNewSalesOrder} className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+                <ExternalLinkIcon className="h-3.5 w-3.5" /> New sales order
+              </button>
+            </div>
+            <Select id="inv-sales-order" value={form.salesOrderId} onChange={(e) => fillFromSalesOrder(e.target.value)}>
+              <option value="">— manual entry —</option>
+              {salesOrders.map((o) => <option key={o.id} value={o.id}>{o.salesOrderNumber} — {o.customerName ?? 'Unknown'} ({formatCurrency(o.total)})</option>)}
             </Select>
+            {form.salesOrderId && <p className="mt-1 text-xs text-text-gray dark:text-slate-400">Items and customer filled from this order — vehicle isn't tracked on sales orders, so fill it in below.</p>}
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="inv-customer">Customer</Label>
+              <button type="button" onClick={openQuickAddCustomer} className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-royal hover:underline dark:text-blue-300">
+                <UserPlusIcon className="h-3.5 w-3.5" /> New customer
+              </button>
+            </div>
+            <Select id="inv-customer" value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
+              <option value="">— select —</option>
+              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.registrationType === 'dealer' ? ' — Dealer' : ''}</option>)}
+            </Select>
+            {selectedCustomer &&
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-text-gray dark:text-slate-400">
+                {selectedCustomer.registrationType === 'dealer' && <Badge tone="purple">Dealer</Badge>}
+                {selectedCustomer.email}{selectedCustomer.phone ? ` · ${selectedCustomer.phone}` : ''}
+              </p>
+            }
           </div>
           <div>
             <Label htmlFor="inv-due">Due date (optional)</Label>
@@ -523,6 +622,36 @@ export function CustomerInvoices() {
           }
           </div>
         }
+      </Modal>
+
+      <Modal
+        open={quickCustomerOpen}
+        onClose={() => setQuickCustomerOpen(false)}
+        title="New customer"
+        footer={
+        <>
+            <Button variant="secondary" onClick={() => setQuickCustomerOpen(false)}>Cancel</Button>
+            <Button onClick={saveQuickCustomer} loading={quickCustomerSaving}>Add customer</Button>
+          </>
+        }>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="qc-name">Full name</Label>
+            <Input id="qc-name" required value={quickCustomerForm.name} onChange={(e) => setQuickCustomerForm((f) => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="qc-email">Email</Label>
+            <Input id="qc-email" type="email" required value={quickCustomerForm.email} onChange={(e) => setQuickCustomerForm((f) => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="qc-phone">Phone</Label>
+            <Input id="qc-phone" value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm((f) => ({ ...f, phone: e.target.value }))} />
+          </div>
+          <p className="text-xs text-text-gray dark:text-slate-400">
+            For dealer registration or fuller customer details, use the Customers page instead — this quick form covers the basics needed to invoice right away.
+          </p>
+        </div>
       </Modal>
     </div>);
 

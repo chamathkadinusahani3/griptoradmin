@@ -24,6 +24,7 @@ export interface CustomerInvoice {
   customer?: string;
   jobCardId?: string;
   quotationId?: string;
+  salesOrderId?: string;
   salespersonId?: string;
   vehicle: string;
   plate?: string;

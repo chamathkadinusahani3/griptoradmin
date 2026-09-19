@@ -4,6 +4,7 @@ import { CustomerInvoice, CustomerInvoiceDoc } from '../../models/CustomerInvoic
 import { Customer, CustomerDoc } from '../../models/Customer.js';
 import { Client, ClientDoc } from '../../models/Client.js';
 import { JobCard, JobCardDoc } from '../../models/JobCard.js';
+import { SalesOrder, SalesOrderDoc } from '../../models/SalesOrder.js';
 import { SalespersonAssignment } from '../../models/SalespersonAssignment.js';
 import { requireTenantPermission } from '../../auth.js';
 import { serializeCustomerInvoice } from '../../serializers.js';
@@ -18,6 +19,9 @@ import { checkInvoiceAmountThresholdGate } from '../../discountGovernance.js';
 interface CreateInvoiceBody {
   customerId?: string;
   jobCardId?: string;
+  // Optional informational reference — see CustomerInvoice.ts's own comment.
+  // Never used to derive vehicle/plate (SalesOrder has no vehicle concept).
+  salesOrderId?: string;
   vehicle?: string;
   plate?: string;
   items?: LineItemInput[];
@@ -50,7 +54,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
   const session = await requireTenantPermission(req, res, 'customer-invoices:manage');
   if (!session) return;
 
-  const { customerId, jobCardId, vehicle, plate, items, dueDate, notes } = (req.body ?? {}) as CreateInvoiceBody;
+  const { customerId, jobCardId, salesOrderId, vehicle, plate, items, dueDate, notes } = (req.body ?? {}) as CreateInvoiceBody;
   if (!customerId || !vehicle || !items || items.length === 0) {
     return res.status(400).json({ error: 'customerId, vehicle, and at least one item are required' });
   }
@@ -70,6 +74,11 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     const jobCard = (await JobCard.findOne({ _id: jobCardId, clientId: session.clientId }).lean()) as JobCardDoc | null;
     if (!jobCard) return res.status(400).json({ error: 'Unknown job card' });
     vehicleFields = { vehicle: jobCard.vehicle, plate: jobCard.plate ?? undefined, vehicleId: jobCard.vehicleId?.toString() };
+  }
+
+  if (salesOrderId) {
+    const salesOrder = (await SalesOrder.findOne({ _id: salesOrderId, clientId: session.clientId }).lean()) as SalesOrderDoc | null;
+    if (!salesOrder) return res.status(400).json({ error: 'Unknown sales order' });
   }
 
   const effectiveDiscountPct = await getEffectiveDiscountPct(customer, session.clientId);
@@ -117,6 +126,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     clientId: session.clientId,
     customerId,
     jobCardId: jobCardId || undefined,
+    salesOrderId: salesOrderId || undefined,
     salespersonId: assignment?.salespersonId || undefined,
     invoiceNumber,
     ...vehicleFields,
